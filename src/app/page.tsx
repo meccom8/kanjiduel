@@ -106,11 +106,14 @@ function LoggedInLobby({ profile }: { profile: Profile }) {
         <Link href="/matchmaking">
           <button className="btn-primary">⚡ Find a match</button>
         </Link>
+        <Link href="/practice">
+          <button className="btn-ghost">📖 Practice solo</button>
+        </Link>
         <Link href="/leaderboard">
           <button className="btn-ghost">Leaderboard</button>
         </Link>
         <Link href="/profile">
-          <button className="btn-ghost">My profile &amp; history</button>
+          <button className="btn-ghost">My profile</button>
         </Link>
       </div>
 
