@@ -73,6 +73,8 @@ export default function DuelPage() {
           startTimer(roomData.round_started_at);
         } else if (isP1.current) {
           await sendNextKanji(roomData);
+        } else {
+          setPhase("playing");
         }
       } else {
         setPhase("waiting");
@@ -80,7 +82,22 @@ export default function DuelPage() {
     })();
   }, []);
 
-  // Realtime subscription
+  // Polling — backup for when realtime is flaky
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      const { data } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("id", roomId)
+        .single();
+      if (!data) return;
+      setRoom(data);
+      handleRoomUpdate(data);
+    }, 2500);
+    return () => clearInterval(poll);
+  }, [me]);
+
+  // Realtime subscription (bonus on top of polling)
   useEffect(() => {
     const sub = supabase
       .channel(`duel-${roomId}`)
