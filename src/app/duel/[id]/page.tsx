@@ -122,8 +122,7 @@ export default function DuelPage() {
     if (
       updated.current_kanji &&
       updated.status === "active" &&
-      updated.current_round !== lastRoundRef.current &&
-      !lockedRef.current
+      updated.current_round !== lastRoundRef.current
     ) {
       lastRoundRef.current = updated.current_round;
       lockedRef.current = false;
@@ -171,14 +170,20 @@ export default function DuelPage() {
     if (lockedRef.current || !room) return;
     lockedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
+    setAnswer("");
     setRoundWinner("timeout");
     setPhase("round_result");
     setHistory(h => [...h, "timeout"]);
 
+    // Check if someone already won (first to 6)
+    const p1s = room.p1_score;
+    const p2s = room.p2_score;
+    if (p1s >= 6 || p2s >= 6) { await endGame(p1s, p2s); return; }
+
     if (isP1.current) {
       const nextRound = room.current_round + 1;
       if (nextRound >= TOTAL_ROUNDS) {
-        await endGame(room.p1_score, room.p2_score);
+        await endGame(p1s, p2s);
       } else {
         await supabase.from("rooms").update({ current_round: nextRound, current_kanji: null }).eq("id", roomId);
         setTimeout(async () => {
@@ -211,7 +216,8 @@ export default function DuelPage() {
     const p2Score = isP1.current ? room.p2_score : room.p2_score + 1;
     const nextRound = room.current_round + 1;
 
-    if (nextRound >= TOTAL_ROUNDS) {
+    // First to 6 wins immediately
+    if (p1Score >= 6 || p2Score >= 6 || nextRound >= TOTAL_ROUNDS) {
       await supabase.from("rooms").update({ p1_score: p1Score, p2_score: p2Score, current_round: nextRound }).eq("id", roomId);
       await endGame(p1Score, p2Score);
     } else {
