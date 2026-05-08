@@ -11,6 +11,8 @@ interface Profile {
   wins: number;
   losses: number;
   draws: number;
+  streak: number;
+  best_streak: number;
 }
 
 export default function Home() {
@@ -101,10 +103,21 @@ function LoggedInLobby({ profile }: { profile: Profile }) {
         </div>
       </div>
 
+      {/* Streak */}
+      {profile.streak > 0 && (
+        <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-white/4 mb-2">
+          <span className="text-lg">🔥</span>
+          <span className="text-sm font-medium text-white/80">{profile.streak} day streak</span>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex flex-col gap-3">
         <Link href="/matchmaking">
           <button className="btn-primary">⚡ Find a match</button>
+        </Link>
+        <Link href="/daily">
+          <button className="btn-ghost">🗓 Daily challenge</button>
         </Link>
         <Link href="/practice">
           <button className="btn-ghost">📖 Practice solo</button>
