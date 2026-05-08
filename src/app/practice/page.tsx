@@ -331,8 +331,8 @@ export default function Practice() {
         {phase === "playing" && current && (
           <p className="text-center text-xs text-white/20 mb-2">
             {qType === "meaning" && "Answer in English · press Enter to submit"}
-            {qType === "onyomi" && `on'yomi: ${current.on}`}
-            {qType === "kunyomi" && `kun'yomi: ${current.kun}`}
+            {qType === "onyomi" && "Type the on\'yomi reading"}
+            {qType === "kunyomi" && "Type the kun\'yomi reading"}
           </p>
         )}
 
@@ -344,9 +344,10 @@ export default function Practice() {
           </button>
         )}
 
-        {/* Score */}
-        <div className="flex justify-between text-xs mt-3">
+        {/* Score + home */}
+        <div className="flex justify-between items-center text-xs mt-3">
           <span style={{ color: "#5DCAA5" }}>✓ {score} correct</span>
+          <Link href="/" className="text-white/20 hover:text-white/50 transition-colors">← Home</Link>
           <span style={{ color: "#E24B4A" }}>✗ {stats.length - score} wrong</span>
         </div>
       </div>
