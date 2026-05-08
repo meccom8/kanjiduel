@@ -16,7 +16,7 @@ interface Room {
   p1_score: number;
   p2_score: number;
   current_kanji: { k: string; m: string; r: string } | null;
-  question_type: "meaning" | "reading" | null;
+  question_type: "meaning" | "onyomi" | "kunyomi" | null;
   round_started_at: string | null;
 }
 
@@ -131,7 +131,8 @@ export default function DuelPage() {
   async function sendNextKanji(currentRoom: Room) {
     const pool = shuffle(getPool(currentRoom.category));
     const kanji = pool[0];
-    const type = Math.random() > 0.5 ? "meaning" : "reading";
+    const roll = Math.random();
+    const type = roll < 0.4 ? "meaning" : roll < 0.7 ? "onyomi" : "kunyomi";
     await supabase.from("rooms").update({
       current_kanji: kanji,
       question_type: type,
@@ -166,9 +167,12 @@ export default function DuelPage() {
 
   async function submitAnswer(val: string) {
     if (lockedRef.current || !room || !room.current_kanji || !room.question_type) return;
+    const qk = room.current_kanji as any;
     const answers = room.question_type === "meaning"
-      ? room.current_kanji.m.split("/").map(s => s.trim().toLowerCase())
-      : [room.current_kanji.r.toLowerCase()];
+      ? qk.m.split("/").map((s: string) => s.trim().toLowerCase())
+      : room.question_type === "onyomi"
+      ? [(qk.on ?? "").trim()]
+      : [(qk.kun ?? "").trim()];
 
     if (!checkAnswer(val, answers)) return;
 
@@ -317,13 +321,15 @@ export default function DuelPage() {
                 className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
                 style={qType === "meaning"
                   ? { background: "#EEEDFE22", color: "#7F77DD" }
-                  : { background: "#FAEEDA22", color: "#EF9F27" }}
+                  : qType === "onyomi"
+                  ? { background: "#FAEEDA22", color: "#EF9F27" }
+                  : { background: "#E0F2F122", color: "#4DB6AC" }}
               >
-                {qType === "meaning" ? "Meaning" : "Reading (romaji)"}
+                {qType === "meaning" ? "Meaning" : qType === "onyomi" ? "On\'yomi" : "Kun\'yomi"}
               </span>
               <div className="font-jp text-8xl mb-3 text-white pop-in">{kanji.k}</div>
               <p className="text-white/20 text-sm">
-                {qType === "meaning" ? "What does this kanji mean?" : "Type the romaji reading"}
+                {qType === "meaning" ? "What does this kanji mean?" : qType === "onyomi" ? "Type the on\'yomi reading" : "Type the kun\'yomi reading"}
               </p>
             </>
           )}
