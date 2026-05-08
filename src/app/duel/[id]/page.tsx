@@ -148,8 +148,13 @@ export default function DuelPage() {
   async function sendNextKanji(currentRoom: Room) {
     const pool = shuffle(getPool(currentRoom.category));
     const kanji = pool[0];
-    const roll = Math.random();
-    const type = roll < 0.4 ? "meaning" : roll < 0.7 ? "onyomi" : "kunyomi";
+    // Only reading questions — pick onyomi or kunyomi based on availability
+    const hasOn = kanji.on && kanji.on !== "-";
+    const hasKun = kanji.kun && kanji.kun !== "-";
+    let type: string;
+    if (hasOn && hasKun) type = Math.random() > 0.5 ? "onyomi" : "kunyomi";
+    else if (hasOn) type = "onyomi";
+    else type = "kunyomi";
     await supabase.from("rooms").update({
       current_kanji: kanji,
       question_type: type,
@@ -185,11 +190,9 @@ export default function DuelPage() {
   async function submitAnswer(val: string) {
     if (lockedRef.current || !room || !room.current_kanji || !room.question_type) return;
     const qk = room.current_kanji as any;
-    const answers = room.question_type === "meaning"
-      ? qk.m.split("/").map((s: string) => s.trim().toLowerCase())
-      : room.question_type === "onyomi"
-      ? [(qk.on ?? "").trim()]
-      : [(qk.kun ?? "").trim()];
+    const answers = room.question_type === "onyomi"
+      ? (qk.on ?? "").split("/").map((s: string) => s.trim())
+      : (qk.kun ?? "").split("/").map((s: string) => s.trim());
 
     if (!checkAnswer(val, answers)) return;
 
@@ -336,17 +339,16 @@ export default function DuelPage() {
             <>
               <span
                 className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
-                style={qType === "meaning"
-                  ? { background: "#EEEDFE22", color: "#7F77DD" }
-                  : qType === "onyomi"
+                style={qType === "onyomi"
                   ? { background: "#FAEEDA22", color: "#EF9F27" }
                   : { background: "#E0F2F122", color: "#4DB6AC" }}
               >
-                {qType === "meaning" ? "Meaning" : qType === "onyomi" ? "On\'yomi" : "Kun\'yomi"}
+                {qType === "onyomi" ? "On'yomi" : "Kun'yomi"}
               </span>
-              <div className="font-jp text-8xl mb-3 text-white pop-in">{kanji.k}</div>
-              <p className="text-white/20 text-sm">
-                {qType === "meaning" ? "What does this kanji mean?" : qType === "onyomi" ? "Type the on\'yomi reading" : "Type the kun\'yomi reading"}
+              <div className="font-jp text-8xl mb-2 text-white pop-in">{kanji.k}</div>
+              <p className="text-white/35 text-sm italic mb-1">{(kanji as any).m?.split("/")[0]?.trim()}</p>
+              <p className="text-white/20 text-xs">
+                {qType === "onyomi" ? "Type the on'yomi reading" : "Type the kun'yomi reading"}
               </p>
             </>
           )}
@@ -354,8 +356,15 @@ export default function DuelPage() {
             <div className="mt-4 pop-in">
               <p className="text-sm font-medium"
                 style={{ color: roundWinner === "me" ? "#5DCAA5" : roundWinner === "timeout" ? "#9090a8" : "#D85A30" }}>
-                {roundWinner === "me" ? "✓ You got it!" : roundWinner === "timeout" ? `Time up — ${kanji?.m ?? kanji?.r}` : `Opponent got it — ${kanji?.m ?? kanji?.r}`}
+                {roundWinner === "me" ? "✓ You got it!" : roundWinner === "timeout" ? "Time up!" : "Opponent got it!"}
               </p>
+              {roundWinner !== "me" && kanji && (
+                <p className="text-white/40 text-xs mt-1">
+                  Answer: <span className="text-white/70 font-mono">
+                    {qType === "onyomi" ? (kanji as any).on?.split("/")[0] : (kanji as any).kun?.split("/")[0]}
+                  </span>
+                </p>
+              )}
             </div>
           )}
         </div>
