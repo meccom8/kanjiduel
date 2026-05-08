@@ -44,11 +44,11 @@ export default function Practice() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   function pickType(kanji: Kanji) {
-    const options = [
-      { type: "meaning" as QuestionType, label: "Meaning", ans: kanji.m.split("/").map(s => s.trim().toLowerCase()) },
-    ];
-    if (kanji.on !== "-") options.push({ type: "onyomi" as QuestionType, label: "On'yomi", ans: [kanji.on.trim()] });
-    if (kanji.kun !== "-") options.push({ type: "kunyomi" as QuestionType, label: "Kun'yomi", ans: [kanji.kun.trim()] });
+    // Only reading questions — meaning shown as decoration
+    const options: { type: QuestionType; label: string; ans: string[] }[] = [];
+    if (kanji.on !== "-") options.push({ type: "onyomi", label: "On'yomi", ans: kanji.on.split("/").map(s => s.trim()) });
+    if (kanji.kun !== "-") options.push({ type: "kunyomi", label: "Kun'yomi", ans: kanji.kun.split("/").map(s => s.trim()) });
+    if (options.length === 0) options.push({ type: "onyomi", label: "On'yomi", ans: [kanji.on] });
     return options[Math.floor(Math.random() * options.length)];
   }
 
@@ -276,7 +276,10 @@ export default function Practice() {
               {qLabel}
             </span>
 
-            <div className="font-jp text-8xl mb-3 text-white pop-in">{current.k}</div>
+            <div className="font-jp text-8xl mb-2 text-white pop-in">{current.k}</div>
+
+            {/* Primary meaning — decorative only */}
+            <p className="text-white/35 text-sm mb-2 italic">{current.m.split("/")[0].trim()}</p>
 
             <span className="text-xs px-2 py-0.5 rounded-full"
               style={{ background: filterInfo.color + "22", color: filterInfo.color }}>
@@ -309,9 +312,8 @@ export default function Practice() {
             phase === "feedback" && !isCorrect ? "input-wrong" : ""
           }`}
           placeholder={
-            qType === "meaning" ? "Type the meaning..."
-            : qType === "onyomi" ? "Type on'yomi (hiragana)..."
-            : "Type kun'yomi (hiragana)..."
+            qType === "onyomi" ? "Type on'yomi reading..."
+            : "Type kun'yomi reading..."
           }
           value={input}
           disabled={phase === "feedback"}

@@ -481,28 +481,50 @@ export function kataToHira(str: string): string {
 }
 
 // Accepts: hiragana, katakana, romaji — all variants
+// Strip trailing っ/ッ (used in truncated kun'yomi like みっ → み)
+function stripSokuon(str: string): string {
+  return str.replace(/[っッ]$/, "").replace(/tt$/, "t").replace(/([bcdfghjklmnpqrstvwxyz])\1$/, "$1");
+}
+
 export function checkAnswer(input: string, answers: string[]): boolean {
   const clean = input.trim().toLowerCase();
   if (!clean) return false;
 
-  return answers.some(a => {
-    // Parse all variants for this answer
-    const hira = a.trim().toLowerCase();
-    const kata = hiraToKata(hira);
-    const roma = hiraToRoma(hira);
+  // Also prepare a version with trailing double-consonant stripped
+  const cleanStripped = stripSokuon(clean);
 
-    // Direct matches
+  return answers.some(a => {
+    const hira = a.trim().toLowerCase();
+    const hiraStripped = stripSokuon(hira);
+    const kata = hiraToKata(hira);
+    const kataStripped = stripSokuon(kata.toLowerCase());
+    const roma = hiraToRoma(hira);
+    const romaStripped = stripSokuon(roma);
+    const hiraStrippedRoma = hiraToRoma(hiraStripped);
+
+    // Direct matches (full form)
     if (clean === hira) return true;
     if (clean === kata.toLowerCase()) return true;
     if (clean === roma) return true;
 
-    // If user typed katakana, convert to hiragana and compare
+    // Stripped matches (e.g. みっ → み, mitto → mi)
+    if (clean === hiraStripped) return true;
+    if (clean === kataStripped) return true;
+    if (clean === romaStripped) return true;
+    if (cleanStripped === hira) return true;
+    if (cleanStripped === roma) return true;
+    if (cleanStripped === hiraStrippedRoma) return true;
+    if (clean === hiraStrippedRoma) return true;
+
+    // Katakana input → hiragana compare
     const inputAsHira = kataToHira(clean);
     if (inputAsHira === hira) return true;
+    if (stripSokuon(inputAsHira) === hiraStripped) return true;
 
-    // If user typed romaji, convert answer romaji and compare
+    // Romaji input → compare converted
     const inputRoma = hiraToRoma(clean);
     if (inputRoma === roma) return true;
+    if (inputRoma === romaStripped) return true;
 
     return false;
   });
@@ -539,35 +561,26 @@ export type QuestionResult = {
 
 export function pickQuestion(pool: Kanji[]): QuestionResult {
   const kanji = pool[Math.floor(Math.random() * pool.length)];
-  const roll = Math.random();
-  let type: QuestionType;
-  if (roll < 0.4) type = "meaning";
-  else if (roll < 0.7) type = "onyomi";
-  else type = "kunyomi";
+
+  // Only reading questions — no meaning
+  const available: QuestionType[] = [];
+  if (kanji.on !== "-") available.push("onyomi");
+  if (kanji.kun !== "-") available.push("kunyomi");
+  if (available.length === 0) available.push("onyomi");
+
+  const type = available[Math.floor(Math.random() * available.length)];
 
   let answers: string[] = [];
   let label = "";
 
-  if (type === "meaning") {
-    answers = kanji.m.split("/").map(s => s.trim().toLowerCase());
-    label = "Meaning";
-  } else if (type === "onyomi") {
-    if (kanji.on === "-") {
-      answers = kanji.m.split("/").map(s => s.trim().toLowerCase());
-      type = "meaning"; label = "Meaning";
-    } else {
-      answers = kanji.on.split("/").map(s => s.trim());
-      label = "On'yomi";
-    }
+  if (type === "onyomi") {
+    answers = kanji.on.split("/").map(s => s.trim());
+    label = "On'yomi";
   } else {
-    if (kanji.kun === "-") {
-      answers = kanji.m.split("/").map(s => s.trim().toLowerCase());
-      type = "meaning"; label = "Meaning";
-    } else {
-      answers = kanji.kun.split("/").map(s => s.trim());
-      label = "Kun'yomi";
-    }
+    answers = kanji.kun.split("/").map(s => s.trim());
+    label = "Kun'yomi";
   }
 
   return { kanji, type, answers, label };
 }
+
