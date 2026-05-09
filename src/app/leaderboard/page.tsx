@@ -5,11 +5,14 @@ import { getTier, winRate } from "@/lib/elo";
 import Link from "next/link";
 
 interface Profile {
+  id: string;
   username: string;
   elo: number;
   wins: number;
   losses: number;
   draws: number;
+  avatar_url: string | null;
+  accent_color: string | null;
 }
 
 const MEDALS = ["🥇", "🥈", "🥉"];
@@ -23,7 +26,7 @@ export default function Leaderboard() {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("username, elo, wins, losses, draws")
+        .select("id, username, elo, wins, losses, draws, avatar_url, accent_color")
         .order("elo", { ascending: false })
         .limit(50);
       setPlayers(data ?? []);
@@ -62,9 +65,10 @@ export default function Leaderboard() {
             const wr = winRate(p.wins, p.losses);
             const total = p.wins + p.losses;
             return (
-              <div
+              <Link
                 key={p.username}
-                className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/2 transition-colors"
+                href={`/user/${p.username}`}
+                className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors cursor-pointer"
               >
                 {/* Rank */}
                 <span className="font-mono text-sm w-6 text-center flex-shrink-0"
@@ -96,7 +100,7 @@ export default function Leaderboard() {
                   <p className="font-mono text-sm font-bold" style={{ color: tier.color }}>{p.elo}</p>
                   <p className="text-xs text-white/30">{total > 0 ? `${wr}% WR` : "—"}</p>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

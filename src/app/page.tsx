@@ -13,6 +13,8 @@ interface Profile {
   draws: number;
   streak: number;
   best_streak: number;
+  avatar_url: string | null;
+  accent_color: string | null;
 }
 
 const NAV_ITEMS = [
@@ -77,9 +79,12 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {/* Avatar — click to go to profile */}
             <Link href="/profile" className="relative flex-shrink-0 group">
-              <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold transition-opacity group-hover:opacity-75 cursor-pointer"
-                style={{ background: tier.bg + "33", color: tier.color, border: `1.5px solid ${tier.color}44` }}>
-                {profile.username.slice(0, 2).toUpperCase()}
+              <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold transition-opacity group-hover:opacity-75 cursor-pointer"
+                style={{ background: (profile.accent_color ?? tier.bg) + "33", color: profile.accent_color ?? tier.color, border: `1.5px solid ${profile.accent_color ?? tier.color}44` }}>
+                {profile.avatar_url
+                  ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                  : profile.username.slice(0, 2).toUpperCase()
+                }
               </div>
               {profile.streak > 0 && (
                 <div className="absolute -top-1 -right-1 text-xs bg-orange-500 rounded-full w-4 h-4 flex items-center justify-center"
