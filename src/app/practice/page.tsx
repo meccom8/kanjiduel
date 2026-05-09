@@ -1,55 +1,87 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { KANJI_LIST, checkAnswer, shuffle, type Kanji, type QuestionType } from "@/lib/kanji";
+import { createClient } from "@/lib/supabase";
+import { checkVocabAnswer, shuffle, getEloMaxLevel, type VocabWord } from "@/lib/vocab";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-type Phase = "setup" | "playing" | "feedback" | "finished";
+type Phase = "loading" | "setup" | "playing" | "feedback" | "finished";
 type Filter = "all" | "N5" | "N4" | "N3" | "N2" | "N1";
 
-interface SessionStat {
-  kanji: Kanji;
-  type: QuestionType;
-  label: string;
+interface RoundStat {
+  word: VocabWord;
   correct: boolean;
   userAnswer: string;
-  correctAnswer: string;
 }
 
-const FILTER_OPTIONS: { value: Filter; label: string; color: string }[] = [
-  { value: "all", label: "All levels", color: "#7F77DD" },
-  { value: "N5",  label: "JLPT N5",    color: "#1D9E75" },
-  { value: "N4",  label: "JLPT N4",    color: "#4DB6AC" },
-  { value: "N3",  label: "JLPT N3",    color: "#B8860B" },
-  { value: "N2",  label: "JLPT N2",    color: "#D85A30" },
-  { value: "N1",  label: "JLPT N1",    color: "#C62828" },
+const FILTER_OPTIONS = [
+  { value: "all" as Filter, label: "All levels", color: "#7F77DD" },
+  { value: "N5" as Filter, label: "JLPT N5", color: "#1D9E75" },
+  { value: "N4" as Filter, label: "JLPT N4", color: "#4DB6AC" },
+  { value: "N3" as Filter, label: "JLPT N3", color: "#B8860B" },
+  { value: "N2" as Filter, label: "JLPT N2", color: "#D85A30" },
+  { value: "N1" as Filter, label: "JLPT N1", color: "#C62828" },
 ];
 
 const ROUND_TIME = 15;
 const TOTAL_ROUNDS = 20;
 
 export default function Practice() {
-  const [phase, setPhase] = useState<Phase>("setup");
+  const [phase, setPhase] = useState<Phase>("loading");
   const [filter, setFilter] = useState<Filter>("N5");
-  const [queue, setQueue] = useState<Kanji[]>([]);
-  const [current, setCurrent] = useState<Kanji | null>(null);
-  const [qType, setQType] = useState<QuestionType>("meaning");
-  const [qLabel, setQLabel] = useState("Meaning");
-  const [answers, setAnswers] = useState<string[]>([]);
+  const [allWords, setAllWords] = useState<Record<string, VocabWord[]>>({});
+  const [queue, setQueue] = useState<VocabWord[]>([]);
+  const [current, setCurrent] = useState<VocabWord | null>(null);
   const [input, setInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
-  const [stats, setStats] = useState<SessionStat[]>([]);
+  const [stats, setStats] = useState<RoundStat[]>([]);
   const [isCorrect, setIsCorrect] = useState(false);
   const [roundNum, setRoundNum] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const supabase = createClient();
 
-  function pickType(kanji: Kanji) {
-    // Only reading questions — meaning shown as decoration
-    const options: { type: QuestionType; label: string; ans: string[] }[] = [];
-    if (kanji.on !== "-") options.push({ type: "onyomi", label: "On'yomi", ans: kanji.on.split("/").map(s => s.trim()) });
-    if (kanji.kun !== "-") options.push({ type: "kunyomi", label: "Kun'yomi", ans: kanji.kun.split("/").map(s => s.trim()) });
-    if (options.length === 0) options.push({ type: "onyomi", label: "On'yomi", ans: [kanji.on] });
-    return options[Math.floor(Math.random() * options.length)];
+  // Load words from Supabase on mount
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+
+      const { data } = await supabase
+        .from("vocabulary")
+        .select("id, word, reading, romaji, meaning, jlpt, level")
+        .order("level", { ascending: true });
+
+      if (data) {
+        const grouped: Record<string, VocabWord[]> = { all: data };
+        for (const w of data) {
+          if (!grouped[w.jlpt]) grouped[w.jlpt] = [];
+          grouped[w.jlpt].push(w);
+        }
+        setAllWords(grouped);
+      }
+      setPhase("setup");
+    })();
+  }, []);
+
+  function startSession() {
+    const pool = allWords[filter] ?? allWords["all"] ?? [];
+    const q = shuffle(pool).slice(0, TOTAL_ROUNDS);
+    setQueue(q);
+    setStats([]);
+    setRoundNum(0);
+    loadRound(q, 0);
+  }
+
+  function loadRound(q: VocabWord[], idx: number) {
+    if (idx >= q.length) { setPhase("finished"); return; }
+    setCurrent(q[idx]);
+    setInput("");
+    setRoundNum(idx);
+    setPhase("playing");
+    startTimer(() => handleResult(q[idx], false, "(time up)"));
+    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   function startTimer(onEnd: () => void) {
@@ -63,120 +95,89 @@ export default function Practice() {
     }, 200);
   }
 
-  function loadRound(q: Kanji[], idx: number) {
-    if (idx >= TOTAL_ROUNDS || idx >= q.length) { setPhase("finished"); return; }
-    const kanji = q[idx];
-    const picked = pickType(kanji);
-    setCurrent(kanji);
-    setQType(picked.type);
-    setQLabel(picked.label);
-    setAnswers(picked.ans);
-    setInput("");
-    setRoundNum(idx);
-    setPhase("playing");
-    startTimer(() => handleResult(kanji, picked.type, picked.label, picked.ans, false, "(time up)"));
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }
-
-  function handleResult(
-    kanji: Kanji, type: QuestionType, label: string,
-    ans: string[], correct: boolean, userAns: string
-  ) {
+  function handleResult(word: VocabWord, correct: boolean, userAns: string) {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsCorrect(correct);
-    setStats(s => [...s, { kanji, type, label, correct, userAnswer: userAns, correctAnswer: ans[0] }]);
+    setStats(s => {
+      const newStats = [...s, { word, correct, userAnswer: userAns }];
+      if (newStats.length >= queue.length) {
+        setTimeout(() => setPhase("finished"), correct ? 1200 : 2000);
+      } else {
+        setTimeout(() => loadRound(queue, newStats.length), correct ? 1200 : 2000);
+      }
+      return newStats;
+    });
     setPhase("feedback");
   }
 
   function submitAnswer(val: string) {
     if (phase !== "playing" || !current) return;
-    if (!checkAnswer(val, answers)) return;
-    handleResult(current, qType, qLabel, answers, true, val.trim());
+    if (!checkVocabAnswer(val, current)) return;
+    handleResult(current, true, val.trim());
   }
 
   function skipQuestion() {
     if (!current) return;
-    handleResult(current, qType, qLabel, answers, false, "(skipped)");
-  }
-
-  // Auto-advance after feedback
-  useEffect(() => {
-    if (phase !== "feedback") return;
-    const t = setTimeout(() => loadRound(queue, roundNum + 1), isCorrect ? 1200 : 2000);
-    return () => clearTimeout(t);
-  }, [phase]);
-
-  function startSession() {
-    const filtered = filter === "all" ? KANJI_LIST : KANJI_LIST.filter(k => k.jlpt === filter);
-    const q = shuffle(filtered).slice(0, TOTAL_ROUNDS);
-    setQueue(q);
-    setStats([]);
-    setRoundNum(0);
-    loadRound(q, 0);
+    handleResult(current, false, "(skipped)");
   }
 
   const score = stats.filter(s => s.correct).length;
   const timerPct = (timeLeft / ROUND_TIME) * 100;
   const timerColor = timeLeft <= 4 ? "#E24B4A" : timeLeft <= 8 ? "#EF9F27" : "#534AB7";
   const filterInfo = FILTER_OPTIONS.find(f => f.value === filter)!;
-  const kanjiCount = filter === "all" ? KANJI_LIST.length : KANJI_LIST.filter(k => k.jlpt === filter).length;
 
-  // ── SETUP ──
+  if (phase === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="font-jp text-4xl text-accent2 animate-pulse">漢</div>
+      </div>
+    );
+  }
+
   if (phase === "setup") {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
-        <Link href="/" className="font-jp text-3xl mb-8 text-accent2 hover:opacity-70 transition-opacity block">漢</Link>
+        <Link href="/" className="font-jp text-3xl mb-8 text-accent2 hover:opacity-70 block">漢</Link>
         <div className="card-solid w-full max-w-sm p-6 slide-up">
           <h1 className="text-xl font-semibold mb-1">Practice mode</h1>
-          <p className="text-white/40 text-sm mb-6">
-            Solo training · {TOTAL_ROUNDS} questions · no ELO impact
-          </p>
+          <p className="text-white/40 text-sm mb-6">Solo training · {TOTAL_ROUNDS} words · no ELO impact</p>
 
           <p className="text-xs text-white/40 uppercase tracking-widest mb-3">Choose level</p>
           <div className="grid grid-cols-2 gap-2 mb-6">
             {FILTER_OPTIONS.map(opt => {
-              const count = opt.value === "all" ? KANJI_LIST.length : KANJI_LIST.filter(k => k.jlpt === opt.value).length;
+              const count = (allWords[opt.value] ?? []).length;
               return (
-                <button
-                  key={opt.value}
-                  onClick={() => setFilter(opt.value)}
+                <button key={opt.value} onClick={() => setFilter(opt.value)}
                   className="py-3 px-4 rounded-xl text-sm font-medium transition-all text-left"
                   style={{
                     background: filter === opt.value ? opt.color + "22" : "rgba(255,255,255,0.04)",
                     border: filter === opt.value ? `1.5px solid ${opt.color}` : "1px solid rgba(255,255,255,0.08)",
                     color: filter === opt.value ? opt.color : "rgba(255,255,255,0.5)",
-                  }}
-                >
+                  }}>
                   {opt.label}
-                  <span className="block text-xs opacity-60 mt-0.5">{count} kanji</span>
+                  <span className="block text-xs opacity-60 mt-0.5">{count} words</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="bg-white/4 rounded-xl p-3 mb-5 text-xs text-white/40 leading-relaxed">
-            Questions mix: <span className="text-white/70">Meaning</span> · <span className="text-white/70">On&apos;yomi</span> · <span className="text-white/70">Kun&apos;yomi</span>
-            <br />Type directly — no multiple choice
+          <div className="bg-white/4 rounded-xl p-3 mb-5 text-xs text-white/40">
+            Read the kanji word · type the reading in hiragana or romaji
           </div>
 
-          <button className="btn-primary" onClick={startSession}>
-            Start practice
-          </button>
+          <button className="btn-primary" onClick={startSession}>Start practice</button>
           <Link href="/"><button className="btn-ghost mt-2">Back</button></Link>
         </div>
       </main>
     );
   }
 
-  // ── FINISHED ──
   if (phase === "finished") {
     const pct = stats.length > 0 ? Math.round((score / stats.length) * 100) : 0;
     return (
       <main className="min-h-screen px-4 py-10 relative z-10 max-w-lg mx-auto">
         <div className="card-solid p-6 text-center mb-4 slide-up">
-          <div className="text-4xl mb-3">
-            {pct >= 80 ? "🏆" : pct >= 60 ? "👍" : pct >= 40 ? "😓" : "💀"}
-          </div>
+          <div className="text-4xl mb-3">{pct >= 80 ? "🏆" : pct >= 60 ? "👍" : pct >= 40 ? "😓" : "💀"}</div>
           <h1 className="text-2xl font-semibold mb-1">Session complete</h1>
           <p className="text-sm mb-4" style={{ color: filterInfo.color }}>{filterInfo.label}</p>
           <div className="grid grid-cols-3 gap-3 mb-5">
@@ -198,27 +199,23 @@ export default function Practice() {
           </div>
         </div>
 
-        {/* Review */}
         <div className="card-solid overflow-hidden">
           <div className="px-5 py-3 border-b border-white/5">
-            <p className="text-xs text-white/40 uppercase tracking-widest">Review all answers</p>
+            <p className="text-xs text-white/40 uppercase tracking-widest">Review</p>
           </div>
           {stats.map((s, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
               <div className="w-1.5 h-8 rounded-full flex-shrink-0"
                 style={{ background: s.correct ? "#1D9E75" : "#E24B4A" }} />
-              <div className="font-jp text-2xl w-8 text-center flex-shrink-0">{s.kanji.k}</div>
+              <div className="font-jp text-xl w-12 text-center flex-shrink-0">{s.word.word}</div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-white/30">{s.label} · {s.kanji.jlpt}</p>
-                <p className="text-sm font-medium truncate">{s.kanji.m}</p>
+                <p className="text-xs text-white/30">{s.word.jlpt} · {s.word.meaning}</p>
+                <p className="text-sm font-mono">{s.word.reading}</p>
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-xs font-mono" style={{ color: s.correct ? "#5DCAA5" : "#E24B4A" }}>
                   {s.userAnswer}
                 </p>
-                {!s.correct && (
-                  <p className="text-xs text-white/30 font-mono">{s.correctAnswer}</p>
-                )}
               </div>
             </div>
           ))}
@@ -227,23 +224,19 @@ export default function Practice() {
     );
   }
 
-  // ── PLAYING / FEEDBACK ──
+  // PLAYING / FEEDBACK
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative z-10">
       <div className="w-full max-w-md">
-        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm text-white/40">{roundNum + 1} / {TOTAL_ROUNDS}</span>
           <span className="text-xs px-2.5 py-1 rounded-full font-medium"
             style={{ background: filterInfo.color + "22", color: filterInfo.color }}>
             {filterInfo.label}
           </span>
-          <span className="font-mono text-sm font-bold transition-colors" style={{ color: timerColor }}>
-            {timeLeft}s
-          </span>
+          <span className="font-mono text-sm font-bold" style={{ color: timerColor }}>{timeLeft}s</span>
         </div>
 
-        {/* Progress dots */}
         <div className="flex gap-1 mb-4">
           {Array.from({ length: TOTAL_ROUNDS }).map((_, i) => (
             <div key={i} className="flex-1 h-1 rounded-full" style={{
@@ -254,13 +247,11 @@ export default function Practice() {
           ))}
         </div>
 
-        {/* Timer bar */}
         <div className="h-0.5 bg-white/8 rounded-full mb-6 overflow-hidden">
           <div className="h-full rounded-full transition-all duration-200"
             style={{ width: `${timerPct}%`, background: timerColor }} />
         </div>
 
-        {/* Kanji card */}
         {current && (
           <div className="card-solid p-8 text-center mb-4 transition-all" style={{
             border: phase === "feedback"
@@ -268,19 +259,11 @@ export default function Practice() {
               : "1px solid rgba(83,74,183,0.35)"
           }}>
             <span className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
-              style={qType === "meaning"
-                ? { background: "#EEEDFE22", color: "#7F77DD" }
-                : qType === "onyomi"
-                ? { background: "#FAEEDA22", color: "#EF9F27" }
-                : { background: "#E0F2F122", color: "#4DB6AC" }}>
-              {qLabel}
+              style={{ background: "#FAEEDA22", color: "#EF9F27" }}>
+              Reading
             </span>
-
-            <div className="font-jp text-8xl mb-2 text-white pop-in">{current.k}</div>
-
-            {/* Primary meaning — decorative only */}
-            <p className="text-white/35 text-sm mb-2 italic">{current.m.split("/")[0].trim()}</p>
-
+            <div className="font-jp text-6xl mb-3 text-white pop-in">{current.word}</div>
+            <p className="text-white/35 text-sm italic mb-2">{current.meaning}</p>
             <span className="text-xs px-2 py-0.5 rounded-full"
               style={{ background: filterInfo.color + "22", color: filterInfo.color }}>
               {current.jlpt}
@@ -294,9 +277,9 @@ export default function Practice() {
                   <div>
                     <p className="text-sm" style={{ color: "#E24B4A" }}>✗ Wrong</p>
                     <p className="text-white/50 text-sm mt-1">
-                      Answer: <span className="text-white font-medium font-mono">{answers[0]}</span>
+                      Answer: <span className="text-white font-mono">{current.reading}</span>
+                      <span className="text-white/30 ml-2">({current.romaji})</span>
                     </p>
-                    <p className="text-white/25 text-xs mt-1">{current.m}</p>
                   </div>
                 )}
               </div>
@@ -304,41 +287,24 @@ export default function Practice() {
           </div>
         )}
 
-        {/* Input */}
         <input
           ref={inputRef}
           className={`input-field text-center text-lg mb-2 ${
             phase === "feedback" && isCorrect ? "input-correct" :
-            phase === "feedback" && !isCorrect ? "input-wrong" : ""
+            phase === "feedback" ? "input-wrong" : ""
           }`}
-          placeholder={
-            qType === "onyomi" ? "Type on'yomi reading..."
-            : "Type kun'yomi reading..."
-          }
+          placeholder="Type the reading..."
           value={input}
           disabled={phase === "feedback"}
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          onChange={(e) => {
-            setInput(e.target.value);
-            if (phase === "playing") submitAnswer(e.target.value);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && phase === "playing") submitAnswer(input);
-          }}
+          autoComplete="off" autoCorrect="off" spellCheck={false}
+          onChange={(e) => { setInput(e.target.value); if (phase === "playing") submitAnswer(e.target.value); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && phase === "playing") submitAnswer(input); }}
         />
 
-        {/* Hint line */}
-        {phase === "playing" && current && (
-          <p className="text-center text-xs text-white/20 mb-2">
-            {qType === "meaning" && "Answer in English · press Enter to submit"}
-            {qType === "onyomi" && "Type the on\'yomi reading"}
-            {qType === "kunyomi" && "Type the kun\'yomi reading"}
-          </p>
-        )}
+        <p className="text-center text-xs text-white/20 mb-2">
+          Hiragana or romaji accepted
+        </p>
 
-        {/* Skip */}
         {phase === "playing" && (
           <button onClick={skipQuestion}
             className="w-full text-xs text-white/15 hover:text-white/35 transition-colors py-1.5">
@@ -346,11 +312,10 @@ export default function Practice() {
           </button>
         )}
 
-        {/* Score + home */}
         <div className="flex justify-between items-center text-xs mt-3">
-          <span style={{ color: "#5DCAA5" }}>✓ {score} correct</span>
+          <span style={{ color: "#5DCAA5" }}>✓ {score}</span>
           <Link href="/" className="text-white/20 hover:text-white/50 transition-colors">← Home</Link>
-          <span style={{ color: "#E24B4A" }}>✗ {stats.length - score} wrong</span>
+          <span style={{ color: "#E24B4A" }}>✗ {stats.length - score}</span>
         </div>
       </div>
     </main>

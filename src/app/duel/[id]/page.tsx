@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { getPool, checkAnswer, shuffle } from "@/lib/kanji";
+import { checkVocabAnswer, shuffle, type VocabWord } from "@/lib/vocab";
 import { calcELO } from "@/lib/elo";
 import { useRouter, useParams } from "next/navigation";
 
@@ -15,7 +15,7 @@ interface Room {
   current_round: number;
   p1_score: number;
   p2_score: number;
-  current_kanji: { k: string; m: string; on: string; kun: string } | null;
+  current_kanji: { word: string; reading: string; romaji: string; meaning: string; jlpt: string } | null;
   question_type: "onyomi" | "kunyomi" | null;
   round_started_at: string | null;
 }
@@ -149,19 +149,19 @@ export default function DuelPage() {
     }, 200);
   }
 
-  async function sendNextKanji(currentRoom: Room) {
-    const pool = shuffle(getPool(currentRoom.category));
-    const kanji = pool[0] as any;
-    const hasOn = kanji.on && kanji.on !== "-";
-    const hasKun = kanji.kun && kanji.kun !== "-";
-    let type: string;
-    if (hasOn && hasKun) type = Math.random() > 0.5 ? "onyomi" : "kunyomi";
-    else if (hasOn) type = "onyomi";
-    else type = "kunyomi";
+  async function sendNextKanji(_currentRoom: Room) {
+    // Pick random word from vocabulary table
+    const { data: words } = await supabase
+      .from("vocabulary")
+      .select("id, word, reading, romaji, meaning, jlpt, level")
+      .limit(200);
+
+    if (!words || words.length === 0) return;
+    const word = shuffle(words)[0];
 
     await supabase.from("rooms").update({
-      current_kanji: kanji,
-      question_type: type,
+      current_kanji: word,
+      question_type: "reading",
       round_started_at: new Date().toISOString(),
     }).eq("id", roomId);
   }
@@ -199,12 +199,8 @@ export default function DuelPage() {
 
   async function submitAnswer(val: string) {
     if (lockedRef.current || !room || !room.current_kanji || !room.question_type) return;
-    const qk = room.current_kanji as any;
-    const answers = room.question_type === "onyomi"
-      ? (qk.on ?? "").split("/").map((s: string) => s.trim())
-      : (qk.kun ?? "").split("/").map((s: string) => s.trim());
-
-    if (!checkAnswer(val, answers)) return;
+    const vocabWord = room.current_kanji as any as VocabWord;
+    if (!checkVocabAnswer(val, vocabWord)) return;
 
     lockedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
@@ -362,17 +358,13 @@ export default function DuelPage() {
         }}>
           {kanji && (
             <>
-              <span className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
-                style={qType === "onyomi"
-                  ? { background: "#FAEEDA22", color: "#EF9F27" }
-                  : { background: "#E0F2F122", color: "#4DB6AC" }}>
-                {qType === "onyomi" ? "On'yomi" : "Kun'yomi"}
+                    className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
+                style={{ background: "#FAEEDA22", color: "#EF9F27" }}>
+                Reading
               </span>
-              <div className="font-jp text-8xl mb-2 text-white pop-in">{kanji.k}</div>
-              <p className="text-white/35 text-sm italic mb-1">{kanji.m?.split("/")[0]?.trim()}</p>
-              <p className="text-white/20 text-xs">
-                {qType === "onyomi" ? "Type the on'yomi reading" : "Type the kun'yomi reading"}
-              </p>
+              <div className="font-jp text-6xl mb-2 text-white pop-in">{(kanji as any).word}</div>
+              <p className="text-white/35 text-sm italic mb-1">{(kanji as any).meaning}</p>
+              <p className="text-white/20 text-xs">Type the reading in hiragana or romaji</p>
             </>
           )}
           {phase === "round_result" && roundWinner && (
@@ -384,9 +376,8 @@ export default function DuelPage() {
               </p>
               {roundWinner !== "me" && kanji && (
                 <p className="text-white/40 text-xs mt-1">
-                  Answer: <span className="text-white/70 font-mono">
-                    {qType === "onyomi" ? kanji.on?.split("/")[0] : kanji.kun?.split("/")[0]}
-                  </span>
+                  Answer: <span className="text-white/70 font-mono">{(kanji as any).reading}</span>
+                  <span className="text-white/30 ml-1">({(kanji as any).romaji})</span>
                 </p>
               )}
             </div>
