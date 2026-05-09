@@ -284,6 +284,26 @@ export default function DuelPage() {
     await supabase.from("rooms").update({ status: "finished" }).eq("id", roomId);
   }
 
+  // Block accidental back navigation — treat back button as concede
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    const handlePopState = () => {
+      // Back button pressed — concede
+      concede();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("popstate", handlePopState);
+    // Push a state so popstate fires on back
+    window.history.pushState(null, "", window.location.href);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [room, me]);
+
   if (phase === "loading") return <FullPageMsg icon="漢" text="Loading duel…" />;
   if (phase === "waiting") return <FullPageMsg icon="漢" text="Waiting for opponent…" pulse />;
 
