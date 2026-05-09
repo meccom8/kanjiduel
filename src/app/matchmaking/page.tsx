@@ -71,12 +71,14 @@ export default function Matchmaking() {
       .eq("player1_id", uid)
       .eq("status", "waiting");
 
-    // Step 3: look for an open room
+    // Step 3: look for a FRESH open room (created in last 30s only)
+    const thirtySecondsAgoFresh = new Date(Date.now() - 30000).toISOString();
     const { data: openRoom } = await supabase
       .from("rooms")
       .select("*")
       .eq("status", "waiting")
       .neq("player1_id", uid)
+      .gt("created_at", thirtySecondsAgoFresh)
       .order("created_at", { ascending: true })
       .limit(1)
       .single();
