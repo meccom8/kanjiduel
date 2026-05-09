@@ -20,7 +20,7 @@ interface Room {
   round_started_at: string | null;
 }
 
-interface Profile { id: string; username: string; elo: number; }
+interface Profile { id: string; username: string; elo: number; avatar_url?: string | null; accent_color?: string | null; }
 type GamePhase = "loading" | "waiting" | "playing" | "round_result" | "finished";
 
 const ROUND_TIME = 12;
@@ -63,8 +63,8 @@ export default function DuelPage() {
       const oppId = isP1.current ? roomData.player2_id : roomData.player1_id;
 
       const [{ data: myProfile }, { data: oppProfile }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase.from("profiles").select("*").eq("id", oppId).single(),
+        supabase.from("profiles").select("id, username, elo, avatar_url, accent_color").eq("id", user.id).single(),
+        supabase.from("profiles").select("id, username, elo, avatar_url, accent_color").eq("id", oppId).single(),
       ]);
 
       setMe(myProfile);
@@ -135,6 +135,21 @@ export default function DuelPage() {
       updated.status === "active" &&
       updated.current_round !== lastRoundRef.current
     ) {
+      // Detect if opponent won the previous round
+      setRoom(prev => {
+        if (prev && updated.current_kanji !== prev.current_kanji) {
+          const prevMyScore = isP1.current ? prev.p1_score : prev.p2_score;
+          const newMyScore = isP1.current ? updated.p1_score : updated.p2_score;
+          const prevOppScore = isP1.current ? prev.p2_score : prev.p1_score;
+          const newOppScore = isP1.current ? updated.p2_score : updated.p1_score;
+          if (newOppScore > prevOppScore && newMyScore === prevMyScore && prev.current_kanji) {
+            const w = prev.current_kanji as VocabWord;
+            setRoundLog(l => [...l, { winner: "opponent", word: w, answer: w.reading }]);
+            setHistory(h => [...h, "opponent"]);
+          }
+        }
+        return prev;
+      });
       lastRoundRef.current = updated.current_round;
       lockedRef.current = false;
       roundStartedAtRef.current = null; // Reset so new timer can start
@@ -182,8 +197,9 @@ export default function DuelPage() {
     setRoundWinner("timeout");
     setPhase("round_result");
     setHistory(h => [...h, "timeout"]);
-    if (room.current_kanji) {
-      setRoundLog(l => [...l, { winner: "timeout", word: room.current_kanji as VocabWord, answer: "(time up)" }]);
+    const capturedWord2 = room.current_kanji as VocabWord;
+    if (capturedWord2) {
+      setRoundLog(l => [...l, { winner: "timeout", word: capturedWord2, answer: "(time up)" }]);
     }
 
     const p1s = room.p1_score;
@@ -215,8 +231,9 @@ export default function DuelPage() {
     setRoundWinner("me");
     setPhase("round_result");
     setHistory(h => [...h, "me"]);
-    if (room.current_kanji) {
-      setRoundLog(l => [...l, { winner: "me", word: room.current_kanji as VocabWord, answer: val.trim() }]);
+    const capturedWord = room.current_kanji as VocabWord;
+    if (capturedWord) {
+      setRoundLog(l => [...l, { winner: "me", word: capturedWord, answer: val.trim() }]);
     }
 
     const p1Score = isP1.current ? room.p1_score + 1 : room.p1_score;
@@ -418,9 +435,32 @@ function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange }:
       <div className="card-solid p-6 text-center mb-4 slide-up">
         <div className="font-jp text-5xl mb-3">{iWon ? "勝" : isDraw ? "引" : "敗"}</div>
         <h1 className="text-2xl font-semibold mb-1">{iWon ? "Victory!" : isDraw ? "Draw" : "Defeat"}</h1>
-        <p className="text-white/40 text-sm mb-5">
-          vs <span className="text-white/70 font-medium">{opponent?.username ?? "Opponent"}</span>
-        </p>
+        {/* Players with avatars */}
+        <div className="flex items-center justify-center gap-4 mb-5">
+          {/* Me */}
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold flex-shrink-0"
+              style={{ background: (me?.accent_color ?? "#534AB7") + "33", color: me?.accent_color ?? "#534AB7", border: `2px solid ${me?.accent_color ?? "#534AB7"}44` }}>
+              {me?.avatar_url
+                ? <img src={me.avatar_url} alt="" className="w-full h-full object-cover" />
+                : (me?.username ?? "?").slice(0,2).toUpperCase()
+              }
+            </div>
+            <p className="text-xs text-white/50">{me?.username ?? "You"}</p>
+          </div>
+          <span className="text-white/20 font-mono">vs</span>
+          {/* Opponent */}
+          <a href={`/user/${opponent?.username}`} className="flex flex-col items-center gap-1.5 hover:opacity-80 transition-opacity">
+            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold flex-shrink-0"
+              style={{ background: (opponent?.accent_color ?? "#D85A30") + "33", color: opponent?.accent_color ?? "#D85A30", border: `2px solid ${opponent?.accent_color ?? "#D85A30"}44` }}>
+              {opponent?.avatar_url
+                ? <img src={opponent.avatar_url} alt="" className="w-full h-full object-cover" />
+                : (opponent?.username ?? "?").slice(0,2).toUpperCase()
+              }
+            </div>
+            <p className="text-xs text-white/50">{opponent?.username ?? "Opponent"}</p>
+          </a>
+        </div>
 
         {/* Scores */}
         <div className="grid grid-cols-2 gap-3 mb-4">
