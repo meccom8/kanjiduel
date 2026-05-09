@@ -134,6 +134,7 @@ export default function DuelPage() {
     ) {
       lastRoundRef.current = updated.current_round;
       lockedRef.current = false;
+      if (timerRef.current) clearInterval(timerRef.current);
       setAnswer("");
       setRoundWinner(null);
       setPhase("playing");
@@ -188,7 +189,10 @@ export default function DuelPage() {
         setTimeout(async () => { lockedRef.current = false; await sendNextWord(); }, 2000);
       }
     } else {
-      setTimeout(() => { lockedRef.current = false; }, 2500);
+      // P2: just unlock after delay, applyRoomUpdate will handle the new round
+      setTimeout(() => { 
+        lockedRef.current = false;
+      }, 1500);
     }
   }
 
