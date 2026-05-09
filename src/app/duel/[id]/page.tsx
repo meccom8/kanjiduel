@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
-import { checkVocabAnswer, shuffle, type VocabWord } from "@/lib/vocab";
-import { calcELO } from "@/lib/elo";
+import { getPool, checkAnswer, shuffle } from "@/lib/kanji";
+import { calcELO, getTier } from "@/lib/elo";
 import { useRouter, useParams } from "next/navigation";
 
 interface Room {
@@ -15,16 +15,16 @@ interface Room {
   current_round: number;
   p1_score: number;
   p2_score: number;
-  current_kanji: { word: string; reading: string; romaji: string; meaning: string; jlpt: string } | null;
-  question_type: "onyomi" | "kunyomi" | null;
+  current_kanji: { k: string; m: string; r: string } | null;
+  question_type: "meaning" | "onyomi" | "kunyomi" | null;
   round_started_at: string | null;
 }
 
 interface Profile { id: string; username: string; elo: number; }
+
 type GamePhase = "loading" | "waiting" | "playing" | "round_result" | "finished";
 
 const ROUND_TIME = 12;
-const TOTAL_ROUNDS = 11;
 
 export default function DuelPage() {
   const params = useParams();
@@ -43,11 +43,10 @@ export default function DuelPage() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
   const isP1 = useRef(false);
   const lockedRef = useRef(false);
-  const lastRoundRef = useRef(-1);
 
+  // Load initial data
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -68,9 +67,7 @@ export default function DuelPage() {
       setOpponent(oppProfile);
       setRoom(roomData);
 
-      if (roomData.status === "finished") {
-        setPhase("finished");
-      } else if (roomData.status === "active") {
+      if (roomData.status === "active") {
         if (roomData.current_kanji) {
           setPhase("playing");
           startTimer(roomData.round_started_at);
@@ -83,42 +80,62 @@ export default function DuelPage() {
         setPhase("waiting");
       }
     })();
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
   }, []);
 
-  // Polling every 2s
+  // Polling — backup for when realtime is flaky
   useEffect(() => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
-      const { data } = await supabase.from("rooms").select("*").eq("id", roomId).single();
-      if (data) applyRoomUpdate(data);
+    const poll = setInterval(async () => {
+      const { data } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("id", roomId)
+        .single();
+      if (!data) return;
+      setRoom(data);
+      handleRoomUpdate(data);
     }, 2500);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => clearInterval(poll);
   }, [me]);
 
-  // Realtime
+  // Realtime subscription (bonus on top of polling)
   useEffect(() => {
     const sub = supabase
       .channel(`duel-${roomId}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
-        (payload) => applyRoomUpdate(payload.new as Room))
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "rooms",
+        filter: `id=eq.${roomId}`,
+      }, (payload) => {
+        const updated = payload.new as Room;
+        setRoom(updated);
+        handleRoomUpdate(updated);
+      })
       .subscribe();
+
     return () => { sub.unsubscribe(); };
   }, [me]);
 
-  function applyRoomUpdate(updated: Room) {
-    setRoom(updated);
+  function startTimer(startedAt: string | null) {
+    if (timerRef.current) clearInterval(timerRef.current);
+    const started = startedAt ? new Date(startedAt).getTime() : Date.now();
+    timerRef.current = setInterval(() => {
+      const elapsed = (Date.now() - started) / 1000;
+      const left = Math.max(0, ROUND_TIME - elapsed);
+      setTimeLeft(Math.ceil(left));
+      if (left <= 0) {
+        clearInterval(timerRef.current!);
+        handleTimeout();
+      }
+    }, 200);
+  }
 
+  function handleRoomUpdate(updated: Room) {
     if (updated.status === "finished") {
       setPhase("finished");
       return;
     }
-
-    // New kanji appeared for a new round
+    // Only trigger new round if it's actually a new round
     if (
       updated.current_kanji &&
       updated.status === "active" &&
@@ -132,21 +149,6 @@ export default function DuelPage() {
       startTimer(updated.round_started_at);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-
-    // Opponent scored — detect score change
-    if (updated.current_kanji === null && updated.status === "active" && !lockedRef.current) {
-      // Round was just won by opponent — wait for next kanji
-    }
-  }
-
-  function startTimer(startedAt: string | null) {
-    if (timerRef.current) clearInterval(timerRef.current);
-    const started = startedAt ? new Date(startedAt).getTime() : Date.now();
-    timerRef.current = setInterval(() => {
-      const left = Math.max(0, ROUND_TIME - (Date.now() - started) / 1000);
-      setTimeLeft(Math.ceil(left));
-      if (left <= 0) { clearInterval(timerRef.current!); handleTimeout(); }
-    }, 200);
   }
 
   async function sendNextKanji(_currentRoom: Room) {
@@ -154,11 +156,9 @@ export default function DuelPage() {
     const { data: words } = await supabase
       .from("vocabulary")
       .select("id, word, reading, romaji, meaning, jlpt, level")
-      .limit(200);
-
+      .limit(500);
     if (!words || words.length === 0) return;
     const word = shuffle(words)[0];
-
     await supabase.from("rooms").update({
       current_kanji: word,
       question_type: "reading",
@@ -169,85 +169,81 @@ export default function DuelPage() {
   async function handleTimeout() {
     if (lockedRef.current || !room) return;
     lockedRef.current = true;
-    if (timerRef.current) clearInterval(timerRef.current);
-    setAnswer("");
     setRoundWinner("timeout");
     setPhase("round_result");
-    setHistory(h => [...h, "timeout"]);
-
-    // Check if someone already won (first to 6)
-    const p1s = room.p1_score;
-    const p2s = room.p2_score;
-    if (p1s >= 6 || p2s >= 6) { await endGame(p1s, p2s); return; }
+    const newHistory = [...history, "timeout" as const];
+    setHistory(newHistory);
 
     if (isP1.current) {
-      const nextRound = room.current_round + 1;
-      if (nextRound >= TOTAL_ROUNDS) {
-        await endGame(p1s, p2s);
+      const nextRound = (room.current_round ?? 0) + 1;
+      if (nextRound >= room.rounds) {
+        await endGame(room.p1_score, room.p2_score);
       } else {
-        await supabase.from("rooms").update({ current_round: nextRound, current_kanji: null }).eq("id", roomId);
+        await supabase.from("rooms").update({
+          current_round: nextRound,
+          current_kanji: null,
+        }).eq("id", roomId);
         setTimeout(async () => {
-          lockedRef.current = false;
           const { data: fresh } = await supabase.from("rooms").select("*").eq("id", roomId).single();
           if (fresh) await sendNextKanji(fresh);
         }, 2000);
       }
-    } else {
-      setTimeout(() => { lockedRef.current = false; }, 2500);
     }
   }
 
   async function submitAnswer(val: string) {
     if (lockedRef.current || !room || !room.current_kanji || !room.question_type) return;
-    const vocabWord = room.current_kanji as any as VocabWord;
-    if (!checkVocabAnswer(val, vocabWord)) return;
+    const qk = room.current_kanji as any;
+    const answers = room.question_type === "onyomi"
+      ? (qk.on ?? "").split("/").map((s: string) => s.trim())
+      : (qk.kun ?? "").split("/").map((s: string) => s.trim());
+
+    if (!checkAnswer(val, answers)) return;
 
     lockedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
+
+    const iWon = true;
     setRoundWinner("me");
     setPhase("round_result");
-    setHistory(h => [...h, "me"]);
+    const newHistory = [...history, "me" as const];
+    setHistory(newHistory);
 
     const p1Score = isP1.current ? room.p1_score + 1 : room.p1_score;
     const p2Score = isP1.current ? room.p2_score : room.p2_score + 1;
-    const nextRound = room.current_round + 1;
+    const nextRound = (room.current_round ?? 0) + 1;
 
-    // First to 6 wins immediately
-    if (p1Score >= 6 || p2Score >= 6 || nextRound >= TOTAL_ROUNDS) {
-      await supabase.from("rooms").update({ p1_score: p1Score, p2_score: p2Score, current_round: nextRound }).eq("id", roomId);
+    if (nextRound >= room.rounds) {
+      await supabase.from("rooms").update({
+        p1_score: p1Score,
+        p2_score: p2Score,
+        current_round: nextRound,
+      }).eq("id", roomId);
       await endGame(p1Score, p2Score);
     } else {
       await supabase.from("rooms").update({
-        p1_score: p1Score, p2_score: p2Score,
-        current_round: nextRound, current_kanji: null,
+        p1_score: p1Score,
+        p2_score: p2Score,
+        current_round: nextRound,
+        current_kanji: null,
       }).eq("id", roomId);
       setTimeout(async () => {
-        lockedRef.current = false;
         const { data: fresh } = await supabase.from("rooms").select("*").eq("id", roomId).single();
         if (fresh) await sendNextKanji(fresh);
       }, 2000);
     }
   }
 
-  async function concede() {
-    if (!room || !me) return;
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (pollRef.current) clearInterval(pollRef.current);
-    // Force end game with current scores, loser is me
-    const p1Score = isP1.current ? 0 : room.rounds;
-    const p2Score = isP1.current ? room.rounds : 0;
-    await endGame(p1Score, p2Score);
-    router.push("/");
-  }
-
   async function endGame(p1Score: number, p2Score: number) {
-    if (!room) return;
+    if (!room || !me || !opponent) return;
     const p1Id = room.player1_id;
     const p2Id = room.player2_id;
+
     let winnerId: string | null = null;
     if (p1Score > p2Score) winnerId = p1Id;
     else if (p2Score > p1Score) winnerId = p2Id;
 
+    // ELO
     const { data: p1Profile } = await supabase.from("profiles").select("elo,wins,losses").eq("id", p1Id).single();
     const { data: p2Profile } = await supabase.from("profiles").select("elo,wins,losses").eq("id", p2Id).single();
 
@@ -257,6 +253,7 @@ export default function DuelPage() {
         winnerIsP1 ? p1Profile.elo : p2Profile.elo,
         winnerIsP1 ? p2Profile.elo : p1Profile.elo
       );
+
       await Promise.all([
         supabase.from("profiles").update({
           elo: Math.max(0, p1Profile.elo + (winnerIsP1 ? winnerDelta : loserDelta)),
@@ -273,44 +270,32 @@ export default function DuelPage() {
           winner_id: winnerId, p1_score: p1Score, p2_score: p2Score,
           p1_elo_change: winnerIsP1 ? winnerDelta : loserDelta,
           p2_elo_change: winnerIsP1 ? loserDelta : winnerDelta,
-          rounds: TOTAL_ROUNDS, category: room.category,
+          rounds: room.rounds, category: room.category,
         }),
       ]);
     }
+
     await supabase.from("rooms").update({ status: "finished" }).eq("id", roomId);
   }
 
-  // Block accidental back navigation — treat back button as concede
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    const handlePopState = () => {
-      // Back button pressed — concede
-      concede();
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("popstate", handlePopState);
-    // Push a state so popstate fires on back
-    window.history.pushState(null, "", window.location.href);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, [room, me]);
+  // Render
+  if (phase === "loading") {
+    return <FullPageMessage icon="漢" text="Loading duel…" />;
+  }
 
-  if (phase === "loading") return <FullPageMsg icon="漢" text="Loading duel…" />;
-  if (phase === "waiting") return <FullPageMsg icon="漢" text="Waiting for opponent…" pulse />;
+  if (phase === "waiting") {
+    return <FullPageMessage icon="漢" text="Waiting for opponent…" pulse />;
+  }
 
   if (phase === "finished" && room) {
-    return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current} router={router} totalRounds={TOTAL_ROUNDS} />;
+    return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current} router={router} />;
   }
 
   const myScore = isP1.current ? room?.p1_score ?? 0 : room?.p2_score ?? 0;
   const oppScore = isP1.current ? room?.p2_score ?? 0 : room?.p1_score ?? 0;
   const currentRound = (room?.current_round ?? 0) + 1;
-  const kanji = room?.current_kanji as any;
+  const totalRounds = room?.rounds ?? 10;
+  const kanji = room?.current_kanji;
   const qType = room?.question_type;
   const timerPct = (timeLeft / ROUND_TIME) * 100;
   const timerColor = timeLeft <= 3 ? "#E24B4A" : timeLeft <= 6 ? "#EF9F27" : "#534AB7";
@@ -320,64 +305,68 @@ export default function DuelPage() {
       <div className="w-full max-w-md">
         {/* Scores */}
         <div className="grid grid-cols-3 items-center mb-4">
-          <div>
-            <p className="text-xs text-white/40 uppercase tracking-widest mb-1 truncate">{me?.username ?? "You"}</p>
+          <div className="text-left">
+            <p className="text-xs text-white/40 uppercase tracking-widest mb-1">{me?.username ?? "You"}</p>
             <p className="font-mono text-3xl font-bold text-accent2">{myScore}</p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-white/40 font-mono">{currentRound}/{TOTAL_ROUNDS}</p>
+            <p className="text-xs text-white/40 font-mono">{currentRound}/{totalRounds}</p>
             <p className="text-white/20 text-xs mt-1">round</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-white/40 uppercase tracking-widest mb-1 truncate">{opponent?.username ?? "Opponent"}</p>
+            <p className="text-xs text-white/40 uppercase tracking-widest mb-1">{opponent?.username ?? "Opponent"}</p>
             <p className="font-mono text-3xl font-bold" style={{ color: "#D85A30" }}>{oppScore}</p>
           </div>
         </div>
 
         {/* Progress dots */}
         <div className="flex gap-1 mb-4">
-          {Array.from({ length: TOTAL_ROUNDS }).map((_, i) => (
-            <div key={i} className="flex-1 h-1 rounded-full" style={{
-              background: i < history.length
-                ? history[i] === "me" ? "#534AB7" : history[i] === "opponent" ? "#D85A30" : "rgba(255,255,255,0.15)"
-                : "rgba(255,255,255,0.08)"
-            }} />
+          {Array.from({ length: totalRounds }).map((_, i) => (
+            <div key={i} className="flex-1 h-1 rounded-full"
+              style={{
+                background: i < history.length
+                  ? (history[i] === "me" ? "#534AB7" : history[i] === "opponent" ? "#D85A30" : "rgba(255,255,255,0.15)")
+                  : "rgba(255,255,255,0.08)"
+              }} />
           ))}
         </div>
 
         {/* Timer bar */}
         <div className="h-0.5 bg-white/8 rounded-full mb-6 overflow-hidden">
-          <div className="h-full rounded-full transition-all duration-200" style={{ width: `${timerPct}%`, background: timerColor }} />
+          <div className="h-full rounded-full transition-all duration-200"
+            style={{ width: `${timerPct}%`, background: timerColor }} />
         </div>
 
         {/* Kanji card */}
-        <div className="card-solid p-8 text-center mb-4" style={{
-          border: phase === "round_result"
-            ? roundWinner === "me" ? "1px solid #1D9E75" : roundWinner === "opponent" ? "1px solid #D85A30" : "1px solid rgba(255,255,255,0.15)"
-            : "1px solid rgba(83,74,183,0.35)"
-        }}>
-                     {kanji && (
+        <div className="card-solid p-8 text-center mb-4 pulse-border">
+          {kanji && (
             <>
-              <span className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
-                style={{ background: "#FAEEDA22", color: "#EF9F27" }}>
-                Reading
+              <span
+                className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
+                style={qType === "onyomi"
+                  ? { background: "#FAEEDA22", color: "#EF9F27" }
+                  : { background: "#E0F2F122", color: "#4DB6AC" }}
+              >
+                {qType === "onyomi" ? "On'yomi" : "Kun'yomi"}
               </span>
-              <div className="font-jp text-6xl mb-2 text-white pop-in">{(kanji as any).word}</div>
-              <p className="text-white/35 text-sm italic mb-1">{(kanji as any).meaning}</p>
-              <p className="text-white/20 text-xs">Type the reading in hiragana or romaji</p>
+              <div className="font-jp text-8xl mb-2 text-white pop-in">{kanji.k}</div>
+              <p className="text-white/35 text-sm italic mb-1">{(kanji as any).m?.split("/")[0]?.trim()}</p>
+              <p className="text-white/20 text-xs">
+                {qType === "onyomi" ? "Type the on'yomi reading" : "Type the kun'yomi reading"}
+              </p>
             </>
           )}
           {phase === "round_result" && roundWinner && (
             <div className="mt-4 pop-in">
-              <p className="text-sm font-medium" style={{
-                color: roundWinner === "me" ? "#5DCAA5" : roundWinner === "timeout" ? "#9090a8" : "#D85A30"
-              }}>
+              <p className="text-sm font-medium"
+                style={{ color: roundWinner === "me" ? "#5DCAA5" : roundWinner === "timeout" ? "#9090a8" : "#D85A30" }}>
                 {roundWinner === "me" ? "✓ You got it!" : roundWinner === "timeout" ? "Time up!" : "Opponent got it!"}
               </p>
               {roundWinner !== "me" && kanji && (
                 <p className="text-white/40 text-xs mt-1">
-                  Answer: <span className="text-white/70 font-mono">{(kanji as any).reading}</span>
-                  <span className="text-white/30 ml-1">({(kanji as any).romaji})</span>
+                  Answer: <span className="text-white/70 font-mono">
+                    {qType === "onyomi" ? (kanji as any).on?.split("/")[0] : (kanji as any).kun?.split("/")[0]}
+                  </span>
                 </p>
               )}
             </div>
@@ -387,34 +376,32 @@ export default function DuelPage() {
         {/* Input */}
         <input
           ref={inputRef}
-          className={`input-field text-center text-lg mb-3 ${phase === "round_result" && roundWinner === "me" ? "input-correct" : ""}`}
+          className={`input-field text-center text-lg ${roundWinner === "me" ? "input-correct" : ""}`}
           placeholder="Type your answer…"
           value={answer}
           disabled={phase === "round_result"}
-          autoComplete="off" autoCorrect="off" spellCheck={false}
-          onChange={(e) => { setAnswer(e.target.value); submitAnswer(e.target.value); }}
-          onKeyDown={(e) => { if (e.key === "Enter") submitAnswer(answer); }}
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          onChange={(e) => {
+            setAnswer(e.target.value);
+            submitAnswer(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submitAnswer(answer);
+          }}
         />
 
-        <p className="text-center text-xs text-white/20 mb-4 font-mono">
-          {timeLeft}s · first correct answer wins the round
+        <p className="text-center text-xs text-white/20 mt-3 font-mono">
+          {timeLeft}s remaining · first correct answer wins the round
         </p>
-
-        {/* Concede button */}
-        <button
-          onClick={concede}
-          className="w-full text-xs text-white/15 hover:text-red-400/60 transition-colors py-2 border border-white/5 rounded-xl hover:border-red-400/20"
-        >
-          🏳 Concede — forfeit the match
-        </button>
       </div>
     </main>
   );
 }
 
-function ResultScreen({ room, me, opponent, isP1, router, totalRounds }: {
-  room: Room; me: Profile | null; opponent: Profile | null;
-  isP1: boolean; router: ReturnType<typeof useRouter>; totalRounds: number;
+function ResultScreen({ room, me, opponent, isP1, router }: {
+  room: Room; me: Profile | null; opponent: Profile | null; isP1: boolean; router: ReturnType<typeof useRouter>;
 }) {
   const myScore = isP1 ? room.p1_score : room.p2_score;
   const oppScore = isP1 ? room.p2_score : room.p1_score;
@@ -425,22 +412,18 @@ function ResultScreen({ room, me, opponent, isP1, router, totalRounds }: {
     <main className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
       <div className="card-solid w-full max-w-sm p-6 text-center slide-up">
         <div className="font-jp text-4xl mb-4">{iWon ? "勝" : isDraw ? "引" : "敗"}</div>
-        <h1 className="text-2xl font-semibold mb-1">{iWon ? "Victory!" : isDraw ? "Draw" : "Defeat"}</h1>
+        <h1 className="text-2xl font-semibold mb-1">
+          {iWon ? "Victory!" : isDraw ? "Draw" : "Defeat"}
+        </h1>
         <p className="text-white/40 text-sm mb-6">
           {iWon ? "You dominated this round" : isDraw ? "An even match" : "Better luck next time"}
         </p>
+
         <div className="grid grid-cols-2 gap-3 mb-6">
-          {[
-            { label: me?.username ?? "You", score: myScore, color: "#534AB7" },
-            { label: opponent?.username ?? "Opponent", score: oppScore, color: "#D85A30" },
-          ].map(s => (
-            <div key={s.label} className="bg-white/4 rounded-xl p-4">
-              <p className="text-xs text-white/40 truncate mb-1">{s.label}</p>
-              <p className="font-mono text-2xl font-bold" style={{ color: s.color }}>{s.score}</p>
-              <p className="text-white/20 text-xs">/ {totalRounds} rounds</p>
-            </div>
-          ))}
+          <ScoreStat label={me?.username ?? "You"} score={myScore} rounds={room.rounds} color="#534AB7" />
+          <ScoreStat label={opponent?.username ?? "Opponent"} score={oppScore} rounds={room.rounds} color="#D85A30" />
         </div>
+
         <div className="flex flex-col gap-2">
           <button className="btn-primary" onClick={() => router.push("/matchmaking")}>⚡ Play again</button>
           <button className="btn-ghost" onClick={() => router.push("/")}>Home</button>
@@ -451,11 +434,21 @@ function ResultScreen({ room, me, opponent, isP1, router, totalRounds }: {
   );
 }
 
-function FullPageMsg({ icon, text, pulse }: { icon: string; text: string; pulse?: boolean }) {
+function ScoreStat({ label, score, rounds, color }: { label: string; score: number; rounds: number; color: string }) {
+  return (
+    <div className="bg-white/4 rounded-xl p-4">
+      <p className="text-xs text-white/40 uppercase tracking-widest mb-1 truncate">{label}</p>
+      <p className="font-mono text-2xl font-bold" style={{ color }}>{score}</p>
+      <p className="text-white/20 text-xs">/ {rounds} rounds</p>
+    </div>
+  );
+}
+
+function FullPageMessage({ icon, text, pulse }: { icon: string; text: string; pulse?: boolean }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
       <div className={`font-jp text-5xl text-accent2 ${pulse ? "animate-pulse" : ""}`}>{icon}</div>
-      <p className="text-white/50">{text}</p>
+      <p className="text-white/50 text-base">{text}</p>
     </div>
   );
 }
