@@ -295,9 +295,39 @@ export default function DuelPage() {
     if (!room || !me) return;
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
-    const p1Score = isP1.current ? 0 : TOTAL_ROUNDS;
-    const p2Score = isP1.current ? TOTAL_ROUNDS : 0;
-    await endGame(p1Score, p2Score);
+    // Force the winner to be the opponent directly
+    const winnerId = isP1.current ? room.player2_id : room.player1_id;
+    const loserId = isP1.current ? room.player1_id : room.player2_id;
+
+    const { data: winnerP } = await supabase.from("profiles").select("elo,wins,losses").eq("id", winnerId).single();
+    const { data: loserP } = await supabase.from("profiles").select("elo,wins,losses").eq("id", loserId).single();
+
+    if (winnerP && loserP) {
+      const { winnerDelta, loserDelta } = calcELO(winnerP.elo, loserP.elo);
+      await Promise.all([
+        supabase.from("profiles").update({
+          elo: Math.max(0, winnerP.elo + winnerDelta),
+          wins: winnerP.wins + 1,
+        }).eq("id", winnerId),
+        supabase.from("profiles").update({
+          elo: Math.max(0, loserP.elo + loserDelta),
+          losses: loserP.losses + 1,
+        }).eq("id", loserId),
+        supabase.from("matches").insert({
+          player1_id: room.player1_id,
+          player2_id: room.player2_id,
+          winner_id: winnerId,
+          p1_score: isP1.current ? 0 : TOTAL_ROUNDS,
+          p2_score: isP1.current ? TOTAL_ROUNDS : 0,
+          p1_elo_change: isP1.current ? loserDelta : winnerDelta,
+          p2_elo_change: isP1.current ? winnerDelta : loserDelta,
+          rounds: TOTAL_ROUNDS,
+          category: room.category,
+        }),
+      ]);
+      setEloChange(loserDelta);
+    }
+    await supabase.from("rooms").update({ status: "finished" }).eq("id", roomId);
     router.push("/");
   }
 
