@@ -64,22 +64,37 @@ function kataToHira(str: string): string {
   }).join("");
 }
 
-// Accept hiragana, katakana, or romaji
+// Normalize long vowels: ū→uu, ō→ou/oo, ā→aa, etc.
+function normalizeLongVowels(str: string): string {
+  return str
+    .replace(/ū/g, "uu").replace(/Ū/g, "uu")
+    .replace(/ō/g, "ou").replace(/Ō/g, "ou")
+    .replace(/ā/g, "aa").replace(/Ā/g, "aa")
+    .replace(/ī/g, "ii").replace(/Ī/g, "ii")
+    .replace(/ê/g, "e").replace(/â/g, "a")
+    .toLowerCase();
+}
+
+// Accept hiragana, katakana, romaji, with/without macrons
 export function checkVocabAnswer(input: string, word: VocabWord): boolean {
   const clean = input.trim().toLowerCase();
   if (!clean) return false;
 
   const hira = word.reading.trim().toLowerCase();
-  const roma = (word.romaji || hiraToRoma(hira)).trim().toLowerCase();
+  const roma = normalizeLongVowels((word.romaji || hiraToRoma(hira)).trim());
+  const cleanNorm = normalizeLongVowels(clean);
   const inputAsHira = kataToHira(clean).toLowerCase();
-  const inputRoma = hiraToRoma(clean).toLowerCase();
+  const inputRoma = normalizeLongVowels(hiraToRoma(clean));
+  const hiraRoma = normalizeLongVowels(hiraToRoma(hira));
 
   return (
     clean === hira ||
     clean === roma ||
+    cleanNorm === roma ||
     inputAsHira === hira ||
     inputRoma === roma ||
-    inputRoma === hiraToRoma(hira)
+    inputRoma === hiraRoma ||
+    cleanNorm === hiraRoma
   );
 }
 
