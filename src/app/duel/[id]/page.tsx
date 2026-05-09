@@ -192,9 +192,16 @@ export default function DuelPage() {
     if (startedAt && startedAt === roundStartedAtRef.current) return;
     roundStartedAtRef.current = startedAt;
     if (timerRef.current) clearInterval(timerRef.current);
+
     const started = startedAt ? new Date(startedAt).getTime() : Date.now();
+    const alreadyElapsed = (Date.now() - started) / 1000;
+
+    // If more than half the round already elapsed on arrival, reset to full time
+    // (network delay caused the discrepancy)
+    const effectiveStart = alreadyElapsed > ROUND_TIME * 0.5 ? Date.now() : started;
+
     timerRef.current = setInterval(() => {
-      const left = Math.max(0, ROUND_TIME - (Date.now() - started) / 1000);
+      const left = Math.max(0, ROUND_TIME - (Date.now() - effectiveStart) / 1000);
       setTimeLeft(Math.ceil(left));
       if (left <= 0) { clearInterval(timerRef.current!); handleTimeout(); }
     }, 200);
