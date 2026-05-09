@@ -53,6 +53,7 @@ export default function DuelPage() {
   const lastRoundRef = useRef(-1);
   const roundStartedAtRef = useRef<string | null>(null);
   const concedeProcessedRef = useRef(false);
+  const endGameCalledRef = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -318,6 +319,8 @@ export default function DuelPage() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
 
+    concedeProcessedRef.current = true;
+    endGameCalledRef.current = true; // Prevent endGame from running twice
     const winnerId = isP1.current ? room.player2_id : room.player1_id;
     const loserId = isP1.current ? room.player1_id : room.player2_id;
     const p1Score = isP1.current ? 0 : TOTAL_ROUNDS;
@@ -367,6 +370,9 @@ export default function DuelPage() {
 
   async function endGame(p1Score: number, p2Score: number) {
     if (!room) return;
+    // Prevent double execution
+    if (endGameCalledRef.current) return;
+    endGameCalledRef.current = true;
     const p1Id = room.player1_id;
     const p2Id = room.player2_id;
     let winnerId: string | null = null;
