@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
-import { checkVocabAnswer, shuffle, getEloMaxLevel, type VocabWord } from "@/lib/vocab";
+import { checkVocabAnswer, shuffle, type VocabWord } from "@/lib/vocab";
+import { toHiragana, isKana } from "@/lib/romaji";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -16,15 +17,43 @@ interface RoundStat {
 
 const FILTER_OPTIONS = [
   { value: "all" as Filter, label: "All levels", color: "#7F77DD" },
-  { value: "N5" as Filter, label: "JLPT N5", color: "#1D9E75" },
-  { value: "N4" as Filter, label: "JLPT N4", color: "#4DB6AC" },
-  { value: "N3" as Filter, label: "JLPT N3", color: "#B8860B" },
-  { value: "N2" as Filter, label: "JLPT N2", color: "#D85A30" },
-  { value: "N1" as Filter, label: "JLPT N1", color: "#C62828" },
+  { value: "N5" as Filter, label: "JLPT N5",    color: "#1D9E75" },
+  { value: "N4" as Filter, label: "JLPT N4",    color: "#4DB6AC" },
+  { value: "N3" as Filter, label: "JLPT N3",    color: "#B8860B" },
+  { value: "N2" as Filter, label: "JLPT N2",    color: "#D85A30" },
+  { value: "N1" as Filter, label: "JLPT N1",    color: "#C62828" },
 ];
 
 const ROUND_TIME = 15;
 const TOTAL_ROUNDS = 20;
+
+function playTone(type: "correct" | "wrong" | "timeout") {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    if (type === "correct") {
+      osc.frequency.setValueAtTime(523, ctx.currentTime);
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(); osc.stop(ctx.currentTime + 0.3);
+    } else if (type === "wrong") {
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.type = "sawtooth";
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.start(); osc.stop(ctx.currentTime + 0.2);
+    } else {
+      osc.frequency.setValueAtTime(330, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(); osc.stop(ctx.currentTime + 0.4);
+    }
+  } catch {}
+}
 
 export default function Practice() {
   const [phase, setPhase] = useState<Phase>("loading");
@@ -37,37 +66,36 @@ export default function Practice() {
   const [stats, setStats] = useState<RoundStat[]>([]);
   const [isCorrect, setIsCorrect] = useState(false);
   const [roundNum, setRoundNum] = useState(0);
+
+  // Prefs
+  const [hiraganaMode, setHiraganaMode] = useState(false);
+  const [showRomaji, setShowRomaji] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
 
-  // Load word counts per level, then words on demand
   useEffect(() => {
+    try {
+      setHiraganaMode(localStorage.getItem("pref_hiragana_mode") === "true");
+      setShowRomaji(localStorage.getItem("pref_show_romaji") !== "false");
+      setSoundEnabled(localStorage.getItem("pref_sound") !== "false");
+    } catch {}
+
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      // Get counts per JLPT level using count queries
       const levels = ["N5", "N4", "N3", "N2", "N1"];
-      const counts: Record<string, VocabWord[]> = { all: [] };
-
-      // We store empty arrays with correct length for display
-      // Actual words loaded when session starts
-      const { count: totalCount } = await supabase
-        .from("vocabulary").select("*", { count: "exact", head: true });
-
-      // Fake arrays just for count display
+      const counts: Record<string, VocabWord[]> = {};
+      const { count: totalCount } = await supabase.from("vocabulary").select("*", { count: "exact", head: true });
       counts["all"] = Array(totalCount ?? 0).fill(null) as any;
-
       for (const jlpt of levels) {
-        const { count } = await supabase
-          .from("vocabulary")
-          .select("*", { count: "exact", head: true })
-          .eq("jlpt", jlpt);
+        const { count } = await supabase.from("vocabulary").select("*", { count: "exact", head: true }).eq("jlpt", jlpt);
         counts[jlpt] = Array(count ?? 0).fill(null) as any;
       }
-
       setAllWords(counts);
       setPhase("setup");
     })();
@@ -75,17 +103,10 @@ export default function Practice() {
 
   async function startSession() {
     setPhase("loading");
-    // Fetch words for this level (with random ordering via shuffle after fetch)
-    let query = supabase
-      .from("vocabulary")
-      .select("id, word, reading, romaji, meaning, jlpt, level")
-      .limit(500);
-
+    let query = supabase.from("vocabulary").select("id, word, reading, romaji, meaning, jlpt, level").limit(500);
     if (filter !== "all") query = query.eq("jlpt", filter);
-
     const { data } = await query;
     if (!data || data.length === 0) { setPhase("setup"); return; }
-
     const q = shuffle(data as VocabWord[]).slice(0, TOTAL_ROUNDS);
     setQueue(q);
     setStats([]);
@@ -99,7 +120,10 @@ export default function Practice() {
     setInput("");
     setRoundNum(idx);
     setPhase("playing");
-    startTimer(() => handleResult(q[idx], false, "(time up)"));
+    startTimer(() => {
+      if (soundEnabled) playTone("timeout");
+      handleResult(q[idx], false, "(time up)");
+    });
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
@@ -132,11 +156,20 @@ export default function Practice() {
   function submitAnswer(val: string) {
     if (phase !== "playing" || !current) return;
     if (!checkVocabAnswer(val, current)) return;
+    if (soundEnabled) playTone("correct");
     handleResult(current, true, val.trim());
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    const converted = (hiraganaMode && !isKana(raw)) ? toHiragana(raw) : raw;
+    setInput(converted);
+    if (phase === "playing") submitAnswer(converted);
   }
 
   function skipQuestion() {
     if (!current) return;
+    if (soundEnabled) playTone("wrong");
     handleResult(current, false, "(skipped)");
   }
 
@@ -145,51 +178,68 @@ export default function Practice() {
   const timerColor = timeLeft <= 4 ? "#E24B4A" : timeLeft <= 8 ? "#EF9F27" : "#534AB7";
   const filterInfo = FILTER_OPTIONS.find(f => f.value === filter)!;
 
-  if (phase === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="font-jp text-4xl text-accent2 animate-pulse">漢</div>
-      </div>
-    );
-  }
+  if (phase === "loading") return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="font-jp text-4xl text-accent2 animate-pulse">漢</div>
+    </div>
+  );
 
-  if (phase === "setup") {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
-        <Link href="/" className="font-jp text-3xl mb-8 text-accent2 hover:opacity-70 block">漢</Link>
-        <div className="card-solid w-full max-w-sm p-6 slide-up">
-          <h1 className="text-xl font-semibold mb-1">Practice mode</h1>
-          <p className="text-white/40 text-sm mb-6">Solo training · {TOTAL_ROUNDS} words · no ELO impact</p>
+  if (phase === "setup") return (
+    <main className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
+      <Link href="/" className="font-jp text-3xl mb-8 text-accent2 hover:opacity-70 block">漢</Link>
+      <div className="card-solid w-full max-w-sm p-6 slide-up">
+        <h1 className="text-xl font-semibold mb-1">Practice mode</h1>
+        <p className="text-white/40 text-sm mb-6">Solo training · {TOTAL_ROUNDS} words · no ELO impact</p>
 
-          <p className="text-xs text-white/40 uppercase tracking-widest mb-3">Choose level</p>
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            {FILTER_OPTIONS.map(opt => {
-              const count = (allWords[opt.value] ?? []).length;
-              return (
-                <button key={opt.value} onClick={() => setFilter(opt.value)}
-                  className="py-3 px-4 rounded-xl text-sm font-medium transition-all text-left"
-                  style={{
-                    background: filter === opt.value ? opt.color + "22" : "rgba(255,255,255,0.04)",
-                    border: filter === opt.value ? `1.5px solid ${opt.color}` : "1px solid rgba(255,255,255,0.08)",
-                    color: filter === opt.value ? opt.color : "rgba(255,255,255,0.5)",
-                  }}>
-                  {opt.label}
-                  <span className="block text-xs opacity-60 mt-0.5">{count} words</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="bg-white/4 rounded-xl p-3 mb-5 text-xs text-white/40">
-            Read the kanji word · type the reading in hiragana or romaji
-          </div>
-
-          <button className="btn-primary" onClick={startSession}>Start practice</button>
-          <Link href="/"><button className="btn-ghost mt-2">Back</button></Link>
+        <p className="text-xs text-white/40 uppercase tracking-widest mb-3">Choose level</p>
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          {FILTER_OPTIONS.map(opt => {
+            const count = (allWords[opt.value] ?? []).length;
+            return (
+              <button key={opt.value} onClick={() => setFilter(opt.value)}
+                className="py-3 px-4 rounded-xl text-sm font-medium transition-all text-left"
+                style={{
+                  background: filter === opt.value ? opt.color + "22" : "rgba(255,255,255,0.04)",
+                  border: filter === opt.value ? `1.5px solid ${opt.color}` : "1px solid rgba(255,255,255,0.08)",
+                  color: filter === opt.value ? opt.color : "rgba(255,255,255,0.5)",
+                }}>
+                {opt.label}
+                <span className="block text-xs opacity-60 mt-0.5">{count} words</span>
+              </button>
+            );
+          })}
         </div>
-      </main>
-    );
-  }
+
+        {/* Active prefs display */}
+        <div className="bg-white/4 rounded-xl p-3 mb-5 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-white/40">Hiragana IME</span>
+            <span style={{ color: hiraganaMode ? "#5DCAA5" : "rgba(255,255,255,0.2)" }}>
+              {hiraganaMode ? "● on" : "○ off"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-white/40">Romaji hints</span>
+            <span style={{ color: showRomaji ? "#5DCAA5" : "rgba(255,255,255,0.2)" }}>
+              {showRomaji ? "● on" : "○ off"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-white/40">Sound</span>
+            <span style={{ color: soundEnabled ? "#5DCAA5" : "rgba(255,255,255,0.2)" }}>
+              {soundEnabled ? "● on" : "○ off"}
+            </span>
+          </div>
+          <Link href="/settings" className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.25)" }}>
+            Change in Settings →
+          </Link>
+        </div>
+
+        <button className="btn-primary" onClick={startSession}>Start practice</button>
+        <Link href="/"><button className="btn-ghost mt-2">Back</button></Link>
+      </div>
+    </main>
+  );
 
   if (phase === "finished") {
     const pct = stats.length > 0 ? Math.round((score / stats.length) * 100) : 0;
@@ -230,6 +280,7 @@ export default function Practice() {
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white/30">{s.word.jlpt} · {s.word.meaning}</p>
                 <p className="text-sm font-mono">{s.word.reading}</p>
+                {showRomaji && <p className="text-xs font-mono text-white/25">{s.word.romaji}</p>}
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-xs font-mono" style={{ color: s.correct ? "#5DCAA5" : "#E24B4A" }}>
@@ -278,16 +329,13 @@ export default function Practice() {
               : "1px solid rgba(83,74,183,0.35)"
           }}>
             <span className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
-              style={{ background: "#FAEEDA22", color: "#EF9F27" }}>
-              Reading
-            </span>
+              style={{ background: "#FAEEDA22", color: "#EF9F27" }}>Reading</span>
             <div className="font-jp text-6xl mb-3 text-white pop-in">{current.word}</div>
             <p className="text-white/35 text-sm italic mb-2">{current.meaning}</p>
             <span className="text-xs px-2 py-0.5 rounded-full"
               style={{ background: filterInfo.color + "22", color: filterInfo.color }}>
               {current.jlpt}
             </span>
-
             {phase === "feedback" && (
               <div className="mt-4 pop-in">
                 {isCorrect ? (
@@ -297,7 +345,7 @@ export default function Practice() {
                     <p className="text-sm" style={{ color: "#E24B4A" }}>✗ Wrong</p>
                     <p className="text-white/50 text-sm mt-1">
                       Answer: <span className="text-white font-mono">{current.reading}</span>
-                      <span className="text-white/30 ml-2">({current.romaji})</span>
+                      {showRomaji && <span className="text-white/30 ml-2">({current.romaji})</span>}
                     </p>
                   </div>
                 )}
@@ -306,22 +354,30 @@ export default function Practice() {
           </div>
         )}
 
-        <input
-          ref={inputRef}
-          className={`input-field text-center text-lg mb-2 ${
-            phase === "feedback" && isCorrect ? "input-correct" :
-            phase === "feedback" ? "input-wrong" : ""
-          }`}
-          placeholder="Type the reading..."
-          value={input}
-          disabled={phase === "feedback"}
-          autoComplete="off" autoCorrect="off" spellCheck={false}
-          onChange={(e) => { setInput(e.target.value); if (phase === "playing") submitAnswer(e.target.value); }}
-          onKeyDown={(e) => { if (e.key === "Enter" && phase === "playing") submitAnswer(input); }}
-        />
+        <div className="relative mb-2">
+          <input
+            ref={inputRef}
+            className={`input-field text-center text-lg w-full ${
+              phase === "feedback" && isCorrect ? "input-correct" :
+              phase === "feedback" ? "input-wrong" : ""
+            }`}
+            placeholder={hiraganaMode ? "ka · shi · tsu → か · し · つ" : "Type the reading..."}
+            value={input}
+            disabled={phase === "feedback"}
+            autoComplete="off" autoCorrect="off" spellCheck={false}
+            onChange={handleInputChange}
+            onKeyDown={(e) => { if (e.key === "Enter" && phase === "playing") submitAnswer(input); }}
+          />
+          {hiraganaMode && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2"
+              style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>
+              あ
+            </div>
+          )}
+        </div>
 
         <p className="text-center text-xs text-white/20 mb-2">
-          Hiragana or romaji accepted
+          {hiraganaMode ? "Romaji auto-converts to hiragana" : "Hiragana or romaji accepted"}
         </p>
 
         {phase === "playing" && (
