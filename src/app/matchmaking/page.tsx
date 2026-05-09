@@ -8,6 +8,7 @@ export default function Matchmaking() {
   const [userId, setUserId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const searchedRef = useRef(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -16,23 +17,38 @@ export default function Matchmaking() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       setUserId(user.id);
-      await supabase.from("rooms").delete().eq("player1_id", user.id).eq("status", "waiting");
+
+      // Always cleanup own waiting rooms first
+      await supabase.from("rooms")
+        .delete()
+        .eq("player1_id", user.id)
+        .eq("status", "waiting");
     })();
   }, []);
 
+  // Start search once userId is ready
   useEffect(() => {
-    if (userId) startSearch(userId);
+    if (userId && !searchedRef.current) {
+      searchedRef.current = true;
+      startSearch(userId);
+    }
   }, [userId]);
 
+  // Animate dots
   useEffect(() => {
     const i = setInterval(() => setDots(d => d.length >= 3 ? "." : d + "."), 500);
     return () => clearInterval(i);
   }, []);
 
+  // Poll for room activation
   useEffect(() => {
     if (!roomId) return;
     pollRef.current = setInterval(async () => {
-      const { data } = await supabase.from("rooms").select("status").eq("id", roomId).single();
+      const { data } = await supabase
+        .from("rooms")
+        .select("status")
+        .eq("id", roomId)
+        .single();
       if (data?.status === "active") {
         clearInterval(pollRef.current!);
         router.push(`/duel/${roomId}`);
@@ -42,45 +58,74 @@ export default function Matchmaking() {
   }, [roomId]);
 
   async function startSearch(uid: string) {
+    // Step 1: cleanup ALL stale waiting rooms (older than 30s)
+    const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+    await supabase.from("rooms")
+      .delete()
+      .eq("status", "waiting")
+      .lt("created_at", thirtySecondsAgo);
+
+    // Step 2: also cleanup our own waiting rooms
+    await supabase.from("rooms")
+      .delete()
+      .eq("player1_id", uid)
+      .eq("status", "waiting");
+
+    // Step 3: look for an open room
     const { data: openRoom } = await supabase
-      .from("rooms").select("*")
+      .from("rooms")
+      .select("*")
       .eq("status", "waiting")
       .neq("player1_id", uid)
       .order("created_at", { ascending: true })
-      .limit(1).single();
+      .limit(1)
+      .single();
 
     if (openRoom) {
-      await supabase.from("rooms").update({ player2_id: uid, status: "active" }).eq("id", openRoom.id);
+      await supabase.from("rooms")
+        .update({ player2_id: uid, status: "active" })
+        .eq("id", openRoom.id);
       router.push(`/duel/${openRoom.id}`);
       return;
     }
 
+    // Step 4: create new room and wait
     const { data: newRoom } = await supabase
       .from("rooms")
       .insert({ player1_id: uid, status: "waiting", category: "all", rounds: 11 })
-      .select().single();
+      .select()
+      .single();
 
     if (!newRoom) return;
     setRoomId(newRoom.id);
 
+    // Realtime as bonus
     const sub = supabase
       .channel(`room-wait-${newRoom.id}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${newRoom.id}` },
-        (payload) => {
-          if (payload.new.status === "active") {
-            sub.unsubscribe();
-            if (pollRef.current) clearInterval(pollRef.current);
-            router.push(`/duel/${newRoom.id}`);
-          }
-        })
+      .on("postgres_changes", {
+        event: "UPDATE", schema: "public", table: "rooms",
+        filter: `id=eq.${newRoom.id}`,
+      }, (payload) => {
+        if (payload.new.status === "active") {
+          sub.unsubscribe();
+          if (pollRef.current) clearInterval(pollRef.current);
+          router.push(`/duel/${newRoom.id}`);
+        }
+      })
       .subscribe();
   }
 
   async function cancelSearch() {
     if (pollRef.current) clearInterval(pollRef.current);
-    if (roomId) await supabase.from("rooms").delete().eq("id", roomId);
-    if (userId) await supabase.from("rooms").delete().eq("player1_id", userId).eq("status", "waiting");
-    setRoomId(null);
+    if (roomId) {
+      await supabase.from("rooms").delete().eq("id", roomId);
+    }
+    if (userId) {
+      await supabase.from("rooms")
+        .delete()
+        .eq("player1_id", userId)
+        .eq("status", "waiting");
+    }
     router.push("/");
   }
 
