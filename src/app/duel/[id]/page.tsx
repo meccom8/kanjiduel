@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { checkVocabAnswer, shuffle, type VocabWord } from "@/lib/vocab";
-import { calcELO } from "@/lib/elo";
 import { useRouter, useParams } from "next/navigation";
 
 interface Room {
@@ -16,16 +15,30 @@ interface Room {
   p1_score: number;
   p2_score: number;
   current_kanji: VocabWord | null;
-  winner_id?: string | null;
   question_type: string | null;
   round_started_at: string | null;
+  winner_id?: string | null;
 }
 
-interface Profile { id: string; username: string; elo: number; avatar_url?: string | null; accent_color?: string | null; }
+interface Profile {
+  id: string;
+  username: string;
+  elo: number;
+  avatar_url?: string | null;
+  accent_color?: string | null;
+}
+
 type GamePhase = "loading" | "waiting" | "playing" | "round_result" | "finished";
 
 const ROUND_TIME = 12;
 const TOTAL_ROUNDS = 11;
+const WIN_SCORE = 6;
+
+interface RoundLog {
+  winner: "me" | "opponent" | "timeout";
+  word: VocabWord;
+  answer: string;
+}
 
 export default function DuelPage() {
   const params = useParams();
@@ -41,7 +54,7 @@ export default function DuelPage() {
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
   const [roundWinner, setRoundWinner] = useState<"me" | "opponent" | "timeout" | null>(null);
   const [history, setHistory] = useState<("me" | "opponent" | "timeout")[]>([]);
-  const [roundLog, setRoundLog] = useState<{ winner: "me"|"opponent"|"timeout"; word: VocabWord; answer: string }[]>([]);
+  const [roundLog, setRoundLog] = useState<RoundLog[]>([]);
   const [eloChange, setEloChange] = useState<number | null>(null);
   const [conceded, setConceded] = useState(false);
 
@@ -52,8 +65,7 @@ export default function DuelPage() {
   const lockedRef = useRef(false);
   const lastRoundRef = useRef(-1);
   const roundStartedAtRef = useRef<string | null>(null);
-  const concedeProcessedRef = useRef(false);
-  const endGameCalledRef = useRef(false);
+  const finishedRef = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -76,6 +88,7 @@ export default function DuelPage() {
       setRoom(roomData);
 
       if (roomData.status === "finished") {
+        await loadEloChange(user.id, roomData);
         setPhase("finished");
       } else if (roomData.status === "active") {
         if (roomData.current_kanji) {
@@ -98,75 +111,66 @@ export default function DuelPage() {
     };
   }, []);
 
-  // Polling every 2.5s
+  // Polling
   useEffect(() => {
-    if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       const { data } = await supabase.from("rooms").select("*").eq("id", roomId).single();
-      if (data) applyRoomUpdate(data);
-    }, 2500);
+      if (data) await handleRoomUpdate(data);
+    }, 2000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [me]);
-
-  // Realtime
-  useEffect(() => {
-    const sub = supabase
-      .channel(`duel-${roomId}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
-        (payload) => applyRoomUpdate(payload.new as Room))
-      .subscribe();
-    return () => { sub.unsubscribe(); };
   }, [me]);
 
   // Block back button
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
-    const handlePopState = () => { concede(); };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("popstate", handlePopState);
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    const onPopState = () => { if (!finishedRef.current) handleConcede(); };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("popstate", onPopState);
     window.history.pushState(null, "", window.location.href);
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState);
     };
-  }, [room, me]);
+  }, [room]);
 
-  function applyRoomUpdate(updated: Room) {
+  async function handleRoomUpdate(updated: Room) {
     setRoom(updated);
-    if (updated.status === "finished") {
-      // Just show finished screen - ELO will be computed separately
-      setPhase("finished"); return;
+
+    if (updated.status === "finished" && !finishedRef.current) {
+      finishedRef.current = true;
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (me) await loadEloChange(me.id, updated);
+      setPhase("finished");
+      return;
     }
-    if (
-      updated.current_kanji &&
-      updated.status === "active" &&
-      updated.current_round !== lastRoundRef.current
-    ) {
-      // Log the round result when a new round starts (detect score change)
+
+    // Detect opponent winning a round
+    if (updated.current_kanji && updated.current_round !== lastRoundRef.current && !lockedRef.current) {
       setRoom(prev => {
-        if (prev && prev.current_kanji && updated.current_round !== prev.current_round) {
-          const prevMyScore = isP1.current ? prev.p1_score : prev.p2_score;
-          const newMyScore = isP1.current ? updated.p1_score : updated.p2_score;
-          const prevOppScore = isP1.current ? prev.p2_score : prev.p1_score;
-          const newOppScore = isP1.current ? updated.p2_score : updated.p1_score;
+        if (prev?.current_kanji && prev.current_round !== updated.current_round) {
+          const prevMy = isP1.current ? prev.p1_score : prev.p2_score;
+          const newMy = isP1.current ? updated.p1_score : updated.p2_score;
+          const prevOpp = isP1.current ? prev.p2_score : prev.p1_score;
+          const newOpp = isP1.current ? updated.p2_score : updated.p1_score;
           const w = prev.current_kanji as VocabWord;
-          if (newOppScore > prevOppScore) {
-            // Opponent won this round
+          if (newOpp > prevOpp) {
             setRoundLog(l => [...l, { winner: "opponent", word: w, answer: w.reading }]);
             setHistory(h => [...h, "opponent"]);
-          } else if (newMyScore === prevMyScore && newOppScore === prevOppScore) {
-            // Timeout - neither scored (only log from P2 side to avoid double)
-            if (!isP1.current) {
-              setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
-              setHistory(h => [...h, "timeout"]);
-            }
+            setRoundWinner("opponent");
+            setPhase("round_result");
+            setTimeout(() => { setRoundWinner(null); }, 1500);
+          } else if (newMy === prevMy && newOpp === prevOpp && !isP1.current) {
+            setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
+            setHistory(h => [...h, "timeout"]);
           }
         }
         return prev;
       });
+
       lastRoundRef.current = updated.current_round;
       lockedRef.current = false;
-      roundStartedAtRef.current = null; // Reset so new timer can start
+      roundStartedAtRef.current = null;
       if (timerRef.current) clearInterval(timerRef.current);
       setAnswer("");
       setRoundWinner(null);
@@ -177,18 +181,12 @@ export default function DuelPage() {
   }
 
   function startTimer(startedAt: string | null) {
-    // Don't restart timer if same round already running
     if (startedAt && startedAt === roundStartedAtRef.current) return;
     roundStartedAtRef.current = startedAt;
     if (timerRef.current) clearInterval(timerRef.current);
-
     const started = startedAt ? new Date(startedAt).getTime() : Date.now();
-    const alreadyElapsed = (Date.now() - started) / 1000;
-
-    // If more than half the round already elapsed on arrival, reset to full time
-    // (network delay caused the discrepancy)
-    const effectiveStart = alreadyElapsed > ROUND_TIME * 0.5 ? Date.now() : started;
-
+    const elapsed = (Date.now() - started) / 1000;
+    const effectiveStart = elapsed > ROUND_TIME * 0.6 ? Date.now() : started;
     timerRef.current = setInterval(() => {
       const left = Math.max(0, ROUND_TIME - (Date.now() - effectiveStart) / 1000);
       setTimeLeft(Math.ceil(left));
@@ -198,14 +196,11 @@ export default function DuelPage() {
 
   async function sendNextWord() {
     const { data: words } = await supabase
-      .from("vocabulary")
-      .select("id, word, reading, romaji, meaning, jlpt, level")
-      .limit(500);
-    if (!words || words.length === 0) return;
+      .from("vocabulary").select("id, word, reading, romaji, meaning, jlpt, level").limit(500);
+    if (!words?.length) return;
     const word = shuffle(words as VocabWord[])[0];
     await supabase.from("rooms").update({
-      current_kanji: word,
-      question_type: "reading",
+      current_kanji: word, question_type: "reading",
       round_started_at: new Date().toISOString(),
     }).eq("id", roomId);
   }
@@ -215,172 +210,113 @@ export default function DuelPage() {
     lockedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
     setAnswer("");
+    const w = room.current_kanji as VocabWord;
+    if (w) setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
+    setHistory(h => [...h, "timeout"]);
     setRoundWinner("timeout");
     setPhase("round_result");
-    setHistory(h => [...h, "timeout"]);
-    const capturedWord2 = room.current_kanji as VocabWord;
-    if (capturedWord2) {
-      setRoundLog(l => [...l, { winner: "timeout", word: capturedWord2, answer: "(time up)" }]);
-    }
-
-    const p1s = room.p1_score;
-    const p2s = room.p2_score;
-    if (p1s >= 6 || p2s >= 6) { await endGame(p1s, p2s); return; }
 
     if (isP1.current) {
       const nextRound = room.current_round + 1;
-      if (nextRound >= TOTAL_ROUNDS) {
-        await endGame(p1s, p2s);
+      const p1s = room.p1_score, p2s = room.p2_score;
+      if (p1s >= WIN_SCORE || p2s >= WIN_SCORE || nextRound >= TOTAL_ROUNDS) {
+        await callFinishMatch(p1s, p2s);
       } else {
         await supabase.from("rooms").update({ current_round: nextRound, current_kanji: null }).eq("id", roomId);
         setTimeout(async () => { lockedRef.current = false; await sendNextWord(); }, 2000);
       }
     } else {
-      // P2: just unlock after delay, applyRoomUpdate will handle the new round
-      setTimeout(() => { 
-        lockedRef.current = false;
-      }, 1500);
+      setTimeout(() => { lockedRef.current = false; }, 2000);
     }
   }
 
   async function submitAnswer(val: string) {
-    if (lockedRef.current || !room || !room.current_kanji) return;
+    if (lockedRef.current || !room?.current_kanji) return;
     if (!checkVocabAnswer(val, room.current_kanji)) return;
-
     lockedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
+
+    const w = room.current_kanji as VocabWord;
+    setRoundLog(l => [...l, { winner: "me", word: w, answer: val.trim() }]);
+    setHistory(h => [...h, "me"]);
     setRoundWinner("me");
     setPhase("round_result");
-    setHistory(h => [...h, "me"]);
-    const capturedWord = room.current_kanji as VocabWord;
-    if (capturedWord) {
-      setRoundLog(l => [...l, { winner: "me", word: capturedWord, answer: val.trim() }]);
-    }
 
     const p1Score = isP1.current ? room.p1_score + 1 : room.p1_score;
     const p2Score = isP1.current ? room.p2_score : room.p2_score + 1;
     const nextRound = room.current_round + 1;
 
-    if (p1Score >= 6 || p2Score >= 6 || nextRound >= TOTAL_ROUNDS) {
-      await supabase.from("rooms").update({ p1_score: p1Score, p2_score: p2Score, current_round: nextRound }).eq("id", roomId);
-      await endGame(p1Score, p2Score);
+    if (p1Score >= WIN_SCORE || p2Score >= WIN_SCORE || nextRound >= TOTAL_ROUNDS) {
+      await supabase.from("rooms").update({ p1_score: p1Score, p2_score: p2Score }).eq("id", roomId);
+      await callFinishMatch(p1Score, p2Score);
     } else {
       await supabase.from("rooms").update({
         p1_score: p1Score, p2_score: p2Score,
         current_round: nextRound, current_kanji: null,
       }).eq("id", roomId);
-      setTimeout(async () => { lockedRef.current = false; await sendNextWord(); }, 2000);
+      if (isP1.current) {
+        setTimeout(async () => { lockedRef.current = false; await sendNextWord(); }, 2000);
+      } else {
+        setTimeout(() => { lockedRef.current = false; }, 2000);
+      }
     }
   }
 
-  async function concede() {
-    if (!room || !me) return;
+  async function callFinishMatch(p1Score: number, p2Score: number) {
+    if (!room) return;
+    const winnerId = p1Score > p2Score ? room.player1_id : p2Score > p1Score ? room.player2_id : null;
+    if (!winnerId) {
+      await supabase.from("rooms").update({ status: "finished", p1_score: p1Score, p2_score: p2Score }).eq("id", roomId);
+      return;
+    }
+    await supabase.rpc("finish_match", {
+      p_room_id: roomId,
+      p_winner_id: winnerId,
+      p_p1_score: p1Score,
+      p_p2_score: p2Score,
+    });
+  }
+
+  async function loadEloChange(userId: string, r: Room) {
+    const { data } = await supabase.from("matches")
+      .select("player1_id, p1_elo_change, p2_elo_change")
+      .or(`player1_id.eq.${r.player1_id}`)
+      .eq("player2_id", r.player2_id)
+      .order("played_at", { ascending: false })
+      .limit(1).single();
+    if (data) {
+      setEloChange(data.player1_id === userId ? data.p1_elo_change : data.p2_elo_change);
+    }
+  }
+
+  async function handleConcede() {
+    if (!room || !me || finishedRef.current) return;
+    finishedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
-
-    concedeProcessedRef.current = true;
-    endGameCalledRef.current = true; // Prevent endGame from running twice
     const winnerId = isP1.current ? room.player2_id : room.player1_id;
-    const loserId = isP1.current ? room.player1_id : room.player2_id;
-    const p1Score = isP1.current ? 0 : TOTAL_ROUNDS;
-    const p2Score = isP1.current ? TOTAL_ROUNDS : 0;
-
-    const { data: winnerP } = await supabase.from("profiles").select("elo,wins,losses").eq("id", winnerId).single();
-    const { data: loserP } = await supabase.from("profiles").select("elo,wins,losses").eq("id", loserId).single();
-
-    if (winnerP && loserP) {
-      const { winnerDelta, loserDelta } = calcELO(winnerP.elo, loserP.elo);
-      await Promise.all([
-        supabase.from("profiles").update({
-          elo: Math.max(0, winnerP.elo + winnerDelta),
-          wins: winnerP.wins + 1,
-        }).eq("id", winnerId),
-        supabase.from("profiles").update({
-          elo: Math.max(0, loserP.elo + loserDelta),
-          losses: loserP.losses + 1,
-        }).eq("id", loserId),
-        supabase.from("matches").insert({
-          player1_id: room.player1_id,
-          player2_id: room.player2_id,
-          winner_id: winnerId,
-          p1_score: p1Score,
-          p2_score: p2Score,
-          p1_elo_change: isP1.current ? loserDelta : winnerDelta,
-          p2_elo_change: isP1.current ? winnerDelta : loserDelta,
-          rounds: TOTAL_ROUNDS,
-          category: room.category,
-        }),
-      ]);
-      setEloChange(loserDelta);
-    }
-
-    // Update room with concede flag and scores so both players see correct result
-    await supabase.from("rooms").update({
-      status: "finished",
-      p1_score: p1Score,
-      p2_score: p2Score,
-      winner_id: winnerId,
-    }).eq("id", roomId);
-
-    // Show defeat screen instead of going home directly
+    const p1Score = isP1.current ? 0 : WIN_SCORE;
+    const p2Score = isP1.current ? WIN_SCORE : 0;
+    await supabase.rpc("finish_match", {
+      p_room_id: roomId,
+      p_winner_id: winnerId,
+      p_p1_score: p1Score,
+      p_p2_score: p2Score,
+    });
+    await loadEloChange(me.id, { ...room, player1_id: room.player1_id, player2_id: room.player2_id });
     setConceded(true);
     setPhase("finished");
-  }
-
-  async function endGame(p1Score: number, p2Score: number) {
-    if (!room) return;
-    // Prevent double execution
-    if (endGameCalledRef.current) return;
-    endGameCalledRef.current = true;
-    const p1Id = room.player1_id;
-    const p2Id = room.player2_id;
-    let winnerId: string | null = null;
-    if (p1Score > p2Score) winnerId = p1Id;
-    else if (p2Score > p1Score) winnerId = p2Id;
-
-    const { data: p1Profile } = await supabase.from("profiles").select("elo,wins,losses").eq("id", p1Id).single();
-    const { data: p2Profile } = await supabase.from("profiles").select("elo,wins,losses").eq("id", p2Id).single();
-
-    if (p1Profile && p2Profile && winnerId) {
-      const winnerIsP1 = winnerId === p1Id;
-      const { winnerDelta, loserDelta } = calcELO(
-        winnerIsP1 ? p1Profile.elo : p2Profile.elo,
-        winnerIsP1 ? p2Profile.elo : p1Profile.elo
-      );
-      const myDelta = isP1.current ? (winnerIsP1 ? winnerDelta : loserDelta) : (winnerIsP1 ? loserDelta : winnerDelta);
-      setEloChange(myDelta);
-      await Promise.all([
-        supabase.from("profiles").update({
-          elo: Math.max(0, p1Profile.elo + (winnerIsP1 ? winnerDelta : loserDelta)),
-          wins: winnerIsP1 ? p1Profile.wins + 1 : p1Profile.wins,
-          losses: winnerIsP1 ? p1Profile.losses : p1Profile.losses + 1,
-        }).eq("id", p1Id),
-        supabase.from("profiles").update({
-          elo: Math.max(0, p2Profile.elo + (winnerIsP1 ? loserDelta : winnerDelta)),
-          wins: winnerIsP1 ? p2Profile.wins : p2Profile.wins + 1,
-          losses: winnerIsP1 ? p2Profile.losses + 1 : p2Profile.losses,
-        }).eq("id", p2Id),
-        supabase.from("matches").insert({
-          player1_id: p1Id, player2_id: p2Id,
-          winner_id: winnerId, p1_score: p1Score, p2_score: p2Score,
-          p1_elo_change: winnerIsP1 ? winnerDelta : loserDelta,
-          p2_elo_change: winnerIsP1 ? loserDelta : winnerDelta,
-          rounds: TOTAL_ROUNDS, category: room.category,
-        }),
-      ]);
-    }
-    await supabase.from("rooms").update({ status: "finished" }).eq("id", roomId);
   }
 
   if (phase === "loading") return <FullPageMsg text="Loading duel…" pulse />;
   if (phase === "waiting") return <FullPageMsg text="Waiting for opponent…" pulse />;
   if (phase === "finished" && room) {
-    return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current} router={router} roundLog={roundLog} eloChange={eloChange} conceded={conceded} />;
+    return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current}
+      router={router} roundLog={roundLog} eloChange={eloChange} conceded={conceded} />;
   }
 
   const myScore = isP1.current ? room?.p1_score ?? 0 : room?.p2_score ?? 0;
   const oppScore = isP1.current ? room?.p2_score ?? 0 : room?.p1_score ?? 0;
-  const currentRound = (room?.current_round ?? 0) + 1;
   const word = room?.current_kanji as VocabWord | null;
   const timerPct = (timeLeft / ROUND_TIME) * 100;
   const timerColor = timeLeft <= 3 ? "#E24B4A" : timeLeft <= 6 ? "#EF9F27" : "#534AB7";
@@ -390,42 +326,33 @@ export default function DuelPage() {
       <div className="w-full max-w-md">
         {/* Scores with avatars */}
         <div className="grid grid-cols-3 items-center mb-4">
-          {/* Me */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
-              style={{ background: (me as any)?.accent_color ? (me as any).accent_color + "33" : "#534AB733", color: (me as any)?.accent_color ?? "#7F77DD", border: `1.5px solid ${(me as any)?.accent_color ?? "#534AB7"}44` }}>
-              {(me as any)?.avatar_url
-                ? <img src={(me as any).avatar_url} alt="" className="w-full h-full object-cover" />
-                : (me?.username ?? "?").slice(0,2).toUpperCase()
-              }
+              style={{ background: (me?.accent_color ?? "#534AB7") + "33", color: me?.accent_color ?? "#7F77DD", border: `1.5px solid ${me?.accent_color ?? "#534AB7"}44` }}>
+              {me?.avatar_url ? <img src={me.avatar_url} alt="" className="w-full h-full object-cover" /> : (me?.username ?? "?").slice(0,2).toUpperCase()}
             </div>
             <div>
               <p className="text-xs text-white/40 truncate max-w-16">{me?.username ?? "You"}</p>
               <p className="font-mono text-2xl font-bold text-accent2">{myScore}</p>
             </div>
           </div>
-          {/* Round */}
           <div className="text-center">
-            <p className="text-xs text-white/40 font-mono">{currentRound}/{TOTAL_ROUNDS}</p>
+            <p className="text-xs text-white/40 font-mono">{(room?.current_round ?? 0) + 1}/{TOTAL_ROUNDS}</p>
             <p className="text-white/20 text-xs mt-1">round</p>
           </div>
-          {/* Opponent */}
           <div className="flex items-center gap-2 justify-end">
             <div className="text-right">
               <p className="text-xs text-white/40 truncate max-w-16">{opponent?.username ?? "Opp"}</p>
               <p className="font-mono text-2xl font-bold" style={{ color: "#D85A30" }}>{oppScore}</p>
             </div>
             <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
-              style={{ background: (opponent as any)?.accent_color ? (opponent as any).accent_color + "33" : "#D85A3033", color: (opponent as any)?.accent_color ?? "#D85A30", border: `1.5px solid ${(opponent as any)?.accent_color ?? "#D85A30"}44` }}>
-              {(opponent as any)?.avatar_url
-                ? <img src={(opponent as any).avatar_url} alt="" className="w-full h-full object-cover" />
-                : (opponent?.username ?? "?").slice(0,2).toUpperCase()
-              }
+              style={{ background: (opponent?.accent_color ?? "#D85A30") + "33", color: opponent?.accent_color ?? "#D85A30", border: `1.5px solid ${opponent?.accent_color ?? "#D85A30"}44` }}>
+              {opponent?.avatar_url ? <img src={opponent.avatar_url} alt="" className="w-full h-full object-cover" /> : (opponent?.username ?? "?").slice(0,2).toUpperCase()}
             </div>
           </div>
         </div>
 
-        {/* Progress */}
+        {/* Progress dots */}
         <div className="flex gap-1 mb-4">
           {Array.from({ length: TOTAL_ROUNDS }).map((_, i) => (
             <div key={i} className="flex-1 h-1 rounded-full" style={{
@@ -436,7 +363,7 @@ export default function DuelPage() {
           ))}
         </div>
 
-        {/* Timer bar */}
+        {/* Timer */}
         <div className="h-0.5 bg-white/8 rounded-full mb-6 overflow-hidden">
           <div className="h-full rounded-full transition-all duration-200" style={{ width: `${timerPct}%`, background: timerColor }} />
         </div>
@@ -444,27 +371,26 @@ export default function DuelPage() {
         {/* Word card */}
         <div className="card-solid p-8 text-center mb-4" style={{
           border: phase === "round_result"
-            ? roundWinner === "me" ? "1px solid #1D9E75" : roundWinner === "opponent" ? "1px solid #D85A30" : "1px solid rgba(255,255,255,0.15)"
+            ? roundWinner === "me" ? "1px solid #1D9E75" : roundWinner === "opponent" ? "1px solid #D85A30" : "1px solid rgba(255,255,255,0.1)"
             : "1px solid rgba(83,74,183,0.35)"
         }}>
-          {word && (
+          {word ? (
             <>
               <span className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
-                style={{ background: "#FAEEDA22", color: "#EF9F27" }}>
-                Reading
-              </span>
+                style={{ background: "#FAEEDA22", color: "#EF9F27" }}>Reading</span>
               <div className="font-jp text-6xl mb-2 text-white pop-in">{word.word}</div>
               <p className="text-white/35 text-sm italic mb-2">{word.meaning}</p>
-              <span className="inline-block text-xs px-2 py-0.5 rounded-full mb-2"
+              <span className="inline-block text-xs px-2 py-0.5 rounded-full"
                 style={{
                   background: word.jlpt === "N5" ? "#1D9E7522" : word.jlpt === "N4" ? "#4DB6AC22" : word.jlpt === "N3" ? "#B8860B22" : word.jlpt === "N2" ? "#D85A3022" : "#C6282822",
                   color: word.jlpt === "N5" ? "#1D9E75" : word.jlpt === "N4" ? "#4DB6AC" : word.jlpt === "N3" ? "#B8860B" : word.jlpt === "N2" ? "#D85A30" : "#C62828",
-                }}>
-                {word.jlpt}
-              </span>
-              <p className="text-white/20 text-xs">Type the reading in hiragana or romaji</p>
+                }}>{word.jlpt}</span>
+              <p className="text-white/20 text-xs mt-2">Type the reading in hiragana or romaji</p>
             </>
+          ) : (
+            <div className="font-jp text-4xl text-white/10 animate-pulse">漢</div>
           )}
+
           {phase === "round_result" && roundWinner && (
             <div className="mt-4 pop-in">
               <p className="text-sm font-medium" style={{
@@ -483,8 +409,7 @@ export default function DuelPage() {
         </div>
 
         {/* Input */}
-        <input
-          ref={inputRef}
+        <input ref={inputRef}
           className={`input-field text-center text-lg mb-3 ${phase === "round_result" && roundWinner === "me" ? "input-correct" : ""}`}
           placeholder="Type your answer…"
           value={answer}
@@ -498,7 +423,7 @@ export default function DuelPage() {
           {timeLeft}s · first correct answer wins the round
         </p>
 
-        <button onClick={concede}
+        <button onClick={handleConcede}
           className="w-full text-xs text-white/15 hover:text-red-400/60 transition-colors py-2 border border-white/5 rounded-xl hover:border-red-400/20">
           🏳 Concede — forfeit the match
         </button>
@@ -510,58 +435,46 @@ export default function DuelPage() {
 function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, conceded }: {
   room: Room; me: Profile | null; opponent: Profile | null;
   isP1: boolean; router: ReturnType<typeof useRouter>;
-  roundLog: { winner: "me"|"opponent"|"timeout"; word: VocabWord; answer: string }[];
-  eloChange: number | null;
-  conceded: boolean;
+  roundLog: RoundLog[]; eloChange: number | null; conceded: boolean;
 }) {
   const myScore = isP1 ? room.p1_score : room.p2_score;
   const oppScore = isP1 ? room.p2_score : room.p1_score;
-  // Use winner_id for definitive result if available
-  const winnerId = (room as any).winner_id;
   const myId = isP1 ? room.player1_id : room.player2_id;
-  const iWon = winnerId ? winnerId === myId : myScore > oppScore;
-  const isDraw = !winnerId && myScore === oppScore;
+  const iWon = room.winner_id ? room.winner_id === myId : myScore > oppScore;
+  const isDraw = !room.winner_id && myScore === oppScore;
 
   return (
     <main className="min-h-screen px-4 py-10 relative z-10 max-w-lg mx-auto">
-      {/* Result card */}
       <div className="card-solid p-6 text-center mb-4 slide-up">
         <div className="font-jp text-5xl mb-3">{iWon ? "勝" : isDraw ? "引" : "敗"}</div>
         <h1 className="text-2xl font-semibold mb-1">{iWon ? "Victory!" : isDraw ? "Draw" : "Defeat"}</h1>
-        {/* Players with avatars */}
-        <div className="flex items-center justify-center gap-4 mb-5">
-          {/* Me */}
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold flex-shrink-0"
-              style={{ background: (me?.accent_color ?? "#534AB7") + "33", color: me?.accent_color ?? "#534AB7", border: `2px solid ${me?.accent_color ?? "#534AB7"}44` }}>
-              {me?.avatar_url
-                ? <img src={me.avatar_url} alt="" className="w-full h-full object-cover" />
-                : (me?.username ?? "?").slice(0,2).toUpperCase()
-              }
+        {conceded && !iWon && <p className="text-white/30 text-xs mb-1">You conceded the match</p>}
+        {conceded && iWon && <p className="text-white/30 text-xs mb-1">{opponent?.username} conceded</p>}
+
+        <div className="flex items-center justify-center gap-4 my-4">
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold"
+              style={{ background: (me?.accent_color ?? "#534AB7") + "33", color: me?.accent_color ?? "#7F77DD", border: `2px solid ${me?.accent_color ?? "#534AB7"}44` }}>
+              {me?.avatar_url ? <img src={me.avatar_url} alt="" className="w-full h-full object-cover" /> : (me?.username ?? "?").slice(0,2).toUpperCase()}
             </div>
             <p className="text-xs text-white/50">{me?.username ?? "You"}</p>
           </div>
-          <span className="text-white/20 font-mono">vs</span>
-          {/* Opponent */}
-          <a href={`/user/${opponent?.username}`} className="flex flex-col items-center gap-1.5 hover:opacity-80 transition-opacity">
-            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold flex-shrink-0"
+          <span className="text-white/20 text-sm">vs</span>
+          <a href={`/user/${opponent?.username}`} className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity">
+            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold"
               style={{ background: (opponent?.accent_color ?? "#D85A30") + "33", color: opponent?.accent_color ?? "#D85A30", border: `2px solid ${opponent?.accent_color ?? "#D85A30"}44` }}>
-              {opponent?.avatar_url
-                ? <img src={opponent.avatar_url} alt="" className="w-full h-full object-cover" />
-                : (opponent?.username ?? "?").slice(0,2).toUpperCase()
-              }
+              {opponent?.avatar_url ? <img src={opponent.avatar_url} alt="" className="w-full h-full object-cover" /> : (opponent?.username ?? "?").slice(0,2).toUpperCase()}
             </div>
-            <p className="text-xs text-white/50">{opponent?.username ?? "Opponent"}</p>
+            <p className="text-xs text-white/50">{opponent?.username ?? "?"}</p>
           </a>
         </div>
 
-        {/* Scores */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           {[
             { label: me?.username ?? "You", score: myScore, color: "#534AB7" },
-            { label: opponent?.username ?? "Opponent", score: oppScore, color: "#D85A30" },
+            { label: opponent?.username ?? "Opp", score: oppScore, color: "#D85A30" },
           ].map(s => (
-            <div key={s.label} className="bg-white/4 rounded-xl p-4">
+            <div key={s.label} className="bg-white/4 rounded-xl p-3">
               <p className="text-xs text-white/40 truncate mb-1">{s.label}</p>
               <p className="font-mono text-2xl font-bold" style={{ color: s.color }}>{s.score}</p>
               <p className="text-white/20 text-xs">/ {TOTAL_ROUNDS}</p>
@@ -569,7 +482,6 @@ function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, c
           ))}
         </div>
 
-        {/* ELO change */}
         {eloChange !== null && (
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl mb-4"
             style={{
@@ -589,7 +501,6 @@ function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, c
         </div>
       </div>
 
-      {/* Round recap */}
       {roundLog.length > 0 && (
         <div className="card-solid overflow-hidden">
           <div className="px-5 py-3 border-b border-white/5">
@@ -597,25 +508,20 @@ function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, c
           </div>
           {roundLog.map((r, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
-              {/* Round number */}
               <span className="font-mono text-xs text-white/20 w-5 flex-shrink-0">{i + 1}</span>
-              {/* Winner indicator */}
               <div className="w-1.5 h-8 rounded-full flex-shrink-0" style={{
                 background: r.winner === "me" ? "#534AB7" : r.winner === "opponent" ? "#D85A30" : "rgba(255,255,255,0.15)"
               }} />
-              {/* Word */}
               <div className="font-jp text-xl w-12 text-center flex-shrink-0">{r.word.word}</div>
-              {/* Details */}
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white/30 truncate">{r.word.meaning}</p>
                 <p className="text-sm font-mono text-white/60">{r.word.reading}</p>
               </div>
-              {/* Who won */}
               <div className="text-right flex-shrink-0">
                 <p className="text-xs font-medium" style={{
                   color: r.winner === "me" ? "#5DCAA5" : r.winner === "opponent" ? "#D85A30" : "#9090a8"
                 }}>
-                  {r.winner === "me" ? `✓ You` : r.winner === "opponent" ? `✓ ${opponent?.username ?? "Opp"}` : "⏱ Time"}
+                  {r.winner === "me" ? "✓ You" : r.winner === "opponent" ? `✓ ${opponent?.username ?? "Opp"}` : "⏱ Time"}
                 </p>
                 <p className="text-xs text-white/20 font-mono">{r.answer}</p>
               </div>
