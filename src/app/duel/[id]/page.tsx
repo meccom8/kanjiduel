@@ -47,6 +47,7 @@ export default function DuelPage() {
   const isP1 = useRef(false);
   const lockedRef = useRef(false);
   const lastRoundRef = useRef(-1);
+  const roundStartedAtRef = useRef<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -134,6 +135,7 @@ export default function DuelPage() {
     ) {
       lastRoundRef.current = updated.current_round;
       lockedRef.current = false;
+      roundStartedAtRef.current = null; // Reset so new timer can start
       if (timerRef.current) clearInterval(timerRef.current);
       setAnswer("");
       setRoundWinner(null);
@@ -144,6 +146,9 @@ export default function DuelPage() {
   }
 
   function startTimer(startedAt: string | null) {
+    // Don't restart timer if same round already running
+    if (startedAt && startedAt === roundStartedAtRef.current) return;
+    roundStartedAtRef.current = startedAt;
     if (timerRef.current) clearInterval(timerRef.current);
     const started = startedAt ? new Date(startedAt).getTime() : Date.now();
     timerRef.current = setInterval(() => {
