@@ -352,19 +352,40 @@ export default function DuelPage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative z-10">
       <div className="w-full max-w-md">
-        {/* Scores */}
+        {/* Scores with avatars */}
         <div className="grid grid-cols-3 items-center mb-4">
-          <div>
-            <p className="text-xs text-white/40 uppercase tracking-widest mb-1 truncate">{me?.username ?? "You"}</p>
-            <p className="font-mono text-3xl font-bold text-accent2">{myScore}</p>
+          {/* Me */}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
+              style={{ background: (me as any)?.accent_color ? (me as any).accent_color + "33" : "#534AB733", color: (me as any)?.accent_color ?? "#7F77DD", border: `1.5px solid ${(me as any)?.accent_color ?? "#534AB7"}44` }}>
+              {(me as any)?.avatar_url
+                ? <img src={(me as any).avatar_url} alt="" className="w-full h-full object-cover" />
+                : (me?.username ?? "?").slice(0,2).toUpperCase()
+              }
+            </div>
+            <div>
+              <p className="text-xs text-white/40 truncate max-w-16">{me?.username ?? "You"}</p>
+              <p className="font-mono text-2xl font-bold text-accent2">{myScore}</p>
+            </div>
           </div>
+          {/* Round */}
           <div className="text-center">
             <p className="text-xs text-white/40 font-mono">{currentRound}/{TOTAL_ROUNDS}</p>
             <p className="text-white/20 text-xs mt-1">round</p>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-white/40 uppercase tracking-widest mb-1 truncate">{opponent?.username ?? "Opponent"}</p>
-            <p className="font-mono text-3xl font-bold" style={{ color: "#D85A30" }}>{oppScore}</p>
+          {/* Opponent */}
+          <div className="flex items-center gap-2 justify-end">
+            <div className="text-right">
+              <p className="text-xs text-white/40 truncate max-w-16">{opponent?.username ?? "Opp"}</p>
+              <p className="font-mono text-2xl font-bold" style={{ color: "#D85A30" }}>{oppScore}</p>
+            </div>
+            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
+              style={{ background: (opponent as any)?.accent_color ? (opponent as any).accent_color + "33" : "#D85A3033", color: (opponent as any)?.accent_color ?? "#D85A30", border: `1.5px solid ${(opponent as any)?.accent_color ?? "#D85A30"}44` }}>
+              {(opponent as any)?.avatar_url
+                ? <img src={(opponent as any).avatar_url} alt="" className="w-full h-full object-cover" />
+                : (opponent?.username ?? "?").slice(0,2).toUpperCase()
+              }
+            </div>
           </div>
         </div>
 
