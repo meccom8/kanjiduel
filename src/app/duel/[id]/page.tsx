@@ -223,10 +223,19 @@ export default function DuelPage() {
         await callFinishMatch(p1s, p2s);
       } else {
         await supabase.from("rooms").update({ current_round: nextRound, current_kanji: null }).eq("id", roomId);
-        setTimeout(async () => { lockedRef.current = false; await sendNextWord(); }, 2000);
+        // Unlock and send next word after delay
+        setTimeout(async () => {
+          lockedRef.current = false;
+          roundStartedAtRef.current = null;
+          await sendNextWord();
+        }, 1500);
       }
     } else {
-      setTimeout(() => { lockedRef.current = false; }, 2000);
+      // P2: unlock after delay, polling will detect new word from P1
+      setTimeout(() => {
+        lockedRef.current = false;
+        roundStartedAtRef.current = null;
+      }, 1500);
     }
   }
 
@@ -255,9 +264,16 @@ export default function DuelPage() {
         current_round: nextRound, current_kanji: null,
       }).eq("id", roomId);
       if (isP1.current) {
-        setTimeout(async () => { lockedRef.current = false; await sendNextWord(); }, 2000);
+        setTimeout(async () => {
+          lockedRef.current = false;
+          roundStartedAtRef.current = null;
+          await sendNextWord();
+        }, 1500);
       } else {
-        setTimeout(() => { lockedRef.current = false; }, 2000);
+        setTimeout(() => {
+          lockedRef.current = false;
+          roundStartedAtRef.current = null;
+        }, 1500);
       }
     }
   }
