@@ -77,21 +77,23 @@ export default function Matchmaking() {
     const elapsed = searchTime;
     const currentRange = Math.min(MAX_ELO_RANGE, ELO_RANGE_START + Math.floor(elapsed / 15) * ELO_RANGE_EXPAND);
 
-    // Look for rooms within ELO range
+    // Look for waiting rooms
     const { data: waitingRooms } = await supabase
       .from("rooms")
-      .select("id, player1_id, profiles!player1_id(elo)")
+      .select("id, player1_id")
       .eq("status", "waiting")
       .neq("player1_id", uid)
       .gt("created_at", thirtySecondsAgo)
       .order("created_at", { ascending: true })
       .limit(20);
 
-    // Find best ELO match within range
+    // Get ELO for each room owner and find best match
     let bestRoom: any = null;
     let bestDiff = currentRange + 1;
     for (const room of waitingRooms ?? []) {
-      const oppElo = (room.profiles as any)?.elo ?? 500;
+      const { data: oppProfile } = await supabase
+        .from("profiles").select("elo").eq("id", room.player1_id).single();
+      const oppElo = oppProfile?.elo ?? 500;
       const diff = Math.abs(oppElo - elo);
       if (diff <= currentRange && diff < bestDiff) {
         bestDiff = diff;
