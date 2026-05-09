@@ -21,12 +21,12 @@ const NAV_ITEMS = [
   { href: "/practice", label: "Practice solo", icon: "📖", primary: false },
   { href: "/dictionary", label: "Dictionary", icon: "📚", primary: false },
   { href: "/leaderboard", label: "Leaderboard", icon: "🏆", primary: false },
-  { href: "/profile", label: "My profile", icon: "👤", primary: false },
 ];
 
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showRanks, setShowRanks] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -74,9 +74,9 @@ export default function Home() {
         {/* Player info */}
         <div className="p-5 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
           <div className="flex items-center gap-3">
-            {/* Avatar */}
-            <div className="relative flex-shrink-0">
-              <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold"
+            {/* Avatar — click to go to profile */}
+            <Link href="/profile" className="relative flex-shrink-0 group">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold transition-opacity group-hover:opacity-75 cursor-pointer"
                 style={{ background: tier.bg + "33", color: tier.color, border: `1.5px solid ${tier.color}44` }}>
                 {profile.username.slice(0, 2).toUpperCase()}
               </div>
@@ -84,16 +84,17 @@ export default function Home() {
                 <div className="absolute -top-1 -right-1 text-xs bg-orange-500 rounded-full w-4 h-4 flex items-center justify-center"
                   style={{ fontSize: "9px" }}>🔥</div>
               )}
-            </div>
+            </Link>
 
             {/* Name + tier */}
             <div className="flex-1 min-w-0">
               <p className="font-medium text-white truncate">{profile.username}</p>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs px-2 py-0.5 rounded-full"
+                <button onClick={() => setShowRanks(true)}
+                  className="text-xs px-2 py-0.5 rounded-full cursor-pointer transition-opacity hover:opacity-70"
                   style={{ background: tier.bg + "22", color: tier.color, border: `1px solid ${tier.color}33` }}>
                   ⬡ {tier.name}
-                </span>
+                </button>
                 {profile.streak > 0 && (
                   <span className="text-xs text-orange-400">
                     {profile.streak}d streak
@@ -164,6 +165,101 @@ export default function Home() {
           </button>
         </div>
       </div>
+
+      {/* Ranks Modal */}
+      {showRanks && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+          onClick={() => setShowRanks(false)}>
+          <div className="w-full max-w-sm rounded-2xl p-6 slide-up"
+            style={{ background: "#0d0d1a", border: "1px solid rgba(127,119,221,0.3)" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-white">Rank ladder</h2>
+              <button onClick={() => setShowRanks(false)} className="text-white/30 hover:text-white/60 transition-colors text-xl">×</button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {[
+                { name: "Bronze I",       min: 0,    color: "#8D6E63" },
+                { name: "Bronze II",      min: 200,  color: "#8D6E63" },
+                { name: "Silver I",       min: 400,  color: "#757575" },
+                { name: "Silver II",      min: 600,  color: "#757575" },
+                { name: "Gold I",         min: 800,  color: "#B8860B" },
+                { name: "Gold II",        min: 1000, color: "#B8860B" },
+                { name: "Platinum I",     min: 1200, color: "#4DB6AC" },
+                { name: "Platinum II",    min: 1400, color: "#4DB6AC" },
+                { name: "Diamond",        min: 1600, color: "#5C6BC0" },
+                { name: "Champion",       min: 1800, color: "#7B1FA2" },
+                { name: "Grand Champion", min: 2000, color: "#C62828" },
+              ].map(r => (
+                <div key={r.name} className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                  style={{
+                    background: profile.elo >= r.min ? r.color + "15" : "rgba(255,255,255,0.02)",
+                    border: profile.elo >= r.min && profile.elo < (r.min + 200) ? `1px solid ${r.color}` : "1px solid transparent",
+                  }}>
+                  <span className="text-sm font-bold w-4" style={{ color: r.color }}>⬡</span>
+                  <span className="flex-1 text-sm" style={{ color: profile.elo >= r.min ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)" }}>
+                    {r.name}
+                    {profile.elo >= r.min && profile.elo < (r.min + 200) && (
+                      <span className="ml-2 text-xs" style={{ color: r.color }}>← you</span>
+                    )}
+                  </span>
+                  <span className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>{r.min}+</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-center text-xs text-white/20 mt-4">Your ELO: <span className="font-mono" style={{ color: tier.color }}>{profile.elo}</span></p>
+          </div>
+        </div>
+      )}
+
+      {/* Ranks Modal */}
+      {showRanks && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+          onClick={() => setShowRanks(false)}>
+          <div className="w-full max-w-sm rounded-2xl overflow-hidden slide-up"
+            style={{ background: "#0d0d1a", border: "1px solid rgba(127,119,221,0.3)" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-white">Rank ladder</p>
+                <button onClick={() => setShowRanks(false)} className="text-white/30 hover:text-white/60 transition-colors text-lg">✕</button>
+              </div>
+              <p className="text-white/40 text-xs mt-0.5">Climb from Bronze to Grand Champion</p>
+            </div>
+            <div className="p-3 flex flex-col gap-1">
+              {[
+                { name: "Bronze I",       min: 0,    color: "#8D6E63", bg: "#EFEBE9" },
+                { name: "Bronze II",      min: 200,  color: "#8D6E63", bg: "#EFEBE9" },
+                { name: "Silver I",       min: 400,  color: "#757575", bg: "#F5F5F5" },
+                { name: "Silver II",      min: 600,  color: "#757575", bg: "#F5F5F5" },
+                { name: "Gold I",         min: 800,  color: "#B8860B", bg: "#FFFDE7" },
+                { name: "Gold II",        min: 1000, color: "#B8860B", bg: "#FFFDE7" },
+                { name: "Platinum I",     min: 1200, color: "#4DB6AC", bg: "#E0F2F1" },
+                { name: "Platinum II",    min: 1400, color: "#4DB6AC", bg: "#E0F2F1" },
+                { name: "Diamond",        min: 1600, color: "#5C6BC0", bg: "#E8EAF6" },
+                { name: "Champion",       min: 1800, color: "#7B1FA2", bg: "#F3E5F5" },
+                { name: "Grand Champion", min: 2000, color: "#C62828", bg: "#FFEBEE" },
+              ].map(r => (
+                <div key={r.name} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                  style={{
+                    background: profile.elo >= r.min && profile.elo < (r.min + 200) ? r.bg + "15" : "rgba(255,255,255,0.02)",
+                    border: profile.elo >= r.min && profile.elo < (r.min + 200) ? `1px solid ${r.color}44` : "1px solid transparent",
+                  }}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                    style={{ background: r.bg + "33", color: r.color }}>⬡</div>
+                  <span className="text-sm font-medium flex-1" style={{ color: r.color }}>{r.name}</span>
+                  <span className="font-mono text-xs text-white/30">{r.min}+ ELO</span>
+                  {profile.elo >= r.min && profile.elo < (r.min + 200) && (
+                    <span className="text-xs text-white/50">← you</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats strip */}
       <div className="mt-8 flex gap-10 text-center slide-up">
