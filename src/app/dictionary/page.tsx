@@ -170,7 +170,7 @@ export default function Dictionary() {
                   target="_blank" rel="noopener noreferrer"
                   className="text-xs text-white/20 hover:text-yellow-400 transition-colors"
                   title="WaniKani">WK</a>
-                <a href={`https://bunpro.jp/search?q=${encodeURIComponent(w.word)}`}
+                <a href={`https://bunpro.jp/vocabulary?search=${encodeURIComponent(w.word)}`}
                   target="_blank" rel="noopener noreferrer"
                   className="text-xs text-white/20 hover:text-purple-400 transition-colors"
                   title="Bunpro">BP</a>
