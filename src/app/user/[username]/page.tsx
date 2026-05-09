@@ -32,6 +32,7 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [showRanks, setShowRanks] = useState(false);
+  const [matches, setMatches] = useState<any[]>([]);
   const supabase = createClient();
 
   useEffect(() => {
@@ -58,6 +59,29 @@ export default function UserProfile() {
         jlpt[s.jlpt].wrong += s.wrong;
       }
       setJlptStats(jlpt);
+
+      // Load match history
+      const { data: matchData } = await supabase
+        .from("matches")
+        .select("*")
+        .or(`player1_id.eq.${data.id},player2_id.eq.${data.id}`)
+        .order("played_at", { ascending: false })
+        .limit(15);
+
+      if (matchData) {
+        const oppIds = [...new Set(matchData.map((m: any) =>
+          m.player1_id === data.id ? m.player2_id : m.player1_id
+        ))];
+        const { data: opps } = await supabase
+          .from("profiles").select("id, username").in("id", oppIds);
+        const oppMap: Record<string, string> = {};
+        opps?.forEach((o: any) => { oppMap[o.id] = o.username; });
+        setMatches(matchData.map((m: any) => ({
+          ...m,
+          opponent_username: oppMap[m.player1_id === data.id ? m.player2_id : m.player1_id] ?? "?",
+        })));
+      }
+
       setLoading(false);
     })();
   }, [username]);
@@ -199,10 +223,41 @@ export default function UserProfile() {
         </div>
       )}
 
-      {/* Challenge button */}
-      <Link href="/matchmaking">
-        <button className="btn-primary">⚡ Challenge {profile.username}</button>
-      </Link>
+      {/* Match history */}
+      {matches.length > 0 && (
+        <div className="card-solid overflow-hidden mb-4">
+          <div className="px-5 py-3 border-b border-white/5">
+            <p className="text-xs text-white/40 uppercase tracking-widest">Match history</p>
+          </div>
+          {matches.map((m, i) => {
+            const isP1 = m.player1_id === profile.id;
+            const myScore = isP1 ? m.p1_score : m.p2_score;
+            const oppScore = isP1 ? m.p2_score : m.p1_score;
+            const eloChange = isP1 ? m.p1_elo_change : m.p2_elo_change;
+            const won = m.winner_id === profile.id ? true : m.winner_id === null ? null : false;
+            return (
+              <div key={m.id} className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0">
+                <div className="w-1.5 h-8 rounded-full flex-shrink-0"
+                  style={{ background: won === true ? "#1D9E75" : won === false ? "#E24B4A" : "rgba(255,255,255,0.15)" }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">vs {m.opponent_username}</p>
+                  <p className="text-xs text-white/30 mt-0.5">{m.rounds} rounds</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-mono text-sm font-bold">
+                    <span style={{ color: "#7F77DD" }}>{myScore}</span>
+                    <span className="text-white/20 mx-1">-</span>
+                    <span style={{ color: "#D85A30" }}>{oppScore}</span>
+                  </p>
+                  <p className="text-xs font-mono mt-0.5" style={{ color: eloChange >= 0 ? "#5DCAA5" : "#E24B4A" }}>
+                    {eloChange >= 0 ? "+" : ""}{eloChange} ELO
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Ranks Modal */}
       {showRanks && (
