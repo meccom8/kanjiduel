@@ -45,6 +45,7 @@ export default function DuelPage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isP1 = useRef(false);
   const lockedRef = useRef(false);
+  const lastRoundRef = useRef(-1);
 
   // Load initial data
   useEffect(() => {
