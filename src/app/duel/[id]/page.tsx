@@ -52,6 +52,7 @@ export default function DuelPage() {
   const lockedRef = useRef(false);
   const lastRoundRef = useRef(-1);
   const roundStartedAtRef = useRef<string | null>(null);
+  const concedeProcessedRef = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -132,8 +133,27 @@ export default function DuelPage() {
   function applyRoomUpdate(updated: Room) {
     setRoom(updated);
     if (updated.status === "finished") {
-      // Compute ELO change for P2 (P1 already computed it in endGame)
-      if (!isP1.current && eloChange === null) {
+      // If winner_id is set (concede case), ELO already updated — just show result
+      if ((updated as any).winner_id && !isP1.current && !concedeProcessedRef.current) {
+        concedeProcessedRef.current = true;
+        // Compute what the ELO change was for P2 (winner)
+        const myId = updated.player2_id;
+        const oppId = updated.player1_id;
+        const { data: myP } = await supabase.from("profiles").select("elo").eq("id", myId).single();
+        if (myP) {
+          // ELO already updated - just fetch new value to show delta
+          // We stored p2_elo_change in matches table
+          const { data: match } = await supabase.from("matches")
+            .select("p2_elo_change")
+            .eq("player2_id", myId)
+            .order("played_at", { ascending: false })
+            .limit(1).single();
+          if (match) setEloChange(match.p2_elo_change);
+        }
+        setPhase("finished"); return;
+      }
+      // Normal endGame case for P2
+      if (!isP1.current && eloChange === null && !(updated as any).winner_id) {
         (async () => {
           const p1Id = updated.player1_id;
           const p2Id = updated.player2_id;
