@@ -16,6 +16,7 @@ interface Room {
   p1_score: number;
   p2_score: number;
   current_kanji: VocabWord | null;
+  winner_id?: string | null;
   question_type: string | null;
   round_started_at: string | null;
 }
@@ -42,6 +43,7 @@ export default function DuelPage() {
   const [history, setHistory] = useState<("me" | "opponent" | "timeout")[]>([]);
   const [roundLog, setRoundLog] = useState<{ winner: "me"|"opponent"|"timeout"; word: VocabWord; answer: string }[]>([]);
   const [eloChange, setEloChange] = useState<number | null>(null);
+  const [conceded, setConceded] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -295,9 +297,11 @@ export default function DuelPage() {
     if (!room || !me) return;
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
-    // Force the winner to be the opponent directly
+
     const winnerId = isP1.current ? room.player2_id : room.player1_id;
     const loserId = isP1.current ? room.player1_id : room.player2_id;
+    const p1Score = isP1.current ? 0 : TOTAL_ROUNDS;
+    const p2Score = isP1.current ? TOTAL_ROUNDS : 0;
 
     const { data: winnerP } = await supabase.from("profiles").select("elo,wins,losses").eq("id", winnerId).single();
     const { data: loserP } = await supabase.from("profiles").select("elo,wins,losses").eq("id", loserId).single();
@@ -317,8 +321,8 @@ export default function DuelPage() {
           player1_id: room.player1_id,
           player2_id: room.player2_id,
           winner_id: winnerId,
-          p1_score: isP1.current ? 0 : TOTAL_ROUNDS,
-          p2_score: isP1.current ? TOTAL_ROUNDS : 0,
+          p1_score: p1Score,
+          p2_score: p2Score,
           p1_elo_change: isP1.current ? loserDelta : winnerDelta,
           p2_elo_change: isP1.current ? winnerDelta : loserDelta,
           rounds: TOTAL_ROUNDS,
@@ -327,8 +331,18 @@ export default function DuelPage() {
       ]);
       setEloChange(loserDelta);
     }
-    await supabase.from("rooms").update({ status: "finished" }).eq("id", roomId);
-    router.push("/");
+
+    // Update room with concede flag and scores so both players see correct result
+    await supabase.from("rooms").update({
+      status: "finished",
+      p1_score: p1Score,
+      p2_score: p2Score,
+      winner_id: winnerId,
+    }).eq("id", roomId);
+
+    // Show defeat screen instead of going home directly
+    setConceded(true);
+    setPhase("finished");
   }
 
   async function endGame(p1Score: number, p2Score: number) {
@@ -376,7 +390,7 @@ export default function DuelPage() {
   if (phase === "loading") return <FullPageMsg text="Loading duel…" pulse />;
   if (phase === "waiting") return <FullPageMsg text="Waiting for opponent…" pulse />;
   if (phase === "finished" && room) {
-    return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current} router={router} roundLog={roundLog} eloChange={eloChange} />;
+    return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current} router={router} roundLog={roundLog} eloChange={eloChange} conceded={conceded} />;
   }
 
   const myScore = isP1.current ? room?.p1_score ?? 0 : room?.p2_score ?? 0;
@@ -508,16 +522,20 @@ export default function DuelPage() {
   );
 }
 
-function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange }: {
+function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, conceded }: {
   room: Room; me: Profile | null; opponent: Profile | null;
   isP1: boolean; router: ReturnType<typeof useRouter>;
   roundLog: { winner: "me"|"opponent"|"timeout"; word: VocabWord; answer: string }[];
   eloChange: number | null;
+  conceded: boolean;
 }) {
   const myScore = isP1 ? room.p1_score : room.p2_score;
   const oppScore = isP1 ? room.p2_score : room.p1_score;
-  const iWon = myScore > oppScore;
-  const isDraw = myScore === oppScore;
+  // Use winner_id for definitive result if available
+  const winnerId = (room as any).winner_id;
+  const myId = isP1 ? room.player1_id : room.player2_id;
+  const iWon = winnerId ? winnerId === myId : myScore > oppScore;
+  const isDraw = !winnerId && myScore === oppScore;
 
   return (
     <main className="min-h-screen px-4 py-10 relative z-10 max-w-lg mx-auto">
