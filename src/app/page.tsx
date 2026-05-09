@@ -131,6 +131,9 @@ function LoggedInLobby({ profile }: { profile: Profile }) {
         <Link href="/leaderboard">
           <button className="btn-ghost">Leaderboard</button>
         </Link>
+        <Link href="/dictionary">
+          <button className="btn-ghost">📚 Dictionary</button>
+        </Link>
         <Link href="/profile">
           <button className="btn-ghost">My profile</button>
         </Link>
