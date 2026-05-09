@@ -37,6 +37,12 @@ export default function Home() {
 
   if (loading) return <LoadingScreen />;
 
+  // Redirect non-logged-in users to landing page
+  if (!profile) {
+    if (typeof window !== "undefined") window.location.href = "/landing";
+    return <LoadingScreen />;
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16 relative z-10">
       {/* Header */}
