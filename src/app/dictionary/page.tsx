@@ -162,24 +162,18 @@ export default function Dictionary() {
 
               {/* Links */}
               <div className="col-span-1 flex justify-end gap-2">
-                <a
-                  href={`https://jisho.org/search/${encodeURIComponent(w.word)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <a href={`https://jisho.org/search/${encodeURIComponent(w.word)}`}
+                  target="_blank" rel="noopener noreferrer"
                   className="text-xs text-white/20 hover:text-accent2 transition-colors"
-                  title="View on Jisho.org"
-                >
-                  辞
-                </a>
-                <a
-                  href={`https://www.wanikani.com/search?query=${encodeURIComponent(w.word)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  title="Jisho.org">辞</a>
+                <a href={`https://www.wanikani.com/search?query=${encodeURIComponent(w.word)}`}
+                  target="_blank" rel="noopener noreferrer"
                   className="text-xs text-white/20 hover:text-yellow-400 transition-colors"
-                  title="Search on WaniKani"
-                >
-                  WK
-                </a>
+                  title="WaniKani">WK</a>
+                <a href={`https://bunpro.jp/search?q=${encodeURIComponent(w.word)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-white/20 hover:text-purple-400 transition-colors"
+                  title="Bunpro">BP</a>
               </div>
             </div>
           ))
@@ -257,6 +251,11 @@ export default function Dictionary() {
         <a href="https://www.wanikani.com" target="_blank" rel="noopener noreferrer"
           className="hover:text-white/40 transition-colors underline">
           WaniKani
+        </a>
+        {" · "}
+        <a href="https://bunpro.jp" target="_blank" rel="noopener noreferrer"
+          className="hover:text-white/40 transition-colors underline">
+          Bunpro
         </a>
       </p>
     </main>
