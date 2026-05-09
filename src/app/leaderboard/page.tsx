@@ -20,19 +20,22 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 export default function Leaderboard() {
   const [players, setPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const supabase = createClient();
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("profiles")
         .select("id, username, elo, wins, losses, draws, avatar_url, accent_color")
         .order("elo", { ascending: false })
         .limit(50);
+      if (search.trim()) query = query.ilike("username", `%${search}%`);
+      const { data } = await query;
       setPlayers(data ?? []);
       setLoading(false);
     })();
-  }, []);
+  }, [search]);
 
   return (
     <main className="min-h-screen px-4 py-12 relative z-10 max-w-lg mx-auto">
@@ -48,6 +51,16 @@ export default function Leaderboard() {
             ⚡ Play
           </button>
         </Link>
+      </div>
+
+      {/* Search */}
+      <div className="mb-4">
+        <input
+          className="input-field"
+          placeholder="Search player..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
 
       {loading ? (
