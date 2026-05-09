@@ -32,6 +32,7 @@ export default function ProfilePage() {
   const [jlptStats, setJlptStats] = useState<Record<string,{correct:number;wrong:number}>>({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"matches"|"kanji"|"jlpt">("matches");
+  const [showRanks, setShowRanks] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -100,7 +101,7 @@ export default function ProfilePage() {
                 </span>
               )}
             </div>
-            <span className="text-xs px-2.5 py-1 rounded-full mt-1 inline-block font-medium" style={{background:tier.bg+"33",color:tier.color}}>⬡ {tier.name}</span>
+            <button onClick={() => setShowRanks(true)} className="text-xs px-2.5 py-1 rounded-full mt-1 inline-block font-medium hover:opacity-80 transition-opacity" style={{background:tier.bg+"33",color:tier.color}}>⬡ {tier.name}</button>
           </div>
           <div className="text-right flex-shrink-0">
             <p className="font-mono text-2xl font-bold" style={{color:tier.color}}>{profile.elo}</p>
@@ -146,6 +147,50 @@ export default function ProfilePage() {
         <Link href="/daily"><button className="btn-ghost" style={{fontSize:13}}>🗓 Daily</button></Link>
         <Link href="/settings"><button className="btn-ghost" style={{fontSize:13}}>✏️ Edit</button></Link>
       </div>
+
+      {showRanks && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+          onClick={() => setShowRanks(false)}>
+          <div className="w-full max-w-sm rounded-2xl overflow-hidden"
+            style={{ background: "#0d0d1a", border: "1px solid rgba(127,119,221,0.3)" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-white">Rank ladder</p>
+                <p className="text-white/40 text-xs mt-0.5">Climb from Bronze to Grand Champion</p>
+              </div>
+              <button onClick={() => setShowRanks(false)} className="text-white/30 hover:text-white/60 text-lg">✕</button>
+            </div>
+            <div className="p-3 flex flex-col gap-1">
+              {[
+                { name: "Bronze I",       min: 0,    max: 200,  color: "#8D6E63" },
+                { name: "Bronze II",      min: 200,  max: 400,  color: "#8D6E63" },
+                { name: "Silver I",       min: 400,  max: 600,  color: "#757575" },
+                { name: "Silver II",      min: 600,  max: 800,  color: "#757575" },
+                { name: "Gold I",         min: 800,  max: 1000, color: "#B8860B" },
+                { name: "Gold II",        min: 1000, max: 1200, color: "#B8860B" },
+                { name: "Platinum I",     min: 1200, max: 1400, color: "#4DB6AC" },
+                { name: "Platinum II",    min: 1400, max: 1600, color: "#4DB6AC" },
+                { name: "Diamond",        min: 1600, max: 1800, color: "#5C6BC0" },
+                { name: "Champion",       min: 1800, max: 2000, color: "#7B1FA2" },
+                { name: "Grand Champion", min: 2000, max: 9999, color: "#C62828" },
+              ].map(r => {
+                const isMe = profile.elo >= r.min && profile.elo < r.max;
+                return (
+                  <div key={r.name} className="flex items-center gap-3 px-3 py-2 rounded-xl transition-all"
+                    style={{ background: isMe ? r.color + "15" : "rgba(255,255,255,0.02)", border: isMe ? `1px solid ${r.color}44` : "1px solid transparent" }}>
+                    <span className="text-sm" style={{ color: r.color }}>⬡</span>
+                    <span className="text-sm font-medium flex-1" style={{ color: r.color }}>{r.name}</span>
+                    <span className="font-mono text-xs text-white/30">{r.min}+</span>
+                    {isMe && <span className="text-xs text-white/40">← you</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-1 mb-4 bg-white/4 rounded-xl p-1">
         {(["matches","kanji","jlpt"] as const).map(t => (
