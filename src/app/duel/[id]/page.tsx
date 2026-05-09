@@ -160,17 +160,24 @@ export default function DuelPage() {
       updated.status === "active" &&
       updated.current_round !== lastRoundRef.current
     ) {
-      // Detect if opponent won the previous round
+      // Log the round result when a new round starts (detect score change)
       setRoom(prev => {
-        if (prev && updated.current_kanji !== prev.current_kanji) {
+        if (prev && prev.current_kanji && updated.current_round !== prev.current_round) {
           const prevMyScore = isP1.current ? prev.p1_score : prev.p2_score;
           const newMyScore = isP1.current ? updated.p1_score : updated.p2_score;
           const prevOppScore = isP1.current ? prev.p2_score : prev.p1_score;
           const newOppScore = isP1.current ? updated.p2_score : updated.p1_score;
-          if (newOppScore > prevOppScore && newMyScore === prevMyScore && prev.current_kanji) {
-            const w = prev.current_kanji as VocabWord;
+          const w = prev.current_kanji as VocabWord;
+          if (newOppScore > prevOppScore) {
+            // Opponent won this round
             setRoundLog(l => [...l, { winner: "opponent", word: w, answer: w.reading }]);
             setHistory(h => [...h, "opponent"]);
+          } else if (newMyScore === prevMyScore && newOppScore === prevOppScore) {
+            // Timeout - neither scored (only log from P2 side to avoid double)
+            if (!isP1.current) {
+              setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
+              setHistory(h => [...h, "timeout"]);
+            }
           }
         }
         return prev;
