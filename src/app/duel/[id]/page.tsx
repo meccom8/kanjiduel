@@ -40,6 +40,8 @@ export default function DuelPage() {
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
   const [roundWinner, setRoundWinner] = useState<"me" | "opponent" | "timeout" | null>(null);
   const [history, setHistory] = useState<("me" | "opponent" | "timeout")[]>([]);
+  const [roundLog, setRoundLog] = useState<{ winner: "me"|"opponent"|"timeout"; word: VocabWord; answer: string }[]>([]);
+  const [eloChange, setEloChange] = useState<number | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -180,6 +182,9 @@ export default function DuelPage() {
     setRoundWinner("timeout");
     setPhase("round_result");
     setHistory(h => [...h, "timeout"]);
+    if (room.current_kanji) {
+      setRoundLog(l => [...l, { winner: "timeout", word: room.current_kanji as VocabWord, answer: "(time up)" }]);
+    }
 
     const p1s = room.p1_score;
     const p2s = room.p2_score;
@@ -210,6 +215,9 @@ export default function DuelPage() {
     setRoundWinner("me");
     setPhase("round_result");
     setHistory(h => [...h, "me"]);
+    if (room.current_kanji) {
+      setRoundLog(l => [...l, { winner: "me", word: room.current_kanji as VocabWord, answer: val.trim() }]);
+    }
 
     const p1Score = isP1.current ? room.p1_score + 1 : room.p1_score;
     const p2Score = isP1.current ? room.p2_score : room.p2_score + 1;
@@ -254,6 +262,8 @@ export default function DuelPage() {
         winnerIsP1 ? p1Profile.elo : p2Profile.elo,
         winnerIsP1 ? p2Profile.elo : p1Profile.elo
       );
+      const myDelta = isP1.current ? (winnerIsP1 ? winnerDelta : loserDelta) : (winnerIsP1 ? loserDelta : winnerDelta);
+      setEloChange(myDelta);
       await Promise.all([
         supabase.from("profiles").update({
           elo: Math.max(0, p1Profile.elo + (winnerIsP1 ? winnerDelta : loserDelta)),
@@ -280,7 +290,7 @@ export default function DuelPage() {
   if (phase === "loading") return <FullPageMsg text="Loading duel…" pulse />;
   if (phase === "waiting") return <FullPageMsg text="Waiting for opponent…" pulse />;
   if (phase === "finished" && room) {
-    return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current} router={router} />;
+    return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current} router={router} roundLog={roundLog} eloChange={eloChange} />;
   }
 
   const myScore = isP1.current ? room?.p1_score ?? 0 : room?.p2_score ?? 0;
@@ -391,9 +401,11 @@ export default function DuelPage() {
   );
 }
 
-function ResultScreen({ room, me, opponent, isP1, router }: {
+function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange }: {
   room: Room; me: Profile | null; opponent: Profile | null;
   isP1: boolean; router: ReturnType<typeof useRouter>;
+  roundLog: { winner: "me"|"opponent"|"timeout"; word: VocabWord; answer: string }[];
+  eloChange: number | null;
 }) {
   const myScore = isP1 ? room.p1_score : room.p2_score;
   const oppScore = isP1 ? room.p2_score : room.p1_score;
@@ -401,14 +413,17 @@ function ResultScreen({ room, me, opponent, isP1, router }: {
   const isDraw = myScore === oppScore;
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
-      <div className="card-solid w-full max-w-sm p-6 text-center slide-up">
-        <div className="font-jp text-4xl mb-4">{iWon ? "勝" : isDraw ? "引" : "敗"}</div>
+    <main className="min-h-screen px-4 py-10 relative z-10 max-w-lg mx-auto">
+      {/* Result card */}
+      <div className="card-solid p-6 text-center mb-4 slide-up">
+        <div className="font-jp text-5xl mb-3">{iWon ? "勝" : isDraw ? "引" : "敗"}</div>
         <h1 className="text-2xl font-semibold mb-1">{iWon ? "Victory!" : isDraw ? "Draw" : "Defeat"}</h1>
-        <p className="text-white/40 text-sm mb-6">
-          {iWon ? "You dominated" : isDraw ? "An even match" : "Better luck next time"}
+        <p className="text-white/40 text-sm mb-5">
+          vs <span className="text-white/70 font-medium">{opponent?.username ?? "Opponent"}</span>
         </p>
-        <div className="grid grid-cols-2 gap-3 mb-6">
+
+        {/* Scores */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
           {[
             { label: me?.username ?? "You", score: myScore, color: "#534AB7" },
             { label: opponent?.username ?? "Opponent", score: oppScore, color: "#D85A30" },
@@ -420,12 +435,61 @@ function ResultScreen({ room, me, opponent, isP1, router }: {
             </div>
           ))}
         </div>
+
+        {/* ELO change */}
+        {eloChange !== null && (
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl mb-4"
+            style={{
+              background: eloChange >= 0 ? "rgba(29,158,117,0.15)" : "rgba(226,75,74,0.15)",
+              border: eloChange >= 0 ? "1px solid #1D9E7544" : "1px solid #E24B4A44",
+            }}>
+            <span className="font-mono text-lg font-bold" style={{ color: eloChange >= 0 ? "#5DCAA5" : "#E24B4A" }}>
+              {eloChange >= 0 ? "+" : ""}{eloChange}
+            </span>
+            <span className="text-xs text-white/40">ELO</span>
+          </div>
+        )}
+
         <div className="flex flex-col gap-2">
           <button className="btn-primary" onClick={() => router.push("/matchmaking")}>⚡ Play again</button>
           <button className="btn-ghost" onClick={() => router.push("/")}>Home</button>
-          <button className="btn-ghost" onClick={() => router.push("/leaderboard")}>Leaderboard</button>
         </div>
       </div>
+
+      {/* Round recap */}
+      {roundLog.length > 0 && (
+        <div className="card-solid overflow-hidden">
+          <div className="px-5 py-3 border-b border-white/5">
+            <p className="text-xs text-white/40 uppercase tracking-widest">Round recap</p>
+          </div>
+          {roundLog.map((r, i) => (
+            <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
+              {/* Round number */}
+              <span className="font-mono text-xs text-white/20 w-5 flex-shrink-0">{i + 1}</span>
+              {/* Winner indicator */}
+              <div className="w-1.5 h-8 rounded-full flex-shrink-0" style={{
+                background: r.winner === "me" ? "#534AB7" : r.winner === "opponent" ? "#D85A30" : "rgba(255,255,255,0.15)"
+              }} />
+              {/* Word */}
+              <div className="font-jp text-xl w-12 text-center flex-shrink-0">{r.word.word}</div>
+              {/* Details */}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-white/30 truncate">{r.word.meaning}</p>
+                <p className="text-sm font-mono text-white/60">{r.word.reading}</p>
+              </div>
+              {/* Who won */}
+              <div className="text-right flex-shrink-0">
+                <p className="text-xs font-medium" style={{
+                  color: r.winner === "me" ? "#5DCAA5" : r.winner === "opponent" ? "#D85A30" : "#9090a8"
+                }}>
+                  {r.winner === "me" ? `✓ You` : r.winner === "opponent" ? `✓ ${opponent?.username ?? "Opp"}` : "⏱ Time"}
+                </p>
+                <p className="text-xs text-white/20 font-mono">{r.answer}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </main>
   );
 }
