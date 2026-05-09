@@ -75,9 +75,17 @@ function normalizeLongVowels(str: string): string {
     .toLowerCase();
 }
 
+// Strip common verb suffixes like -suru, する, ・する
+function stripVerbSuffix(str: string): string {
+  return str
+    .replace(/[・･]?(する|suru|-suru)$/i, "")
+    .replace(/[・･]?(する|suru|-suru)/gi, "")
+    .trim();
+}
+
 // Split multiple readings (e.g. "nan / nani" -> ["nan", "nani"])
 function splitReadings(str: string): string[] {
-  return str.split(/[\/、,，]/).map(s => s.trim()).filter(Boolean);
+  return str.split(/[/、,，・]/).map(s => stripVerbSuffix(s.trim())).filter(Boolean);
 }
 
 // Accept hiragana, katakana, romaji, with/without macrons, multiple readings
