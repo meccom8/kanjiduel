@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { checkVocabAnswer, shuffle, type VocabWord } from "@/lib/vocab";
 import { useRouter, useParams } from "next/navigation";
+import { toHiragana, isKana } from "@/lib/romaji";
 
 interface Room {
   id: string;
@@ -40,6 +41,35 @@ interface RoundLog {
   answer: string;
 }
 
+// ─── Simple audio feedback (Web Audio API, no deps) ───────────────────────────
+function playTone(type: "correct" | "wrong" | "timeout") {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    if (type === "correct") {
+      osc.frequency.setValueAtTime(523, ctx.currentTime); // C5
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1); // E5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(); osc.stop(ctx.currentTime + 0.3);
+    } else if (type === "wrong") {
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.type = "sawtooth";
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.start(); osc.stop(ctx.currentTime + 0.2);
+    } else {
+      osc.frequency.setValueAtTime(330, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(); osc.stop(ctx.currentTime + 0.4);
+    }
+  } catch {}
+}
+
 export default function DuelPage() {
   const params = useParams();
   const roomId = params.id as string;
@@ -58,6 +88,11 @@ export default function DuelPage() {
   const [eloChange, setEloChange] = useState<number | null>(null);
   const [conceded, setConceded] = useState(false);
 
+  // Gameplay prefs
+  const [hiraganaMode, setHiraganaMode] = useState(false);
+  const [showRomaji, setShowRomaji] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
@@ -66,6 +101,15 @@ export default function DuelPage() {
   const lastRoundRef = useRef(-1);
   const roundStartedAtRef = useRef<string | null>(null);
   const finishedRef = useRef(false);
+
+  // Load gameplay prefs from localStorage once
+  useEffect(() => {
+    try {
+      setHiraganaMode(localStorage.getItem("pref_hiragana_mode") === "true");
+      setShowRomaji(localStorage.getItem("pref_show_romaji") !== "false");
+      setSoundEnabled(localStorage.getItem("pref_sound") !== "false");
+    } catch {}
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -145,7 +189,6 @@ export default function DuelPage() {
       return;
     }
 
-    // Detect opponent winning a round
     if (updated.current_kanji && updated.current_round !== lastRoundRef.current && !lockedRef.current) {
       setRoom(prev => {
         if (prev?.current_kanji && prev.current_round !== updated.current_round) {
@@ -155,12 +198,14 @@ export default function DuelPage() {
           const newOpp = isP1.current ? updated.p2_score : updated.p1_score;
           const w = prev.current_kanji as VocabWord;
           if (newOpp > prevOpp) {
+            if (soundEnabled) playTone("wrong");
             setRoundLog(l => [...l, { winner: "opponent", word: w, answer: w.reading }]);
             setHistory(h => [...h, "opponent"]);
             setRoundWinner("opponent");
             setPhase("round_result");
             setTimeout(() => { setRoundWinner(null); }, 1500);
           } else if (newMy === prevMy && newOpp === prevOpp && !isP1.current) {
+            if (soundEnabled) playTone("timeout");
             setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
             setHistory(h => [...h, "timeout"]);
           }
@@ -209,6 +254,7 @@ export default function DuelPage() {
     if (lockedRef.current || !room) return;
     lockedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
+    if (soundEnabled) playTone("timeout");
     setAnswer("");
     const w = room.current_kanji as VocabWord;
     if (w) setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
@@ -223,7 +269,6 @@ export default function DuelPage() {
         await callFinishMatch(p1s, p2s);
       } else {
         await supabase.from("rooms").update({ current_round: nextRound, current_kanji: null }).eq("id", roomId);
-        // Unlock and send next word after delay
         setTimeout(async () => {
           lockedRef.current = false;
           roundStartedAtRef.current = null;
@@ -231,7 +276,6 @@ export default function DuelPage() {
         }, 1500);
       }
     } else {
-      // P2: unlock after delay, polling will detect new word from P1
       setTimeout(() => {
         lockedRef.current = false;
         roundStartedAtRef.current = null;
@@ -244,6 +288,7 @@ export default function DuelPage() {
     if (!checkVocabAnswer(val, room.current_kanji)) return;
     lockedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
+    if (soundEnabled) playTone("correct");
 
     const w = room.current_kanji as VocabWord;
     setRoundLog(l => [...l, { winner: "me", word: w, answer: val.trim() }]);
@@ -286,10 +331,8 @@ export default function DuelPage() {
       return;
     }
     await supabase.rpc("finish_match", {
-      p_room_id: roomId,
-      p_winner_id: winnerId,
-      p_p1_score: p1Score,
-      p_p2_score: p2Score,
+      p_room_id: roomId, p_winner_id: winnerId,
+      p_p1_score: p1Score, p_p2_score: p2Score,
     });
   }
 
@@ -314,21 +357,33 @@ export default function DuelPage() {
     const p1Score = isP1.current ? 0 : WIN_SCORE;
     const p2Score = isP1.current ? WIN_SCORE : 0;
     await supabase.rpc("finish_match", {
-      p_room_id: roomId,
-      p_winner_id: winnerId,
-      p_p1_score: p1Score,
-      p_p2_score: p2Score,
+      p_room_id: roomId, p_winner_id: winnerId,
+      p_p1_score: p1Score, p_p2_score: p2Score,
     });
-    await loadEloChange(me.id, { ...room, player1_id: room.player1_id, player2_id: room.player2_id });
+    await loadEloChange(me.id, { ...room });
     setConceded(true);
     setPhase("finished");
+  }
+
+  // ── Handle input change with optional IME ──
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    let converted = raw;
+
+    if (hiraganaMode && !isKana(raw)) {
+      converted = toHiragana(raw);
+    }
+
+    setAnswer(converted);
+    submitAnswer(converted);
   }
 
   if (phase === "loading") return <FullPageMsg text="Loading duel…" pulse />;
   if (phase === "waiting") return <FullPageMsg text="Waiting for opponent…" pulse />;
   if (phase === "finished" && room) {
     return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current}
-      router={router} roundLog={roundLog} eloChange={eloChange} conceded={conceded} />;
+      router={router} roundLog={roundLog} eloChange={eloChange} conceded={conceded}
+      showRomaji={showRomaji} />;
   }
 
   const myScore = isP1.current ? room?.p1_score ?? 0 : room?.p2_score ?? 0;
@@ -340,12 +395,12 @@ export default function DuelPage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative z-10">
       <div className="w-full max-w-md">
-        {/* Scores with avatars */}
+        {/* Scores */}
         <div className="grid grid-cols-3 items-center mb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
               style={{ background: (me?.accent_color ?? "#534AB7") + "33", color: me?.accent_color ?? "#7F77DD", border: `1.5px solid ${me?.accent_color ?? "#534AB7"}44` }}>
-              {me?.avatar_url ? <img src={me.avatar_url} alt="" className="w-full h-full object-cover" /> : (me?.username ?? "?").slice(0,2).toUpperCase()}
+              {me?.avatar_url ? <img src={me.avatar_url} alt="" className="w-full h-full object-cover" /> : (me?.username ?? "?").slice(0, 2).toUpperCase()}
             </div>
             <div>
               <p className="text-xs text-white/40 truncate max-w-16">{me?.username ?? "You"}</p>
@@ -363,7 +418,7 @@ export default function DuelPage() {
             </div>
             <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
               style={{ background: (opponent?.accent_color ?? "#D85A30") + "33", color: opponent?.accent_color ?? "#D85A30", border: `1.5px solid ${opponent?.accent_color ?? "#D85A30"}44` }}>
-              {opponent?.avatar_url ? <img src={opponent.avatar_url} alt="" className="w-full h-full object-cover" /> : (opponent?.username ?? "?").slice(0,2).toUpperCase()}
+              {opponent?.avatar_url ? <img src={opponent.avatar_url} alt="" className="w-full h-full object-cover" /> : (opponent?.username ?? "?").slice(0, 2).toUpperCase()}
             </div>
           </div>
         </div>
@@ -401,7 +456,9 @@ export default function DuelPage() {
                   background: word.jlpt === "N5" ? "#1D9E7522" : word.jlpt === "N4" ? "#4DB6AC22" : word.jlpt === "N3" ? "#B8860B22" : word.jlpt === "N2" ? "#D85A3022" : "#C6282822",
                   color: word.jlpt === "N5" ? "#1D9E75" : word.jlpt === "N4" ? "#4DB6AC" : word.jlpt === "N3" ? "#B8860B" : word.jlpt === "N2" ? "#D85A30" : "#C62828",
                 }}>{word.jlpt}</span>
-              <p className="text-white/20 text-xs mt-2">Type the reading in hiragana or romaji</p>
+              <p className="text-white/20 text-xs mt-2">
+                {hiraganaMode ? "Type romaji — auto-converts to hiragana" : "Type the reading in hiragana or romaji"}
+              </p>
             </>
           ) : (
             <div className="font-jp text-4xl text-white/10 animate-pulse">漢</div>
@@ -417,7 +474,7 @@ export default function DuelPage() {
               {roundWinner !== "me" && word && (
                 <p className="text-white/40 text-xs mt-1">
                   Answer: <span className="text-white/70 font-mono">{word.reading}</span>
-                  <span className="text-white/30 ml-1">({word.romaji})</span>
+                  {showRomaji && <span className="text-white/30 ml-1">({word.romaji})</span>}
                 </p>
               )}
             </div>
@@ -425,15 +482,25 @@ export default function DuelPage() {
         </div>
 
         {/* Input */}
-        <input ref={inputRef}
-          className={`input-field text-center text-lg mb-3 ${phase === "round_result" && roundWinner === "me" ? "input-correct" : ""}`}
-          placeholder="Type your answer…"
-          value={answer}
-          disabled={phase === "round_result"}
-          autoComplete="off" autoCorrect="off" spellCheck={false}
-          onChange={(e) => { setAnswer(e.target.value); submitAnswer(e.target.value); }}
-          onKeyDown={(e) => { if (e.key === "Enter") submitAnswer(answer); }}
-        />
+        <div className="relative mb-3">
+          <input
+            ref={inputRef}
+            className={`input-field text-center text-lg w-full ${phase === "round_result" && roundWinner === "me" ? "input-correct" : ""}`}
+            placeholder={hiraganaMode ? "ka · shi · tsu → か · し · つ" : "Type your answer…"}
+            value={answer}
+            disabled={phase === "round_result"}
+            autoComplete="off" autoCorrect="off" spellCheck={false}
+            onChange={handleInputChange}
+            onKeyDown={(e) => { if (e.key === "Enter") submitAnswer(answer); }}
+          />
+          {/* IME indicator */}
+          {hiraganaMode && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1"
+              style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>
+              <span>あ</span>
+            </div>
+          )}
+        </div>
 
         <p className="text-center text-xs text-white/20 mb-4 font-mono">
           {timeLeft}s · first correct answer wins the round
@@ -448,10 +515,11 @@ export default function DuelPage() {
   );
 }
 
-function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, conceded }: {
+function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, conceded, showRomaji }: {
   room: Room; me: Profile | null; opponent: Profile | null;
   isP1: boolean; router: ReturnType<typeof useRouter>;
   roundLog: RoundLog[]; eloChange: number | null; conceded: boolean;
+  showRomaji: boolean;
 }) {
   const myScore = isP1 ? room.p1_score : room.p2_score;
   const oppScore = isP1 ? room.p2_score : room.p1_score;
@@ -471,7 +539,7 @@ function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, c
           <div className="flex flex-col items-center gap-1">
             <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold"
               style={{ background: (me?.accent_color ?? "#534AB7") + "33", color: me?.accent_color ?? "#7F77DD", border: `2px solid ${me?.accent_color ?? "#534AB7"}44` }}>
-              {me?.avatar_url ? <img src={me.avatar_url} alt="" className="w-full h-full object-cover" /> : (me?.username ?? "?").slice(0,2).toUpperCase()}
+              {me?.avatar_url ? <img src={me.avatar_url} alt="" className="w-full h-full object-cover" /> : (me?.username ?? "?").slice(0, 2).toUpperCase()}
             </div>
             <p className="text-xs text-white/50">{me?.username ?? "You"}</p>
           </div>
@@ -479,7 +547,7 @@ function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, c
           <a href={`/user/${opponent?.username}`} className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity">
             <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold"
               style={{ background: (opponent?.accent_color ?? "#D85A30") + "33", color: opponent?.accent_color ?? "#D85A30", border: `2px solid ${opponent?.accent_color ?? "#D85A30"}44` }}>
-              {opponent?.avatar_url ? <img src={opponent.avatar_url} alt="" className="w-full h-full object-cover" /> : (opponent?.username ?? "?").slice(0,2).toUpperCase()}
+              {opponent?.avatar_url ? <img src={opponent.avatar_url} alt="" className="w-full h-full object-cover" /> : (opponent?.username ?? "?").slice(0, 2).toUpperCase()}
             </div>
             <p className="text-xs text-white/50">{opponent?.username ?? "?"}</p>
           </a>
@@ -532,6 +600,7 @@ function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, c
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white/30 truncate">{r.word.meaning}</p>
                 <p className="text-sm font-mono text-white/60">{r.word.reading}</p>
+                {showRomaji && <p className="text-xs font-mono text-white/25">{r.word.romaji}</p>}
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-xs font-medium" style={{
