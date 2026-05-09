@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
-const ELO_RANGE_START = 300;
+const ELO_RANGE_START = 100;
 const ELO_RANGE_EXPAND = 100; // Expand range every 15s
 const MAX_ELO_RANGE = 1000;
 
