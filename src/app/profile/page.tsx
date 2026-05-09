@@ -10,6 +10,10 @@ interface Profile {
   wins: number; losses: number; draws: number;
   streak: number; best_streak: number;
   last_played_at: string | null; created_at: string;
+  avatar_url: string | null;
+  bio: string | null;
+  title: string | null;
+  accent_color: string | null;
 }
 interface Match {
   id: string; player1_id: string; player2_id: string;
@@ -78,19 +82,34 @@ export default function ProfilePage() {
       <Link href="/" className="text-sm text-white/30 hover:text-white/60 mb-6 inline-block">← Back</Link>
 
       <div className="card-solid p-6 mb-4 slide-up">
-        <div className="flex items-center gap-4 mb-5">
-          <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-semibold" style={{background:tier.bg+"33",color:tier.color}}>
-            {profile.username.slice(0,2).toUpperCase()}
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-lg font-semibold"
+            style={{background: profile.avatar_url ? "transparent" : (profile.accent_color ?? tier.bg)+"33", color: profile.accent_color ?? tier.color, border: `2px solid ${profile.accent_color ?? tier.color}44`}}>
+            {profile.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+              : profile.username.slice(0,2).toUpperCase()
+            }
           </div>
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold">{profile.username}</h1>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-semibold">{profile.username}</h1>
+              {profile.title && (
+                <span className="text-xs px-2 py-0.5 rounded-full"
+                  style={{background:(profile.accent_color??tier.color)+"22", color:profile.accent_color??tier.color, border:`1px solid ${profile.accent_color??tier.color}33`}}>
+                  {profile.title}
+                </span>
+              )}
+            </div>
             <span className="text-xs px-2.5 py-1 rounded-full mt-1 inline-block font-medium" style={{background:tier.bg+"33",color:tier.color}}>⬡ {tier.name}</span>
           </div>
-          <div className="text-right">
+          <div className="text-right flex-shrink-0">
             <p className="font-mono text-2xl font-bold" style={{color:tier.color}}>{profile.elo}</p>
             <p className="text-xs text-white/30">ELO</p>
           </div>
         </div>
+        {profile.bio && (
+          <p className="text-white/50 text-sm mb-4 leading-relaxed">{profile.bio}</p>
+        )}
 
         {nextTier && (
           <div className="mb-5">
@@ -122,9 +141,10 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-6">
-        <Link href="/matchmaking"><button className="btn-primary" style={{fontSize:14}}>⚡ Find a match</button></Link>
-        <Link href="/daily"><button className="btn-ghost" style={{fontSize:14}}>🗓 Daily</button></Link>
+      <div className="grid grid-cols-3 gap-2 mb-6">
+        <Link href="/matchmaking"><button className="btn-primary" style={{fontSize:13}}>⚡ Match</button></Link>
+        <Link href="/daily"><button className="btn-ghost" style={{fontSize:13}}>🗓 Daily</button></Link>
+        <Link href="/settings"><button className="btn-ghost" style={{fontSize:13}}>✏️ Edit</button></Link>
       </div>
 
       <div className="flex gap-1 mb-4 bg-white/4 rounded-xl p-1">
