@@ -134,48 +134,7 @@ export default function DuelPage() {
   function applyRoomUpdate(updated: Room) {
     setRoom(updated);
     if (updated.status === "finished") {
-      // If winner_id is set (concede case), ELO already updated — just show result
-      if ((updated as any).winner_id && !isP1.current && !concedeProcessedRef.current) {
-        concedeProcessedRef.current = true;
-        // Compute what the ELO change was for P2 (winner)
-        const myId = updated.player2_id;
-        const oppId = updated.player1_id;
-        const { data: myP } = await supabase.from("profiles").select("elo").eq("id", myId).single();
-        if (myP) {
-          // ELO already updated - just fetch new value to show delta
-          // We stored p2_elo_change in matches table
-          const { data: match } = await supabase.from("matches")
-            .select("p2_elo_change")
-            .eq("player2_id", myId)
-            .order("played_at", { ascending: false })
-            .limit(1).single();
-          if (match) setEloChange(match.p2_elo_change);
-        }
-        setPhase("finished"); return;
-      }
-      // Normal endGame case for P2
-      if (!isP1.current && eloChange === null && !(updated as any).winner_id) {
-        (async () => {
-          const p1Id = updated.player1_id;
-          const p2Id = updated.player2_id;
-          const { data: p1p } = await supabase.from("profiles").select("elo").eq("id", p1Id).single();
-          const { data: p2p } = await supabase.from("profiles").select("elo").eq("id", p2Id).single();
-          if (p1p && p2p) {
-            const p1Score = updated.p1_score;
-            const p2Score = updated.p2_score;
-            if (p1Score !== p2Score) {
-              const winnerIsP1 = p1Score > p2Score;
-              const { winnerDelta, loserDelta } = calcELO(
-                winnerIsP1 ? p1p.elo : p2p.elo,
-                winnerIsP1 ? p2p.elo : p1p.elo
-              );
-              setEloChange(winnerIsP1 ? loserDelta : winnerDelta);
-            } else {
-              setEloChange(0);
-            }
-          }
-        })();
-      }
+      // Just show finished screen - ELO will be computed separately
       setPhase("finished"); return;
     }
     if (
