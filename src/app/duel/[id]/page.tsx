@@ -356,9 +356,9 @@ export default function DuelPage() {
             ? roundWinner === "me" ? "1px solid #1D9E75" : roundWinner === "opponent" ? "1px solid #D85A30" : "1px solid rgba(255,255,255,0.15)"
             : "1px solid rgba(83,74,183,0.35)"
         }}>
-          {kanji && (
+                     {kanji && (
             <>
-                    className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
+              <span className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
                 style={{ background: "#FAEEDA22", color: "#EF9F27" }}>
                 Reading
               </span>
