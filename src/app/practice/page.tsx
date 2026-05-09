@@ -42,32 +42,51 @@ export default function Practice() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Load words from Supabase on mount
+  // Load word counts per level, then words on demand
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      const { data } = await supabase
-        .from("vocabulary")
-        .select("id, word, reading, romaji, meaning, jlpt, level")
-        .order("level", { ascending: true });
+      // Get counts per JLPT level using count queries
+      const levels = ["N5", "N4", "N3", "N2", "N1"];
+      const counts: Record<string, VocabWord[]> = { all: [] };
 
-      if (data) {
-        const grouped: Record<string, VocabWord[]> = { all: data };
-        for (const w of data) {
-          if (!grouped[w.jlpt]) grouped[w.jlpt] = [];
-          grouped[w.jlpt].push(w);
-        }
-        setAllWords(grouped);
+      // We store empty arrays with correct length for display
+      // Actual words loaded when session starts
+      const { count: totalCount } = await supabase
+        .from("vocabulary").select("*", { count: "exact", head: true });
+
+      // Fake arrays just for count display
+      counts["all"] = Array(totalCount ?? 0).fill(null) as any;
+
+      for (const jlpt of levels) {
+        const { count } = await supabase
+          .from("vocabulary")
+          .select("*", { count: "exact", head: true })
+          .eq("jlpt", jlpt);
+        counts[jlpt] = Array(count ?? 0).fill(null) as any;
       }
+
+      setAllWords(counts);
       setPhase("setup");
     })();
   }, []);
 
-  function startSession() {
-    const pool = allWords[filter] ?? allWords["all"] ?? [];
-    const q = shuffle(pool).slice(0, TOTAL_ROUNDS);
+  async function startSession() {
+    setPhase("loading");
+    // Fetch words for this level (with random ordering via shuffle after fetch)
+    let query = supabase
+      .from("vocabulary")
+      .select("id, word, reading, romaji, meaning, jlpt, level")
+      .limit(500);
+
+    if (filter !== "all") query = query.eq("jlpt", filter);
+
+    const { data } = await query;
+    if (!data || data.length === 0) { setPhase("setup"); return; }
+
+    const q = shuffle(data as VocabWord[]).slice(0, TOTAL_ROUNDS);
     setQueue(q);
     setStats([]);
     setRoundNum(0);
