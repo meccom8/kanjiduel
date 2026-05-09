@@ -129,7 +129,32 @@ export default function DuelPage() {
 
   function applyRoomUpdate(updated: Room) {
     setRoom(updated);
-    if (updated.status === "finished") { setPhase("finished"); return; }
+    if (updated.status === "finished") {
+      // Compute ELO change for P2 (P1 already computed it in endGame)
+      if (!isP1.current && eloChange === null) {
+        (async () => {
+          const p1Id = updated.player1_id;
+          const p2Id = updated.player2_id;
+          const { data: p1p } = await supabase.from("profiles").select("elo").eq("id", p1Id).single();
+          const { data: p2p } = await supabase.from("profiles").select("elo").eq("id", p2Id).single();
+          if (p1p && p2p) {
+            const p1Score = updated.p1_score;
+            const p2Score = updated.p2_score;
+            if (p1Score !== p2Score) {
+              const winnerIsP1 = p1Score > p2Score;
+              const { winnerDelta, loserDelta } = calcELO(
+                winnerIsP1 ? p1p.elo : p2p.elo,
+                winnerIsP1 ? p2p.elo : p1p.elo
+              );
+              setEloChange(winnerIsP1 ? loserDelta : winnerDelta);
+            } else {
+              setEloChange(0);
+            }
+          }
+        })();
+      }
+      setPhase("finished"); return;
+    }
     if (
       updated.current_kanji &&
       updated.status === "active" &&
