@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/matchmaking", label: "Find a match", icon: "⚡", primary: true },
   { href: "/daily", label: "Daily challenge", icon: "🗓", primary: false },
   { href: "/practice", label: "Practice solo", icon: "📖", primary: false },
+  { href: "/friends", label: "Friends", icon: "👥", primary: false },
   { href: "/dictionary", label: "Dictionary", icon: "📚", primary: false },
   { href: "/leaderboard", label: "Leaderboard", icon: "🏆", primary: false },
   { href: "/settings", label: "Customize profile", icon: "✏️", primary: false },
