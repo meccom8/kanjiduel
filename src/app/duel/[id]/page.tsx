@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
 import { checkVocabAnswer, shuffle, type VocabWord } from "@/lib/vocab";
+import { useImeInput } from "@/hooks/useImeInput";
 import { useRouter, useParams } from "next/navigation";
-import { toHiragana, isKana } from "@/lib/romaji";
 
 interface Room {
   id: string;
@@ -22,11 +22,8 @@ interface Room {
 }
 
 interface Profile {
-  id: string;
-  username: string;
-  elo: number;
-  avatar_url?: string | null;
-  accent_color?: string | null;
+  id: string; username: string; elo: number;
+  avatar_url?: string | null; accent_color?: string | null;
 }
 
 type GamePhase = "loading" | "waiting" | "playing" | "round_result" | "finished";
@@ -37,27 +34,22 @@ const WIN_SCORE = 6;
 
 interface RoundLog {
   winner: "me" | "opponent" | "timeout";
-  word: VocabWord;
-  answer: string;
+  word: VocabWord; answer: string;
 }
 
-// ─── Simple audio feedback (Web Audio API, no deps) ───────────────────────────
 function playTone(type: "correct" | "wrong" | "timeout") {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
     if (type === "correct") {
-      osc.frequency.setValueAtTime(523, ctx.currentTime); // C5
-      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1); // E5
+      osc.frequency.setValueAtTime(523, ctx.currentTime);
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
       osc.start(); osc.stop(ctx.currentTime + 0.3);
     } else if (type === "wrong") {
-      osc.frequency.setValueAtTime(200, ctx.currentTime);
-      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(200, ctx.currentTime); osc.type = "sawtooth";
       gain.gain.setValueAtTime(0.1, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
       osc.start(); osc.stop(ctx.currentTime + 0.2);
@@ -76,41 +68,51 @@ export default function DuelPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [room, setRoom] = useState<Room | null>(null);
   const [me, setMe] = useState<Profile | null>(null);
   const [opponent, setOpponent] = useState<Profile | null>(null);
   const [phase, setPhase] = useState<GamePhase>("loading");
-  const [answer, setAnswer] = useState("");
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
   const [roundWinner, setRoundWinner] = useState<"me" | "opponent" | "timeout" | null>(null);
   const [history, setHistory] = useState<("me" | "opponent" | "timeout")[]>([]);
   const [roundLog, setRoundLog] = useState<RoundLog[]>([]);
   const [eloChange, setEloChange] = useState<number | null>(null);
   const [conceded, setConceded] = useState(false);
+  const [displayRoom, setDisplayRoom] = useState<Room | null>(null);
 
-  // Gameplay prefs
   const [hiraganaMode, setHiraganaMode] = useState(false);
   const [showRomaji, setShowRomaji] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  const inputRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const ime = useImeInput(hiraganaMode);
+
+  // ── All mutable game state in refs to avoid stale closures ──────────────────
+  const roomRef = useRef<Room | null>(null);
   const isP1 = useRef(false);
   const lockedRef = useRef(false);
   const lastRoundRef = useRef(-1);
   const roundStartedAtRef = useRef<string | null>(null);
   const finishedRef = useRef(false);
+  const soundRef = useRef(true);
 
-  // Load gameplay prefs from localStorage once
+  const inputRef = useRef<HTMLInputElement>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     try {
-      setHiraganaMode(localStorage.getItem("pref_hiragana_mode") === "true");
-      setShowRomaji(localStorage.getItem("pref_show_romaji") !== "false");
-      setSoundEnabled(localStorage.getItem("pref_sound") !== "false");
+      const hm = localStorage.getItem("pref_hiragana_mode") === "true";
+      const sr = localStorage.getItem("pref_show_romaji") !== "false";
+      const se = localStorage.getItem("pref_sound") !== "false";
+      setHiraganaMode(hm);
+      setShowRomaji(sr);
+      setSoundEnabled(se);
+      soundRef.current = se;
     } catch {}
   }, []);
 
+  useEffect(() => { soundRef.current = soundEnabled; }, [soundEnabled]);
+
+  // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -119,6 +121,7 @@ export default function DuelPage() {
       const { data: roomData } = await supabase.from("rooms").select("*").eq("id", roomId).single();
       if (!roomData) { router.push("/"); return; }
 
+      roomRef.current = roomData;
       isP1.current = roomData.player1_id === user.id;
       const oppId = isP1.current ? roomData.player2_id : roomData.player1_id;
 
@@ -129,7 +132,7 @@ export default function DuelPage() {
 
       setMe(myProfile);
       setOpponent(oppProfile);
-      setRoom(roomData);
+      setDisplayRoom(roomData);
 
       if (roomData.status === "finished") {
         await loadEloChange(user.id, roomData);
@@ -155,16 +158,17 @@ export default function DuelPage() {
     };
   }, []);
 
-  // Polling
+  // ── Polling every 1.5s ──────────────────────────────────────────────────────
   useEffect(() => {
     pollRef.current = setInterval(async () => {
+      if (finishedRef.current) return;
       const { data } = await supabase.from("rooms").select("*").eq("id", roomId).single();
-      if (data) await handleRoomUpdate(data);
-    }, 2000);
+      if (data) handleRoomUpdate(data);
+    }, 1500);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [me]);
+  }, []);
 
-  // Block back button
+  // ── Back button ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
     const onPopState = () => { if (!finishedRef.current) handleConcede(); };
@@ -175,100 +179,147 @@ export default function DuelPage() {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("popstate", onPopState);
     };
-  }, [room]);
+  }, []);
 
-  async function handleRoomUpdate(updated: Room) {
-    setRoom(updated);
+  // ── Room update handler ─────────────────────────────────────────────────────
+  function handleRoomUpdate(updated: Room) {
+    const prev = roomRef.current;
+    roomRef.current = updated;
+    setDisplayRoom(updated);
 
     if (updated.status === "finished" && !finishedRef.current) {
       finishedRef.current = true;
       if (pollRef.current) clearInterval(pollRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
-      if (me) await loadEloChange(me.id, updated);
-      setPhase("finished");
+      const uid = isP1.current ? updated.player1_id : updated.player2_id;
+      loadEloChange(uid, updated).then(() => setPhase("finished"));
       return;
     }
 
-    if (updated.current_kanji && updated.current_round !== lastRoundRef.current && !lockedRef.current) {
-      setRoom(prev => {
-        if (prev?.current_kanji && prev.current_round !== updated.current_round) {
-          const prevMy = isP1.current ? prev.p1_score : prev.p2_score;
-          const newMy = isP1.current ? updated.p1_score : updated.p2_score;
-          const prevOpp = isP1.current ? prev.p2_score : prev.p1_score;
-          const newOpp = isP1.current ? updated.p2_score : updated.p1_score;
-          const w = prev.current_kanji as VocabWord;
-          if (newOpp > prevOpp) {
-            if (soundEnabled) playTone("wrong");
-            setRoundLog(l => [...l, { winner: "opponent", word: w, answer: w.reading }]);
-            setHistory(h => [...h, "opponent"]);
-            setRoundWinner("opponent");
-            setPhase("round_result");
-            setTimeout(() => { setRoundWinner(null); }, 1500);
-          } else if (newMy === prevMy && newOpp === prevOpp && !isP1.current) {
-            if (soundEnabled) playTone("timeout");
-            setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
-            setHistory(h => [...h, "timeout"]);
-          }
+    // New round arrived from DB
+    if (
+      updated.current_kanji &&
+      updated.current_round !== lastRoundRef.current &&
+      !lockedRef.current
+    ) {
+      // Detect what happened to the previous round
+      if (prev?.current_kanji && prev.current_round !== updated.current_round) {
+        const prevMy = isP1.current ? prev.p1_score : prev.p2_score;
+        const newOpp = isP1.current ? updated.p2_score : updated.p1_score;
+        const prevOpp = isP1.current ? prev.p2_score : prev.p1_score;
+        const w = prev.current_kanji as VocabWord;
+
+        if (newOpp > prevOpp) {
+          if (soundRef.current) playTone("wrong");
+          setRoundLog(l => [...l, { winner: "opponent", word: w, answer: w.reading }]);
+          setHistory(h => [...h, "opponent"]);
+          setRoundWinner("opponent");
+          setPhase("round_result");
+          setTimeout(() => setRoundWinner(null), 1500);
+        } else if (newOpp === prevOpp) {
+          // timeout — no score changed
+          if (soundRef.current) playTone("timeout");
+          setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
+          setHistory(h => [...h, "timeout"]);
+          setRoundWinner("timeout");
+          setPhase("round_result");
+          setTimeout(() => setRoundWinner(null), 1500);
         }
-        return prev;
-      });
+      }
 
       lastRoundRef.current = updated.current_round;
       lockedRef.current = false;
       roundStartedAtRef.current = null;
       if (timerRef.current) clearInterval(timerRef.current);
-      setAnswer("");
+      ime.reset();
       setRoundWinner(null);
       setPhase("playing");
       startTimer(updated.round_started_at);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
+
+    // ── Watchdog: P2 detects a stuck state and unlocks ──────────────────────
+    // If current_kanji is null for more than one poll cycle and we're locked,
+    // it means P1 failed to send the next word — unlock and wait.
+    if (!updated.current_kanji && lockedRef.current && updated.status === "active") {
+      lockedRef.current = false;
+    }
+
+    // ── P2 watchdog: if no kanji and last round matches, P1 may have crashed
+    // P2 cannot send words, but at least we unlock the UI
+    if (
+      !isP1.current &&
+      updated.current_kanji &&
+      updated.current_round === lastRoundRef.current &&
+      lockedRef.current
+    ) {
+      // Same round came back — we were locked, unlock
+      lockedRef.current = false;
+    }
   }
 
+  // ── Timer ────────────────────────────────────────────────────────────────────
   function startTimer(startedAt: string | null) {
     if (startedAt && startedAt === roundStartedAtRef.current) return;
     roundStartedAtRef.current = startedAt;
     if (timerRef.current) clearInterval(timerRef.current);
+
     const started = startedAt ? new Date(startedAt).getTime() : Date.now();
     const elapsed = (Date.now() - started) / 1000;
-    const effectiveStart = elapsed > ROUND_TIME * 0.6 ? Date.now() : started;
+    // If we're reconnecting mid-round with >60% elapsed, start from now
+    const effectiveStart = elapsed > ROUND_TIME * 0.6 ? Date.now() - elapsed * 1000 : started;
+
     timerRef.current = setInterval(() => {
       const left = Math.max(0, ROUND_TIME - (Date.now() - effectiveStart) / 1000);
       setTimeLeft(Math.ceil(left));
-      if (left <= 0) { clearInterval(timerRef.current!); handleTimeout(); }
+      if (left <= 0) {
+        clearInterval(timerRef.current!);
+        handleTimeout();
+      }
     }, 200);
   }
 
+  // ── Send next word ────────────────────────────────────────────────────────
   async function sendNextWord() {
     const { data: words } = await supabase
       .from("vocabulary").select("id, word, reading, romaji, meaning, jlpt, level").limit(500);
     if (!words?.length) return;
     const word = shuffle(words as VocabWord[])[0];
     await supabase.from("rooms").update({
-      current_kanji: word, question_type: "reading",
+      current_kanji: word,
+      question_type: "reading",
       round_started_at: new Date().toISOString(),
     }).eq("id", roomId);
   }
 
+  // ── Timeout — reads from roomRef, not stale state ─────────────────────────
   async function handleTimeout() {
-    if (lockedRef.current || !room) return;
+    if (lockedRef.current) return;
+    const room = roomRef.current;
+    if (!room) return;
+
     lockedRef.current = true;
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (soundEnabled) playTone("timeout");
-    setAnswer("");
+    if (soundRef.current) playTone("timeout");
+
     const w = room.current_kanji as VocabWord;
     if (w) setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
     setHistory(h => [...h, "timeout"]);
     setRoundWinner("timeout");
     setPhase("round_result");
+    ime.reset();
 
     if (isP1.current) {
       const nextRound = room.current_round + 1;
-      const p1s = room.p1_score, p2s = room.p2_score;
+      const p1s = room.p1_score;
+      const p2s = room.p2_score;
+
       if (p1s >= WIN_SCORE || p2s >= WIN_SCORE || nextRound >= TOTAL_ROUNDS) {
         await callFinishMatch(p1s, p2s);
       } else {
-        await supabase.from("rooms").update({ current_round: nextRound, current_kanji: null }).eq("id", roomId);
+        await supabase.from("rooms").update({
+          current_round: nextRound,
+          current_kanji: null,
+        }).eq("id", roomId);
         setTimeout(async () => {
           lockedRef.current = false;
           roundStartedAtRef.current = null;
@@ -276,25 +327,32 @@ export default function DuelPage() {
         }, 1500);
       }
     } else {
+      // P2: just wait for P1 to send next word via poll
+      // Unlock after 2s so we don't get permanently stuck
       setTimeout(() => {
         lockedRef.current = false;
         roundStartedAtRef.current = null;
-      }, 1500);
+      }, 2000);
     }
   }
 
+  // ── Submit answer — reads from roomRef ────────────────────────────────────
   async function submitAnswer(val: string) {
-    if (lockedRef.current || !room?.current_kanji) return;
+    if (lockedRef.current) return;
+    const room = roomRef.current;
+    if (!room?.current_kanji) return;
     if (!checkVocabAnswer(val, room.current_kanji)) return;
+
     lockedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
-    if (soundEnabled) playTone("correct");
+    if (soundRef.current) playTone("correct");
 
     const w = room.current_kanji as VocabWord;
     setRoundLog(l => [...l, { winner: "me", word: w, answer: val.trim() }]);
     setHistory(h => [...h, "me"]);
     setRoundWinner("me");
     setPhase("round_result");
+    ime.reset();
 
     const p1Score = isP1.current ? room.p1_score + 1 : room.p1_score;
     const p2Score = isP1.current ? room.p2_score : room.p2_score + 1;
@@ -308,6 +366,7 @@ export default function DuelPage() {
         p1_score: p1Score, p2_score: p2Score,
         current_round: nextRound, current_kanji: null,
       }).eq("id", roomId);
+
       if (isP1.current) {
         setTimeout(async () => {
           lockedRef.current = false;
@@ -315,17 +374,21 @@ export default function DuelPage() {
           await sendNextWord();
         }, 1500);
       } else {
+        // P2 won this round — wait for P1 to send next word
         setTimeout(() => {
           lockedRef.current = false;
           roundStartedAtRef.current = null;
-        }, 1500);
+        }, 2000);
       }
     }
   }
 
   async function callFinishMatch(p1Score: number, p2Score: number) {
+    const room = roomRef.current;
     if (!room) return;
-    const winnerId = p1Score > p2Score ? room.player1_id : p2Score > p1Score ? room.player2_id : null;
+    const winnerId = p1Score > p2Score
+      ? room.player1_id
+      : p2Score > p1Score ? room.player2_id : null;
     if (!winnerId) {
       await supabase.from("rooms").update({ status: "finished", p1_score: p1Score, p2_score: p2Score }).eq("id", roomId);
       return;
@@ -339,7 +402,7 @@ export default function DuelPage() {
   async function loadEloChange(userId: string, r: Room) {
     const { data } = await supabase.from("matches")
       .select("player1_id, p1_elo_change, p2_elo_change")
-      .or(`player1_id.eq.${r.player1_id}`)
+      .eq("player1_id", r.player1_id)
       .eq("player2_id", r.player2_id)
       .order("played_at", { ascending: false })
       .limit(1).single();
@@ -349,7 +412,9 @@ export default function DuelPage() {
   }
 
   async function handleConcede() {
-    if (!room || !me || finishedRef.current) return;
+    if (!me || finishedRef.current) return;
+    const room = roomRef.current;
+    if (!room) return;
     finishedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
@@ -360,34 +425,28 @@ export default function DuelPage() {
       p_room_id: roomId, p_winner_id: winnerId,
       p_p1_score: p1Score, p_p2_score: p2Score,
     });
-    await loadEloChange(me.id, { ...room });
+    await loadEloChange(me.id, room);
     setConceded(true);
     setPhase("finished");
   }
 
-  // ── Handle input change with optional IME ──
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value;
-    let converted = raw;
-
-    if (hiraganaMode && !isKana(raw)) {
-      converted = toHiragana(raw);
-    }
-
-    setAnswer(converted);
-    submitAnswer(converted);
-  }
-
+  // ── Render ──────────────────────────────────────────────────────────────────
   if (phase === "loading") return <FullPageMsg text="Loading duel…" pulse />;
   if (phase === "waiting") return <FullPageMsg text="Waiting for opponent…" pulse />;
-  if (phase === "finished" && room) {
-    return <ResultScreen room={room} me={me} opponent={opponent} isP1={isP1.current}
-      router={router} roundLog={roundLog} eloChange={eloChange} conceded={conceded}
-      showRomaji={showRomaji} />;
+  if (phase === "finished" && displayRoom) {
+    return (
+      <ResultScreen
+        room={displayRoom} me={me} opponent={opponent}
+        isP1={isP1.current} router={router}
+        roundLog={roundLog} eloChange={eloChange}
+        conceded={conceded} showRomaji={showRomaji}
+      />
+    );
   }
 
-  const myScore = isP1.current ? room?.p1_score ?? 0 : room?.p2_score ?? 0;
-  const oppScore = isP1.current ? room?.p2_score ?? 0 : room?.p1_score ?? 0;
+  const room = displayRoom;
+  const myScore = room ? (isP1.current ? room.p1_score : room.p2_score) : 0;
+  const oppScore = room ? (isP1.current ? room.p2_score : room.p1_score) : 0;
   const word = room?.current_kanji as VocabWord | null;
   const timerPct = (timeLeft / ROUND_TIME) * 100;
   const timerColor = timeLeft <= 3 ? "#E24B4A" : timeLeft <= 6 ? "#EF9F27" : "#534AB7";
@@ -434,7 +493,7 @@ export default function DuelPage() {
           ))}
         </div>
 
-        {/* Timer */}
+        {/* Timer bar */}
         <div className="h-0.5 bg-white/8 rounded-full mb-6 overflow-hidden">
           <div className="h-full rounded-full transition-all duration-200" style={{ width: `${timerPct}%`, background: timerColor }} />
         </div>
@@ -442,7 +501,9 @@ export default function DuelPage() {
         {/* Word card */}
         <div className="card-solid p-8 text-center mb-4" style={{
           border: phase === "round_result"
-            ? roundWinner === "me" ? "1px solid #1D9E75" : roundWinner === "opponent" ? "1px solid #D85A30" : "1px solid rgba(255,255,255,0.1)"
+            ? roundWinner === "me" ? "1px solid #1D9E75"
+            : roundWinner === "opponent" ? "1px solid #D85A30"
+            : "1px solid rgba(255,255,255,0.1)"
             : "1px solid rgba(83,74,183,0.35)"
         }}>
           {word ? (
@@ -451,11 +512,10 @@ export default function DuelPage() {
                 style={{ background: "#FAEEDA22", color: "#EF9F27" }}>Reading</span>
               <div className="font-jp text-6xl mb-2 text-white pop-in">{word.word}</div>
               <p className="text-white/35 text-sm italic mb-2">{word.meaning}</p>
-              <span className="inline-block text-xs px-2 py-0.5 rounded-full"
-                style={{
-                  background: word.jlpt === "N5" ? "#1D9E7522" : word.jlpt === "N4" ? "#4DB6AC22" : word.jlpt === "N3" ? "#B8860B22" : word.jlpt === "N2" ? "#D85A3022" : "#C6282822",
-                  color: word.jlpt === "N5" ? "#1D9E75" : word.jlpt === "N4" ? "#4DB6AC" : word.jlpt === "N3" ? "#B8860B" : word.jlpt === "N2" ? "#D85A30" : "#C62828",
-                }}>{word.jlpt}</span>
+              <span className="inline-block text-xs px-2 py-0.5 rounded-full" style={{
+                background: word.jlpt === "N5" ? "#1D9E7522" : word.jlpt === "N4" ? "#4DB6AC22" : word.jlpt === "N3" ? "#B8860B22" : word.jlpt === "N2" ? "#D85A3022" : "#C6282822",
+                color: word.jlpt === "N5" ? "#1D9E75" : word.jlpt === "N4" ? "#4DB6AC" : word.jlpt === "N3" ? "#B8860B" : word.jlpt === "N2" ? "#D85A30" : "#C62828",
+              }}>{word.jlpt}</span>
               <p className="text-white/20 text-xs mt-2">
                 {hiraganaMode ? "Type romaji — auto-converts to hiragana" : "Type the reading in hiragana or romaji"}
               </p>
@@ -487,17 +547,15 @@ export default function DuelPage() {
             ref={inputRef}
             className={`input-field text-center text-lg w-full ${phase === "round_result" && roundWinner === "me" ? "input-correct" : ""}`}
             placeholder={hiraganaMode ? "ka · shi · tsu → か · し · つ" : "Type your answer…"}
-            value={answer}
+            value={ime.displayed}
             disabled={phase === "round_result"}
             autoComplete="off" autoCorrect="off" spellCheck={false}
-            onChange={handleInputChange}
-            onKeyDown={(e) => { if (e.key === "Enter") submitAnswer(answer); }}
+            onChange={(e) => { ime.onChange(e); submitAnswer(ime.value); }}
+            onKeyDown={(e) => { if (e.key === "Enter") submitAnswer(ime.value); }}
           />
-          {/* IME indicator */}
           {hiraganaMode && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1"
-              style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>
-              <span>あ</span>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>
+              あ
             </div>
           )}
         </div>
@@ -515,11 +573,12 @@ export default function DuelPage() {
   );
 }
 
+// ── Result screen ──────────────────────────────────────────────────────────────
 function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, conceded, showRomaji }: {
   room: Room; me: Profile | null; opponent: Profile | null;
   isP1: boolean; router: ReturnType<typeof useRouter>;
-  roundLog: RoundLog[]; eloChange: number | null; conceded: boolean;
-  showRomaji: boolean;
+  roundLog: RoundLog[]; eloChange: number | null;
+  conceded: boolean; showRomaji: boolean;
 }) {
   const myScore = isP1 ? room.p1_score : room.p2_score;
   const oppScore = isP1 ? room.p2_score : room.p1_score;
