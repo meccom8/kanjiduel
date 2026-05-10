@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
-import { checkVocabAnswer, shuffle, type VocabWord } from "@/lib/vocab";
+import { checkVocabAnswer, fetchRandomWords, type VocabWord } from "@/lib/vocab";
 import { useImeInput } from "@/hooks/useImeInput";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -115,15 +115,12 @@ export default function Practice() {
 
   async function startSession() {
     setPhase("loading");
-    let query = supabase.from("vocabulary").select("id, word, reading, romaji, meaning, jlpt, level").limit(500);
-    if (filter !== "all") query = query.eq("jlpt", filter);
-    const { data } = await query;
-    if (!data || data.length === 0) { setPhase("setup"); return; }
-    const q = shuffle(data as VocabWord[]).slice(0, TOTAL_ROUNDS);
-    setQueue(q);
+    const words = await fetchRandomWords(supabase, TOTAL_ROUNDS, filter === "all" ? undefined : filter);
+    if (!words.length) { setPhase("setup"); return; }
+    setQueue(words);
     setStats([]);
     setRoundNum(0);
-    loadRound(q, 0);
+    loadRound(words, 0);
   }
 
   function loadRound(q: VocabWord[], idx: number) {

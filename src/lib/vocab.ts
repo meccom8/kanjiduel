@@ -1,3 +1,5 @@
+import { createClient } from "@/lib/supabase";
+
 // Vocabulary item from Supabase
 export interface VocabWord {
   id: string;
@@ -64,7 +66,6 @@ function kataToHira(str: string): string {
   }).join("");
 }
 
-// Normalize long vowels: ū→uu, ō→ou/oo, ā→aa, etc.
 function normalizeLongVowels(str: string): string {
   return str
     .replace(/ū/g, "uu").replace(/Ū/g, "uu")
@@ -75,7 +76,6 @@ function normalizeLongVowels(str: string): string {
     .toLowerCase();
 }
 
-// Strip common verb suffixes like -suru, する, ・する
 function stripVerbSuffix(str: string): string {
   return str
     .replace(/[・･]?(する|suru|-suru)$/i, "")
@@ -83,12 +83,10 @@ function stripVerbSuffix(str: string): string {
     .trim();
 }
 
-// Split multiple readings (e.g. "nan / nani" -> ["nan", "nani"])
 function splitReadings(str: string): string[] {
   return str.split(/[/、,，・]/).map(s => stripVerbSuffix(s.trim())).filter(Boolean);
 }
 
-// Accept hiragana, katakana, romaji, with/without macrons, multiple readings
 export function checkVocabAnswer(input: string, word: VocabWord): boolean {
   const clean = input.trim().toLowerCase();
   if (!clean) return false;
@@ -96,15 +94,11 @@ export function checkVocabAnswer(input: string, word: VocabWord): boolean {
   const inputAsHira = kataToHira(clean).toLowerCase();
   const inputRoma = normalizeLongVowels(hiraToRoma(clean));
 
-  // Get all possible readings
   const hiraReadings = splitReadings(word.reading.toLowerCase());
   const romaReadings = splitReadings(
     normalizeLongVowels(word.romaji || hiraToRoma(word.reading))
   );
-
-  // Also compute romaji from each hiragana reading
   const hiraToRomaReadings = hiraReadings.map(h => normalizeLongVowels(hiraToRoma(h)));
-
   const allRoma = [...new Set([...romaReadings, ...hiraToRomaReadings])];
 
   return (
@@ -122,7 +116,12 @@ export function getEloMaxLevel(elo: number): number {
 }
 
 export function shuffle<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5);
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 // Deterministic daily word selection
@@ -136,4 +135,65 @@ export function getDailyWords(allWords: VocabWord[], date: string, count = 10): 
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled.slice(0, count);
+}
+
+// ─── Approximate word counts per JLPT level ───────────────────────────────────
+const JLPT_COUNTS: Record<string, number> = {
+  all: 7238,
+  N5: 800,
+  N4: 1500,
+  N3: 1500,
+  N2: 1700,
+  N1: 1738,
+};
+
+/**
+ * Fetch truly random words from the full 7238-word vocabulary table.
+ *
+ * Instead of .limit(500) which always returns the same first 500 rows,
+ * this picks 3 random offsets spread across the table and merges results.
+ * This ensures all 7238 words can appear over time.
+ *
+ * @param supabase  - Supabase browser client
+ * @param count     - how many words you need (e.g. 20 for practice, 1 for duel)
+ * @param jlpt      - optional JLPT level filter
+ */
+export async function fetchRandomWords(
+  supabase: ReturnType<typeof createClient>,
+  count: number = 20,
+  jlpt?: string
+): Promise<VocabWord[]> {
+  const total = jlpt ? (JLPT_COUNTS[jlpt] ?? 1000) : JLPT_COUNTS.all;
+  const batchSize = Math.max(count, 10);
+
+  // Pick 3 non-overlapping random offsets
+  const offsets: number[] = [];
+  while (offsets.length < 3) {
+    const o = Math.floor(Math.random() * Math.max(1, total - batchSize));
+    if (!offsets.some(x => Math.abs(x - o) < batchSize)) offsets.push(o);
+    // Safety: if table is small, just add anyway
+    if (offsets.length < 3 && total < batchSize * 3) { offsets.push(o); break; }
+  }
+
+  const results = await Promise.all(
+    offsets.map(offset => {
+      let q = supabase
+        .from("vocabulary")
+        .select("id, word, reading, romaji, meaning, jlpt, level")
+        .range(offset, offset + batchSize - 1);
+      if (jlpt) q = (q as any).eq("jlpt", jlpt);
+      return q;
+    })
+  );
+
+  // Merge, deduplicate, shuffle, return requested count
+  const seen = new Set<string>();
+  const unique: VocabWord[] = [];
+  for (const r of results) {
+    for (const w of (r.data ?? []) as VocabWord[]) {
+      if (!seen.has(w.id)) { seen.add(w.id); unique.push(w); }
+    }
+  }
+
+  return shuffle(unique).slice(0, count);
 }

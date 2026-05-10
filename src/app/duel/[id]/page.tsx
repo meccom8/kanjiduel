@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { checkVocabAnswer, shuffle, type VocabWord } from "@/lib/vocab";
+import { checkVocabAnswer, fetchRandomWords, type VocabWord } from "@/lib/vocab";
 import { useImeInput } from "@/hooks/useImeInput";
 import { useRouter, useParams } from "next/navigation";
 
@@ -293,10 +293,9 @@ export default function DuelPage() {
   }
 
   async function sendNextWord() {
-    const { data: words } = await supabase
-      .from("vocabulary").select("id, word, reading, romaji, meaning, jlpt, level").limit(500);
-    if (!words?.length) return;
-    const word = shuffle(words as VocabWord[])[0];
+    const words = await fetchRandomWords(supabase, 10);
+    if (!words.length) return;
+    const word = words[0];
     await supabase.from("rooms").update({
       current_kanji: word, question_type: "reading",
       round_started_at: new Date().toISOString(),
