@@ -226,6 +226,29 @@ export default function DuelPage() {
       return;
     }
 
+    // ── Waiting → Active transition (opponent joined) ──────────────────────
+    if (prev?.status === "waiting" && updated.status === "active") {
+      // Reload opponent profile now that player2_id is set
+      const oppId = isP1.current ? updated.player2_id : updated.player1_id;
+      if (oppId) {
+        supabase.from("profiles")
+          .select("id, username, elo, avatar_url, accent_color")
+          .eq("id", oppId).single()
+          .then(({ data }) => { if (data) setOpponent(data); });
+      }
+      if (updated.current_kanji) {
+        lastRoundRef.current = updated.current_round;
+        setPhase("playing");
+        startTimer(updated.round_started_at);
+      } else if (isP1.current) {
+        setPhase("playing");
+        sendNextWord();
+      } else {
+        setPhase("playing");
+      }
+      return;
+    }
+
     if (
       updated.current_kanji &&
       updated.current_round !== lastRoundRef.current &&
