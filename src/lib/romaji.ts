@@ -1,17 +1,20 @@
 // Romaji → Hiragana converter (WaniKani-style IME)
 //
-// Rules for n/ん:
-//   nn        → ん  (explicit double-n)
-//   n'        → ん  (apostrophe separator)
-//   n + end   → ん  (n at end of string)
-//   n + consonant (not n,y) → ん + consonant  e.g. "nk","nb","nz"...
-//   ni/na/nu/ne/no/nya/nyu/nyo → に/な/ぬ/ね/の/にゃ/にゅ/にょ  (NOT ん)
-//   n alone mid-word → keep pending (don't convert yet)
+// IMPORTANT: always call toHiragana(rawBuffer) where rawBuffer is the
+// original romaji typed by the user — never feed the converted hiragana
+// back as input. The component must track raw input separately.
+//
+// n/ん rules:
+//   nn          → ん
+//   n'          → ん (apostrophe separator)
+//   n + consonant (not n,y) → ん  e.g. nk nb nz
+//   ni/na/nu/ne/no/nya...   → に/な... (NOT ん)
+//   n at end of string      → kept as "n" (pending — user may type a vowel next)
 
 const ROMAJI_MAP: [string, string][] = [
   // 4-char
   ["xtsu","っ"],["ltsu","っ"],
-  // 3-char — must come before 2-char to match greedily
+  // 3-char
   ["sha","しゃ"],["shi","し"],["shu","しゅ"],["she","しぇ"],["sho","しょ"],
   ["chi","ち"],["cha","ちゃ"],["chu","ちゅ"],["che","ちぇ"],["cho","ちょ"],
   ["tsu","つ"],
@@ -53,7 +56,6 @@ const ROMAJI_MAP: [string, string][] = [
   ["ja","じゃ"],["ji","じ"],["ju","じゅ"],["je","じぇ"],["jo","じょ"],
   ["va","ゔぁ"],["vi","ゔぃ"],["vu","ゔ"],["ve","ゔぇ"],["vo","ゔぉ"],
   ["xa","ぁ"],["xi","ぃ"],["xu","ぅ"],["xe","ぇ"],["xo","ぉ"],
-  // 1-char vowels only (n handled separately)
   ["a","あ"],["i","い"],["u","う"],["e","え"],["o","お"],
 ];
 
@@ -71,6 +73,10 @@ for (const [rom, hira] of ROMAJI_MAP) {
 
 const VOWELS = new Set(["a", "i", "u", "e", "o"]);
 
+/**
+ * Convert romaji string to hiragana.
+ * Pass the raw romaji buffer — never pass previously converted hiragana.
+ */
 export function toHiragana(input: string): string {
   const s = input.toLowerCase();
   let result = "";
@@ -90,37 +96,35 @@ export function toHiragana(input: string): string {
         continue;
       }
 
-      // n' → ん (explicit separator)
+      // n' → ん (explicit separator like WaniKani)
       if (next === "'") {
         result += "ん";
         i += 2;
         continue;
       }
 
-      // n at end of string → ん
+      // n at end of string → keep as "n" (user hasn't finished typing)
       if (next === undefined) {
-        result += "ん";
+        result += "n";
         i += 1;
         continue;
       }
 
-      // n followed by vowel or y → try na/ni/nu/ne/no/nya/nyu/nyo
+      // n + vowel or y → try na/ni/nu/ne/no/nya/nyu/nyo (NOT ん)
       if (VOWELS.has(next) || next === "y") {
-        // Try 3-char first: nya, nyu, nyo, nyi, nye
-        const hit3 = MAP3.get(s.slice(i, i + 3));
-        if (hit3) { result += hit3; i += 3; continue; }
+        const h3 = MAP3.get(s.slice(i, i + 3));
+        if (h3) { result += h3; i += 3; continue; }
 
-        // Try 2-char: na, ni, nu, ne, no
-        const hit2 = MAP2.get(s.slice(i, i + 2));
-        if (hit2) { result += hit2; i += 2; continue; }
+        const h2 = MAP2.get(s.slice(i, i + 2));
+        if (h2) { result += h2; i += 2; continue; }
 
-        // partial (e.g. bare "ny" not yet completable) — keep as-is
+        // partial e.g. "ny" not yet completable — keep as-is
         result += c;
         i += 1;
         continue;
       }
 
-      // n followed by any other consonant → ん, leave consonant for next pass
+      // n + consonant (not n, not y) → ん
       result += "ん";
       i += 1;
       continue;
@@ -139,19 +143,19 @@ export function toHiragana(input: string): string {
     }
 
     // ── Longest match first ────────────────────────────────────────────────
-    const hit4 = MAP4.get(s.slice(i, i + 4));
-    if (hit4) { result += hit4; i += 4; continue; }
+    const h4 = MAP4.get(s.slice(i, i + 4));
+    if (h4) { result += h4; i += 4; continue; }
 
-    const hit3 = MAP3.get(s.slice(i, i + 3));
-    if (hit3) { result += hit3; i += 3; continue; }
+    const h3 = MAP3.get(s.slice(i, i + 3));
+    if (h3) { result += h3; i += 3; continue; }
 
-    const hit2 = MAP2.get(s.slice(i, i + 2));
-    if (hit2) { result += hit2; i += 2; continue; }
+    const h2 = MAP2.get(s.slice(i, i + 2));
+    if (h2) { result += h2; i += 2; continue; }
 
-    const hit1 = MAP1.get(s[i]);
-    if (hit1) { result += hit1; i += 1; continue; }
+    const h1 = MAP1.get(s[i]);
+    if (h1) { result += h1; i += 1; continue; }
 
-    // Unconverted (partial consonant cluster) — keep as-is
+    // Unconverted (partial consonant cluster, unknown char) — keep as-is
     result += c;
     i += 1;
   }
@@ -159,7 +163,7 @@ export function toHiragana(input: string): string {
   return result;
 }
 
-// Returns true if string is already fully kana
+// Returns true if string is already fully kana (no conversion needed)
 export function isKana(s: string): boolean {
   return /^[\u3040-\u309f\u30a0-\u30ff\s・ー]+$/.test(s);
 }

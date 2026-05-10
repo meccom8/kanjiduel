@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { checkVocabAnswer, shuffle, type VocabWord } from "@/lib/vocab";
-import { toHiragana, isKana } from "@/lib/romaji";
+import { useImeInput } from "@/hooks/useImeInput";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -32,8 +32,7 @@ function playTone(type: "correct" | "wrong" | "timeout") {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    osc.connect(gain); gain.connect(ctx.destination);
     if (type === "correct") {
       osc.frequency.setValueAtTime(523, ctx.currentTime);
       osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
@@ -61,19 +60,25 @@ export default function Practice() {
   const [allWords, setAllWords] = useState<Record<string, VocabWord[]>>({});
   const [queue, setQueue] = useState<VocabWord[]>([]);
   const [current, setCurrent] = useState<VocabWord | null>(null);
-  const [input, setInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
   const [stats, setStats] = useState<RoundStat[]>([]);
   const [isCorrect, setIsCorrect] = useState(false);
   const [roundNum, setRoundNum] = useState(0);
 
-  // Prefs
   const [hiraganaMode, setHiraganaMode] = useState(false);
   const [showRomaji, setShowRomaji] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // ── IME hook ──────────────────────────────────────────────────────────────
+  const ime = useImeInput(hiraganaMode);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const currentRef = useRef(current);
+  currentRef.current = current;
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -101,6 +106,13 @@ export default function Practice() {
     })();
   }, []);
 
+  // Auto-submit when IME value changes (handles both IME and normal mode)
+  useEffect(() => {
+    if (phaseRef.current === "playing" && currentRef.current) {
+      submitAnswer(ime.value);
+    }
+  }, [ime.value]);
+
   async function startSession() {
     setPhase("loading");
     let query = supabase.from("vocabulary").select("id, word, reading, romaji, meaning, jlpt, level").limit(500);
@@ -117,7 +129,7 @@ export default function Practice() {
   function loadRound(q: VocabWord[], idx: number) {
     if (idx >= q.length) { setPhase("finished"); return; }
     setCurrent(q[idx]);
-    setInput("");
+    ime.reset();
     setRoundNum(idx);
     setPhase("playing");
     startTimer(() => {
@@ -158,13 +170,6 @@ export default function Practice() {
     if (!checkVocabAnswer(val, current)) return;
     if (soundEnabled) playTone("correct");
     handleResult(current, true, val.trim());
-  }
-
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value;
-    const converted = (hiraganaMode && !isKana(raw)) ? toHiragana(raw) : raw;
-    setInput(converted);
-    if (phase === "playing") submitAnswer(converted);
   }
 
   function skipQuestion() {
@@ -210,29 +215,20 @@ export default function Practice() {
           })}
         </div>
 
-        {/* Active prefs display */}
         <div className="bg-white/4 rounded-xl p-3 mb-5 flex flex-col gap-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-white/40">Hiragana IME</span>
-            <span style={{ color: hiraganaMode ? "#5DCAA5" : "rgba(255,255,255,0.2)" }}>
-              {hiraganaMode ? "● on" : "○ off"}
-            </span>
+            <span style={{ color: hiraganaMode ? "#5DCAA5" : "rgba(255,255,255,0.2)" }}>{hiraganaMode ? "● on" : "○ off"}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-white/40">Romaji hints</span>
-            <span style={{ color: showRomaji ? "#5DCAA5" : "rgba(255,255,255,0.2)" }}>
-              {showRomaji ? "● on" : "○ off"}
-            </span>
+            <span style={{ color: showRomaji ? "#5DCAA5" : "rgba(255,255,255,0.2)" }}>{showRomaji ? "● on" : "○ off"}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-white/40">Sound</span>
-            <span style={{ color: soundEnabled ? "#5DCAA5" : "rgba(255,255,255,0.2)" }}>
-              {soundEnabled ? "● on" : "○ off"}
-            </span>
+            <span style={{ color: soundEnabled ? "#5DCAA5" : "rgba(255,255,255,0.2)" }}>{soundEnabled ? "● on" : "○ off"}</span>
           </div>
-          <Link href="/settings" className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.25)" }}>
-            Change in Settings →
-          </Link>
+          <Link href="/settings" className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.25)" }}>Change in Settings →</Link>
         </div>
 
         <button className="btn-primary" onClick={startSession}>Start practice</button>
@@ -267,15 +263,13 @@ export default function Practice() {
             <Link href="/"><button className="btn-ghost">Home</button></Link>
           </div>
         </div>
-
         <div className="card-solid overflow-hidden">
           <div className="px-5 py-3 border-b border-white/5">
             <p className="text-xs text-white/40 uppercase tracking-widest">Review</p>
           </div>
           {stats.map((s, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
-              <div className="w-1.5 h-8 rounded-full flex-shrink-0"
-                style={{ background: s.correct ? "#1D9E75" : "#E24B4A" }} />
+              <div className="w-1.5 h-8 rounded-full flex-shrink-0" style={{ background: s.correct ? "#1D9E75" : "#E24B4A" }} />
               <div className="font-jp text-xl w-12 text-center flex-shrink-0">{s.word.word}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white/30">{s.word.jlpt} · {s.word.meaning}</p>
@@ -283,9 +277,7 @@ export default function Practice() {
                 {showRomaji && <p className="text-xs font-mono text-white/25">{s.word.romaji}</p>}
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-xs font-mono" style={{ color: s.correct ? "#5DCAA5" : "#E24B4A" }}>
-                  {s.userAnswer}
-                </p>
+                <p className="text-xs font-mono" style={{ color: s.correct ? "#5DCAA5" : "#E24B4A" }}>{s.userAnswer}</p>
               </div>
             </div>
           ))}
@@ -294,32 +286,27 @@ export default function Practice() {
     );
   }
 
-  // PLAYING / FEEDBACK
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative z-10">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm text-white/40">{roundNum + 1} / {TOTAL_ROUNDS}</span>
           <span className="text-xs px-2.5 py-1 rounded-full font-medium"
-            style={{ background: filterInfo.color + "22", color: filterInfo.color }}>
-            {filterInfo.label}
-          </span>
+            style={{ background: filterInfo.color + "22", color: filterInfo.color }}>{filterInfo.label}</span>
           <span className="font-mono text-sm font-bold" style={{ color: timerColor }}>{timeLeft}s</span>
         </div>
 
         <div className="flex gap-1 mb-4">
           {Array.from({ length: TOTAL_ROUNDS }).map((_, i) => (
             <div key={i} className="flex-1 h-1 rounded-full" style={{
-              background: i < stats.length
-                ? stats[i].correct ? "#534AB7" : "#E24B4A"
+              background: i < stats.length ? stats[i].correct ? "#534AB7" : "#E24B4A"
                 : i === roundNum ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.06)"
             }} />
           ))}
         </div>
 
         <div className="h-0.5 bg-white/8 rounded-full mb-6 overflow-hidden">
-          <div className="h-full rounded-full transition-all duration-200"
-            style={{ width: `${timerPct}%`, background: timerColor }} />
+          <div className="h-full rounded-full transition-all duration-200" style={{ width: `${timerPct}%`, background: timerColor }} />
         </div>
 
         {current && (
@@ -333,9 +320,7 @@ export default function Practice() {
             <div className="font-jp text-6xl mb-3 text-white pop-in">{current.word}</div>
             <p className="text-white/35 text-sm italic mb-2">{current.meaning}</p>
             <span className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: filterInfo.color + "22", color: filterInfo.color }}>
-              {current.jlpt}
-            </span>
+              style={{ background: filterInfo.color + "22", color: filterInfo.color }}>{current.jlpt}</span>
             {phase === "feedback" && (
               <div className="mt-4 pop-in">
                 {isCorrect ? (
@@ -361,18 +346,15 @@ export default function Practice() {
               phase === "feedback" && isCorrect ? "input-correct" :
               phase === "feedback" ? "input-wrong" : ""
             }`}
-            placeholder={hiraganaMode ? "ka · shi · tsu → か · し · つ" : "Type the reading..."}
-            value={input}
+            placeholder={hiraganaMode ? "ka · ni · tsu → か · に · つ" : "Type the reading..."}
+            value={ime.displayed}
             disabled={phase === "feedback"}
             autoComplete="off" autoCorrect="off" spellCheck={false}
-            onChange={handleInputChange}
-            onKeyDown={(e) => { if (e.key === "Enter" && phase === "playing") submitAnswer(input); }}
+            onChange={ime.onChange}
+            onKeyDown={(e) => { if (e.key === "Enter" && phase === "playing") submitAnswer(ime.value); }}
           />
           {hiraganaMode && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2"
-              style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>
-              あ
-            </div>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>あ</div>
           )}
         </div>
 
@@ -381,8 +363,7 @@ export default function Practice() {
         </p>
 
         {phase === "playing" && (
-          <button onClick={skipQuestion}
-            className="w-full text-xs text-white/15 hover:text-white/35 transition-colors py-1.5">
+          <button onClick={skipQuestion} className="w-full text-xs text-white/15 hover:text-white/35 transition-colors py-1.5">
             Skip →
           </button>
         )}

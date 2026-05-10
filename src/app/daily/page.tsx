@@ -3,32 +3,24 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { checkVocabAnswer, getDailyWords, type VocabWord } from "@/lib/vocab";
 import { updateStreak } from "@/lib/stats";
-import { toHiragana, isKana } from "@/lib/romaji";
+import { useImeInput } from "@/hooks/useImeInput";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type Phase = "loading" | "already_done" | "playing" | "feedback" | "finished";
 
-interface RoundStat {
-  word: VocabWord;
-  correct: boolean;
-  userAnswer: string;
-}
+interface RoundStat { word: VocabWord; correct: boolean; userAnswer: string; }
 
 const ROUND_TIME = 12;
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-function getTodayDate() {
-  return new Date().toISOString().split("T")[0];
-}
+function getTodayDate() { return new Date().toISOString().split("T")[0]; }
 
 function playTone(type: "correct" | "wrong" | "timeout") {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
     if (type === "correct") {
       osc.frequency.setValueAtTime(523, ctx.currentTime);
       osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
@@ -36,8 +28,7 @@ function playTone(type: "correct" | "wrong" | "timeout") {
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
       osc.start(); osc.stop(ctx.currentTime + 0.3);
     } else if (type === "wrong") {
-      osc.frequency.setValueAtTime(200, ctx.currentTime);
-      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(200, ctx.currentTime); osc.type = "sawtooth";
       gain.gain.setValueAtTime(0.1, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
       osc.start(); osc.stop(ctx.currentTime + 0.2);
@@ -56,20 +47,25 @@ export default function DailyChallenge() {
   const [queue, setQueue] = useState<VocabWord[]>([]);
   const [roundNum, setRoundNum] = useState(0);
   const [current, setCurrent] = useState<VocabWord | null>(null);
-  const [input, setInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
   const [stats, setStats] = useState<RoundStat[]>([]);
   const [isCorrect, setIsCorrect] = useState(false);
   const [previousScore, setPreviousScore] = useState<number | null>(null);
   const [leaderboard, setLeaderboard] = useState<{ username: string; score: number; total: number }[]>([]);
 
-  // Prefs
   const [hiraganaMode, setHiraganaMode] = useState(false);
   const [showRomaji, setShowRomaji] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  const ime = useImeInput(hiraganaMode);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const currentRef = useRef(current);
+  currentRef.current = current;
+
   const router = useRouter();
   const supabase = createClient();
   const today = getTodayDate();
@@ -97,10 +93,7 @@ export default function DailyChallenge() {
         return;
       }
 
-      const { data: words } = await supabase
-        .from("vocabulary")
-        .select("id, word, reading, romaji, meaning, jlpt, level");
-
+      const { data: words } = await supabase.from("vocabulary").select("id, word, reading, romaji, meaning, jlpt, level");
       if (!words || words.length === 0) { router.push("/"); return; }
 
       const todayWords = getDailyWords(words, today, 10);
@@ -109,32 +102,27 @@ export default function DailyChallenge() {
     })();
   }, []);
 
+  // Auto-submit when IME value changes
+  useEffect(() => {
+    if (phaseRef.current === "playing" && currentRef.current) {
+      submitAnswer(ime.value);
+    }
+  }, [ime.value]);
+
   async function loadLeaderboard() {
     const { data } = await supabase
-      .from("daily_results")
-      .select("score, total, profiles(username)")
-      .eq("date", today)
-      .order("score", { ascending: false })
-      .limit(10);
-    if (data) {
-      setLeaderboard(data.map((r: any) => ({
-        username: r.profiles?.username ?? "?",
-        score: r.score,
-        total: r.total,
-      })));
-    }
+      .from("daily_results").select("score, total, profiles(username)")
+      .eq("date", today).order("score", { ascending: false }).limit(10);
+    if (data) setLeaderboard(data.map((r: any) => ({ username: r.profiles?.username ?? "?", score: r.score, total: r.total })));
   }
 
   function loadRound(q: VocabWord[], idx: number) {
     if (idx >= q.length) return;
     setCurrent(q[idx]);
-    setInput("");
+    ime.reset();
     setRoundNum(idx);
     setPhase("playing");
-    startTimer(() => {
-      if (soundEnabled) playTone("timeout");
-      handleResult(q[idx], false, "(time up)");
-    });
+    startTimer(() => { if (soundEnabled) playTone("timeout"); handleResult(q[idx], false, "(time up)"); });
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
@@ -182,13 +170,6 @@ export default function DailyChallenge() {
     handleResult(current, true, val.trim());
   }
 
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value;
-    const converted = (hiraganaMode && !isKana(raw)) ? toHiragana(raw) : raw;
-    setInput(converted);
-    submitAnswer(converted);
-  }
-
   const score = stats.filter(s => s.correct).length;
   const timerPct = (timeLeft / ROUND_TIME) * 100;
   const timerColor = timeLeft <= 3 ? "#E24B4A" : timeLeft <= 6 ? "#EF9F27" : "#534AB7";
@@ -226,9 +207,7 @@ export default function DailyChallenge() {
         <div className="card-solid p-6 text-center mb-4 slide-up">
           <div className="text-4xl mb-3">{pct >= 80 ? "🏆" : pct >= 60 ? "👍" : pct >= 40 ? "😓" : "💀"}</div>
           <h1 className="text-2xl font-semibold mb-1">Daily complete!</h1>
-          <p className="text-white/40 text-sm mb-4">
-            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-          </p>
+          <p className="text-white/40 text-sm mb-4">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
           <div className="grid grid-cols-2 gap-3 mb-5">
             <div className="bg-white/4 rounded-xl p-3">
               <p className="font-mono text-2xl font-bold text-accent2">{score}/{queue.length}</p>
@@ -244,17 +223,14 @@ export default function DailyChallenge() {
             <Link href="/"><button className="btn-ghost">Home</button></Link>
           </div>
         </div>
-
         <LeaderboardPanel data={leaderboard} medals={MEDALS} />
-
         <div className="card-solid overflow-hidden mt-4">
           <div className="px-5 py-3 border-b border-white/5">
             <p className="text-xs text-white/40 uppercase tracking-widest">Review</p>
           </div>
           {stats.map((s, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
-              <div className="w-1.5 h-8 rounded-full flex-shrink-0"
-                style={{ background: s.correct ? "#1D9E75" : "#E24B4A" }} />
+              <div className="w-1.5 h-8 rounded-full flex-shrink-0" style={{ background: s.correct ? "#1D9E75" : "#E24B4A" }} />
               <div className="font-jp text-xl w-12 text-center">{s.word.word}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white/30">{s.word.jlpt} · {s.word.meaning}</p>
@@ -272,32 +248,26 @@ export default function DailyChallenge() {
     );
   }
 
-  // PLAYING / FEEDBACK
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative z-10">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm text-white/40">{roundNum + 1} / {queue.length}</span>
-          <span className="text-xs px-3 py-1 rounded-full font-medium"
-            style={{ background: "#534AB722", color: "#7F77DD" }}>
-            🗓 Daily Challenge
-          </span>
+          <span className="text-xs px-3 py-1 rounded-full font-medium" style={{ background: "#534AB722", color: "#7F77DD" }}>🗓 Daily Challenge</span>
           <span className="font-mono text-sm font-bold" style={{ color: timerColor }}>{timeLeft}s</span>
         </div>
 
         <div className="flex gap-1 mb-4">
           {Array.from({ length: queue.length }).map((_, i) => (
             <div key={i} className="flex-1 h-1 rounded-full" style={{
-              background: i < stats.length
-                ? stats[i].correct ? "#534AB7" : "#E24B4A"
+              background: i < stats.length ? stats[i].correct ? "#534AB7" : "#E24B4A"
                 : i === roundNum ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.06)"
             }} />
           ))}
         </div>
 
         <div className="h-0.5 bg-white/8 rounded-full mb-6 overflow-hidden">
-          <div className="h-full rounded-full transition-all duration-200"
-            style={{ width: `${timerPct}%`, background: timerColor }} />
+          <div className="h-full rounded-full transition-all duration-200" style={{ width: `${timerPct}%`, background: timerColor }} />
         </div>
 
         {current && (
@@ -310,10 +280,7 @@ export default function DailyChallenge() {
               style={{ background: "#FAEEDA22", color: "#EF9F27" }}>Reading</span>
             <div className="font-jp text-6xl mb-3 text-white pop-in">{current.word}</div>
             <p className="text-white/35 text-sm italic mb-2">{current.meaning}</p>
-            <span className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: "#7F77DD22", color: "#7F77DD" }}>
-              {current.jlpt}
-            </span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#7F77DD22", color: "#7F77DD" }}>{current.jlpt}</span>
             {phase === "feedback" && (
               <div className="mt-4 pop-in">
                 {isCorrect ? (
@@ -339,18 +306,15 @@ export default function DailyChallenge() {
               phase === "feedback" && isCorrect ? "input-correct" :
               phase === "feedback" ? "input-wrong" : ""
             }`}
-            placeholder={hiraganaMode ? "ka · shi · tsu → か · し · つ" : "Type the reading..."}
-            value={input}
+            placeholder={hiraganaMode ? "ka · ni · tsu → か · に · つ" : "Type the reading..."}
+            value={ime.displayed}
             disabled={phase === "feedback"}
             autoComplete="off" autoCorrect="off" spellCheck={false}
-            onChange={handleInputChange}
-            onKeyDown={(e) => { if (e.key === "Enter") submitAnswer(input); }}
+            onChange={ime.onChange}
+            onKeyDown={(e) => { if (e.key === "Enter") submitAnswer(ime.value); }}
           />
           {hiraganaMode && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2"
-              style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>
-              あ
-            </div>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>あ</div>
           )}
         </div>
 
@@ -377,9 +341,7 @@ function LeaderboardPanel({ data, medals }: { data: { username: string; score: n
       </div>
       {data.map((r, i) => (
         <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
-          <span className="text-sm w-6 text-center" style={{ color: i < 3 ? "#EF9F27" : "rgba(255,255,255,0.2)" }}>
-            {medals[i] ?? i + 1}
-          </span>
+          <span className="text-sm w-6 text-center" style={{ color: i < 3 ? "#EF9F27" : "rgba(255,255,255,0.2)" }}>{medals[i] ?? i + 1}</span>
           <span className="flex-1 text-sm font-medium">{r.username}</span>
           <span className="font-mono text-sm" style={{ color: "#7F77DD" }}>{r.score}/{r.total}</span>
         </div>
