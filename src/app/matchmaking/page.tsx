@@ -26,7 +26,7 @@ export default function Matchmaking() {
   const router = useRouter();
   const supabase = createClient();
 
-  // ── Cleanup — supprime notre room waiting ──────────────────────────────────
+  // ── Cleanup — marque la room comme cancelled (atomique, pas de race condition) ──
   async function cleanupRoom() {
     if (matchFoundRef.current) return;
     if (cleaningUpRef.current) return;
@@ -36,13 +36,18 @@ export default function Matchmaking() {
     const rid = roomIdRef.current;
 
     try {
+      // Mark as cancelled instantly — prevents other players from joining
       if (rid) {
-        await supabase.from("rooms").delete()
-          .eq("id", rid).eq("status", "waiting");
+        await supabase.from("rooms")
+          .update({ status: "cancelled" })
+          .eq("id", rid)
+          .eq("status", "waiting");
       }
       if (uid) {
-        await supabase.from("rooms").delete()
-          .eq("player1_id", uid).eq("status", "waiting");
+        await supabase.from("rooms")
+          .update({ status: "cancelled" })
+          .eq("player1_id", uid)
+          .eq("status", "waiting");
       }
     } catch {}
 
@@ -102,7 +107,7 @@ export default function Matchmaking() {
       await supabase.from("rooms")
         .delete()
         .eq("player1_id", user.id)
-        .eq("status", "waiting");
+        .in("status", ["waiting", "cancelled"]);
 
       // Also trigger server-side cleanup of ALL stale rooms (via RPC if available)
       try {
@@ -162,13 +167,14 @@ export default function Matchmaking() {
     const fifteenSecondsAgo = new Date(Date.now() - 15000).toISOString();
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
 
-    // Clean stale rooms older than 15s
+    // Clean stale rooms older than 15s (both waiting and cancelled)
     await supabase.from("rooms")
-      .delete().eq("status", "waiting")
+      .delete()
+      .in("status", ["waiting", "cancelled"])
       .lt("created_at", fifteenSecondsAgo)
       .is("player2_id", null);
 
-    // Look for fresh waiting rooms (created in last 15s)
+    // Look for fresh waiting rooms only (not cancelled)
     const { data: waitingRooms } = await supabase
       .from("rooms")
       .select("id, player1_id")
@@ -204,29 +210,30 @@ export default function Matchmaking() {
       }
     }
 
-    // No match — upsert our waiting room (unique index prevents duplicates)
+    // No match — create our waiting room if we don't have one yet
     if (!roomIdRef.current) {
-      const { data: newRoom, error } = await supabase
+      // Check first to avoid unique constraint error in console
+      const { data: existing } = await supabase
         .from("rooms")
-        .insert({ player1_id: uid, status: "waiting", category: "all", rounds: 11 })
-        .select().single();
+        .select("id")
+        .eq("player1_id", uid)
+        .eq("status", "waiting")
+        .is("player2_id", null)
+        .maybeSingle();
 
-      if (error) {
-        // Unique index violation — a room already exists for this player, fetch it
-        const { data: existing } = await supabase
+      if (existing) {
+        // Room already exists (e.g. from a previous session) — reuse it
+        roomIdRef.current = existing.id;
+        setRoomId(existing.id);
+      } else {
+        const { data: newRoom } = await supabase
           .from("rooms")
-          .select("id")
-          .eq("player1_id", uid)
-          .eq("status", "waiting")
-          .is("player2_id", null)
-          .single();
-        if (existing) {
-          roomIdRef.current = existing.id;
-          setRoomId(existing.id);
+          .insert({ player1_id: uid, status: "waiting", category: "all", rounds: 11 })
+          .select().single();
+        if (newRoom) {
+          roomIdRef.current = newRoom.id;
+          setRoomId(newRoom.id);
         }
-      } else if (newRoom) {
-        roomIdRef.current = newRoom.id;
-        setRoomId(newRoom.id);
       }
 
       const rid = roomIdRef.current;
