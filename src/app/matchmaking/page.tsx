@@ -204,36 +204,50 @@ export default function Matchmaking() {
       }
     }
 
-    // No match — create our room (only once)
+    // No match — upsert our waiting room (unique index prevents duplicates)
     if (!roomIdRef.current) {
-      const { data: newRoom } = await supabase
+      const { data: newRoom, error } = await supabase
         .from("rooms")
         .insert({ player1_id: uid, status: "waiting", category: "all", rounds: 11 })
         .select().single();
 
-      if (newRoom) {
+      if (error) {
+        // Unique index violation — a room already exists for this player, fetch it
+        const { data: existing } = await supabase
+          .from("rooms")
+          .select("id")
+          .eq("player1_id", uid)
+          .eq("status", "waiting")
+          .is("player2_id", null)
+          .single();
+        if (existing) {
+          roomIdRef.current = existing.id;
+          setRoomId(existing.id);
+        }
+      } else if (newRoom) {
         roomIdRef.current = newRoom.id;
         setRoomId(newRoom.id);
+      }
 
+      const rid = roomIdRef.current;
+      if (rid && !channelRef.current) {
         const channel = supabase
-          .channel(`room-wait-${newRoom.id}`)
+          .channel(`room-wait-${rid}`)
           .on("postgres_changes", {
             event: "UPDATE", schema: "public", table: "rooms",
-            filter: `id=eq.${newRoom.id}`,
+            filter: `id=eq.${rid}`,
           }, (payload) => {
             if (payload.new.status === "active") {
               matchFoundRef.current = true;
               channel.unsubscribe();
               if (pollRef.current) clearInterval(pollRef.current);
-              router.push(`/duel/${newRoom.id}`);
+              router.push(`/duel/${rid}`);
             }
           }).subscribe();
-
         channelRef.current = channel;
       }
     } else {
-      // Heartbeat: update created_at to signal we're still actively searching
-      // This prevents our room from being deleted as stale
+      // Heartbeat: refresh created_at so we're not deleted as stale
       await supabase.from("rooms")
         .update({ created_at: new Date().toISOString() })
         .eq("id", roomIdRef.current)
