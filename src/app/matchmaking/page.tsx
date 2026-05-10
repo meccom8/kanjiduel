@@ -26,7 +26,7 @@ export default function Matchmaking() {
   const router = useRouter();
   const supabase = createClient();
 
-  // ── Cleanup — marque la room comme cancelled (atomique, pas de race condition) ──
+  // ── Cleanup — supprime la room waiting directement ────────────────────────
   async function cleanupRoom() {
     if (matchFoundRef.current) return;
     if (cleaningUpRef.current) return;
@@ -36,16 +36,15 @@ export default function Matchmaking() {
     const rid = roomIdRef.current;
 
     try {
-      // Mark as cancelled instantly — prevents other players from joining
       if (rid) {
         await supabase.from("rooms")
-          .update({ status: "cancelled" })
+          .delete()
           .eq("id", rid)
           .eq("status", "waiting");
       }
       if (uid) {
         await supabase.from("rooms")
-          .update({ status: "cancelled" })
+          .delete()
           .eq("player1_id", uid)
           .eq("status", "waiting");
       }
@@ -107,7 +106,7 @@ export default function Matchmaking() {
       await supabase.from("rooms")
         .delete()
         .eq("player1_id", user.id)
-        .in("status", ["waiting", "cancelled"]);
+        .eq("status", "waiting");
 
       // Also trigger server-side cleanup of ALL stale rooms (via RPC if available)
       try {
@@ -167,10 +166,10 @@ export default function Matchmaking() {
     const fifteenSecondsAgo = new Date(Date.now() - 15000).toISOString();
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
 
-    // Clean stale rooms older than 15s (both waiting and cancelled)
+    // Clean stale rooms older than 15s
     await supabase.from("rooms")
       .delete()
-      .in("status", ["waiting", "cancelled"])
+      .eq("status", "waiting")
       .lt("created_at", fifteenSecondsAgo)
       .is("player2_id", null);
 

@@ -489,7 +489,7 @@ export default function DuelPage() {
             onClick={async () => {
               if (pollRef.current) clearInterval(pollRef.current);
               await supabase.from("rooms")
-                .update({ status: "cancelled" })
+                .delete()
                 .eq("id", roomId)
                 .eq("status", "waiting");
               router.push("/");
