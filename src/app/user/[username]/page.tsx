@@ -193,10 +193,22 @@ export default function UserProfile() {
   const [notFound, setNotFound] = useState(false);
   const [showRanks, setShowRanks] = useState(false);
   const [tab, setTab] = useState<"matches" | "elo" | "badges" | "jlpt">("matches");
+
+  // Friend / challenge state
+  const [meId, setMeId] = useState<string | null>(null);
+  const [friendshipId, setFriendshipId] = useState<string | null>(null);
+  const [friendStatus, setFriendStatus] = useState<"none" | "pending_sent" | "pending_received" | "friend">("none");
+  const [challenging, setChallenging] = useState(false);
+  const [challengeCode, setChallengeCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const supabase = createClient();
 
   useEffect(() => {
     (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setMeId(user?.id ?? null);
+
       const { data } = await supabase
         .from("profiles")
         .select("id, username, elo, wins, losses, draws, streak, best_streak, avatar_url, bio, title, accent_color")
@@ -205,6 +217,22 @@ export default function UserProfile() {
 
       if (!data) { setNotFound(true); setLoading(false); return; }
       setProfile(data);
+
+      // Load friendship status
+      if (user && user.id !== data.id) {
+        const { data: fs } = await supabase
+          .from("friendships")
+          .select("id, requester_id, addressee_id, status")
+          .or(`and(requester_id.eq.${user.id},addressee_id.eq.${data.id}),and(requester_id.eq.${data.id},addressee_id.eq.${user.id})`)
+          .maybeSingle();
+
+        if (fs) {
+          setFriendshipId(fs.id);
+          if (fs.status === "accepted") setFriendStatus("friend");
+          else if (fs.status === "pending" && fs.requester_id === user.id) setFriendStatus("pending_sent");
+          else if (fs.status === "pending" && fs.addressee_id === user.id) setFriendStatus("pending_received");
+        }
+      }
 
       const [{ data: kanjiData }, { data: matchData }] = await Promise.all([
         supabase.from("kanji_stats").select("kanji, jlpt, correct, wrong").eq("user_id", data.id),
@@ -240,6 +268,44 @@ export default function UserProfile() {
       setLoading(false);
     })();
   }, [username]);
+
+  async function sendFriendRequest() {
+    if (!meId || !profile) return;
+    const { data } = await supabase.from("friendships").insert({
+      requester_id: meId, addressee_id: profile.id, status: "pending",
+    }).select().single();
+    if (data) { setFriendshipId(data.id); setFriendStatus("pending_sent"); }
+  }
+
+  async function acceptFriendRequest() {
+    if (!friendshipId) return;
+    await supabase.from("friendships").update({ status: "accepted" }).eq("id", friendshipId);
+    setFriendStatus("friend");
+  }
+
+  async function removeFriend() {
+    if (!friendshipId) return;
+    await supabase.from("friendships").delete().eq("id", friendshipId);
+    setFriendshipId(null); setFriendStatus("none");
+  }
+
+  async function challengePlayer() {
+    if (!meId || !profile || challenging) return;
+    setChallenging(true);
+    const code = Array.from({ length: 6 }, () =>
+      "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]
+    ).join("");
+    const { data: room } = await supabase.from("rooms").insert({
+      player1_id: meId, status: "waiting", category: "all", rounds: 11,
+      is_private: true, invite_code: code,
+    }).select().single();
+    if (room) {
+      setChallengeCode(code);
+      const link = `${window.location.origin}/play/${code}`;
+      try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
+    }
+    setChallenging(false);
+  }
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -318,6 +384,71 @@ export default function UserProfile() {
 
         {profile.bio && (
           <p className="text-white/50 text-sm mb-4 leading-relaxed">{profile.bio}</p>
+        )}
+
+        {/* ── Friend / Challenge buttons ── */}
+        {meId && meId !== profile.id && (
+          <div className="flex gap-2 mb-4">
+            {/* Challenge button */}
+            <button
+              onClick={challengePlayer}
+              disabled={challenging}
+              className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+              style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}44` }}>
+              {challenging ? "…" : "⚡ Challenge"}
+            </button>
+
+            {/* Friend button */}
+            {friendStatus === "none" && (
+              <button onClick={sendFriendRequest}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                + Add friend
+              </button>
+            )}
+            {friendStatus === "pending_sent" && (
+              <div className="flex-1 py-2 rounded-xl text-sm text-center text-white/30 border border-white/8">
+                Request sent
+              </div>
+            )}
+            {friendStatus === "pending_received" && (
+              <button onClick={acceptFriendRequest}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                style={{ background: "#1D9E7522", color: "#5DCAA5", border: "1px solid #1D9E7544" }}>
+                ✓ Accept request
+              </button>
+            )}
+            {friendStatus === "friend" && (
+              <button onClick={removeFriend}
+                className="flex-1 py-2 rounded-xl text-sm font-medium text-white/30 hover:text-red-400 transition-colors border border-white/8">
+                ✓ Friends
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Challenge code display */}
+        {challengeCode && (
+          <div className="mb-4 p-3 rounded-xl text-center"
+            style={{ background: accentColor + "11", border: `1px solid ${accentColor}33` }}>
+            <p className="text-xs text-white/40 mb-1">Share this link or code</p>
+            <p className="font-mono text-xl font-bold tracking-widest mb-2" style={{ color: accentColor }}>
+              {challengeCode}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/play/${challengeCode}`); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                className="flex-1 text-xs py-1.5 rounded-lg transition-all"
+                style={{ background: accentColor + "22", color: accentColor }}>
+                {copied ? "✓ Copied!" : "Copy link"}
+              </button>
+              <a href={`/duel/${challengeCode}`}
+                className="flex-1 text-xs py-1.5 rounded-lg text-center transition-all"
+                style={{ background: "#534AB722", color: "#7F77DD" }}>
+                Go to duel →
+              </a>
+            </div>
+          </div>
         )}
 
         {nextTier && (
