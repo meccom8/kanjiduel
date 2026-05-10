@@ -17,32 +17,43 @@ export default function Matchmaking() {
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const searchRef = useRef<NodeJS.Timeout | null>(null);
   const searchedRef = useRef(false);
-  const matchFoundRef = useRef(false); // prevent cleanup if we actually found a match
-  const roomIdRef = useRef<string | null>(null); // always-fresh ref for cleanup
+  const matchFoundRef = useRef(false);
+  const roomIdRef = useRef<string | null>(null);
   const userIdRef = useRef<string | null>(null);
   const channelRef = useRef<any>(null);
+  const cleaningUpRef = useRef(false);
 
   const router = useRouter();
   const supabase = createClient();
 
-  // ── Cleanup helper — deletes our waiting room ──────────────────────────────
+  // ── Cleanup — supprime notre room waiting ──────────────────────────────────
   async function cleanupRoom() {
-    if (matchFoundRef.current) return; // don't delete if we navigated to a duel
+    if (matchFoundRef.current) return;
+    if (cleaningUpRef.current) return;
+    cleaningUpRef.current = true;
+
     const uid = userIdRef.current;
     const rid = roomIdRef.current;
-    if (rid) {
-      await supabase.from("rooms").delete().eq("id", rid).eq("status", "waiting");
-    }
-    if (uid) {
-      await supabase.from("rooms").delete().eq("player1_id", uid).eq("status", "waiting");
-    }
+
+    try {
+      if (rid) {
+        await supabase.from("rooms").delete()
+          .eq("id", rid).eq("status", "waiting");
+      }
+      if (uid) {
+        await supabase.from("rooms").delete()
+          .eq("player1_id", uid).eq("status", "waiting");
+      }
+    } catch {}
+
     if (channelRef.current) {
-      channelRef.current.unsubscribe();
+      try { channelRef.current.unsubscribe(); } catch {}
       channelRef.current = null;
     }
+    cleaningUpRef.current = false;
   }
 
-  // ── On unmount: cleanup ────────────────────────────────────────────────────
+  // ── Unmount cleanup ────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -51,17 +62,28 @@ export default function Matchmaking() {
     };
   }, []);
 
-  // ── beforeunload: sync cleanup via sendBeacon ──────────────────────────────
+  // ── Visibility change: cleanup when tab hidden/closed ─────────────────────
+  // More reliable than beforeunload on mobile and modern browsers
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === "hidden" && !matchFoundRef.current) {
+        cleanupRoom();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  // ── beforeunload: last resort cleanup ─────────────────────────────────────
   useEffect(() => {
     function handleUnload() {
       if (matchFoundRef.current) return;
       const rid = roomIdRef.current;
       const uid = userIdRef.current;
-      // Best-effort: use REST directly since async/await won't work in unload
-      if (rid) {
-        navigator.sendBeacon(
-          `/api/cleanup-room?roomId=${rid}&userId=${uid ?? ""}`,
-        );
+      // sendBeacon as last resort (may not work on all platforms)
+      if (rid || uid) {
+        const url = `/api/cleanup-room?roomId=${rid ?? ""}&userId=${uid ?? ""}`;
+        try { navigator.sendBeacon(url); } catch {}
       }
     }
     window.addEventListener("beforeunload", handleUnload);
@@ -76,11 +98,16 @@ export default function Matchmaking() {
       setUserId(user.id);
       userIdRef.current = user.id;
 
-      // Delete any leftover waiting rooms from this user
+      // Cleanup our own stale rooms immediately on load
       await supabase.from("rooms")
         .delete()
         .eq("player1_id", user.id)
         .eq("status", "waiting");
+
+      // Also trigger server-side cleanup of ALL stale rooms (via RPC if available)
+      try {
+        await supabase.rpc("cleanup_stale_rooms");
+      } catch {}
 
       const { data: profile } = await supabase
         .from("profiles").select("elo").eq("id", user.id).single();
@@ -96,19 +123,19 @@ export default function Matchmaking() {
     }
   }, [userId, myElo]);
 
-  // ── Animate dots ──────────────────────────────────────────────────────────
+  // ── Dots animation ─────────────────────────────────────────────────────────
   useEffect(() => {
     const i = setInterval(() => setDots(d => d.length >= 3 ? "." : d + "."), 500);
     return () => clearInterval(i);
   }, []);
 
-  // ── Track search time ──────────────────────────────────────────────────────
+  // ── Search timer ───────────────────────────────────────────────────────────
   useEffect(() => {
     const t = setInterval(() => setSearchTime(s => s + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // ── Poll for room activation (fallback if realtime fails) ──────────────────
+  // ── Poll for room activation ───────────────────────────────────────────────
   useEffect(() => {
     if (!roomId) return;
     pollRef.current = setInterval(async () => {
@@ -124,7 +151,7 @@ export default function Matchmaking() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [roomId]);
 
-  // ── Core search logic ──────────────────────────────────────────────────────
+  // ── Core search ────────────────────────────────────────────────────────────
   async function startSearch(uid: string, elo: number, elapsed: number) {
     if (matchFoundRef.current) return;
 
@@ -132,22 +159,22 @@ export default function Matchmaking() {
       MAX_ELO_RANGE,
       ELO_RANGE_START + Math.floor(elapsed / 15) * ELO_RANGE_EXPAND,
     );
+    const fifteenSecondsAgo = new Date(Date.now() - 15000).toISOString();
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
 
-    // Clean up stale rooms (older than 30s)
+    // Clean stale rooms older than 15s
     await supabase.from("rooms")
-      .delete()
-      .eq("status", "waiting")
-      .lt("created_at", thirtySecondsAgo)
+      .delete().eq("status", "waiting")
+      .lt("created_at", fifteenSecondsAgo)
       .is("player2_id", null);
 
-    // Look for compatible waiting rooms
+    // Look for fresh waiting rooms (created in last 15s)
     const { data: waitingRooms } = await supabase
       .from("rooms")
       .select("id, player1_id")
       .eq("status", "waiting")
       .neq("player1_id", uid)
-      .gt("created_at", thirtySecondsAgo)
+      .gt("created_at", fifteenSecondsAgo)
       .is("player2_id", null)
       .order("created_at", { ascending: true })
       .limit(20);
@@ -161,8 +188,7 @@ export default function Matchmaking() {
       const oppElo = oppProfile?.elo ?? 500;
       const diff = Math.abs(oppElo - elo);
       if (diff <= currentRange && diff < bestDiff) {
-        bestDiff = diff;
-        bestRoom = room;
+        bestDiff = diff; bestRoom = room;
       }
     }
 
@@ -170,16 +196,15 @@ export default function Matchmaking() {
       const { error } = await supabase.from("rooms")
         .update({ player2_id: uid, status: "active" })
         .eq("id", bestRoom.id)
-        .eq("status", "waiting"); // guard: only update if still waiting
+        .eq("status", "waiting");
       if (!error) {
         matchFoundRef.current = true;
         router.push(`/duel/${bestRoom.id}`);
         return;
       }
-      // If error (race condition — another player grabbed it), fall through to create
     }
 
-    // No match — create our waiting room (only once)
+    // No match — create our room (only once)
     if (!roomIdRef.current) {
       const { data: newRoom } = await supabase
         .from("rooms")
@@ -190,7 +215,6 @@ export default function Matchmaking() {
         roomIdRef.current = newRoom.id;
         setRoomId(newRoom.id);
 
-        // Realtime subscription
         const channel = supabase
           .channel(`room-wait-${newRoom.id}`)
           .on("postgres_changes", {
@@ -207,9 +231,16 @@ export default function Matchmaking() {
 
         channelRef.current = channel;
       }
+    } else {
+      // Heartbeat: update created_at to signal we're still actively searching
+      // This prevents our room from being deleted as stale
+      await supabase.from("rooms")
+        .update({ created_at: new Date().toISOString() })
+        .eq("id", roomIdRef.current)
+        .eq("status", "waiting");
     }
 
-    // Retry search in 5s with updated elapsed time
+    // Retry in 5s
     searchRef.current = setTimeout(() => {
       startSearch(uid, elo, elapsed + 5);
     }, 5000);
