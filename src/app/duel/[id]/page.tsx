@@ -15,6 +15,8 @@ interface Room {
   question_type: string | null;
   round_started_at: string | null;
   winner_id?: string | null;
+  invite_code?: string | null;
+  is_private?: boolean;
 }
 interface Profile {
   id: string; username: string; elo: number;
@@ -427,7 +429,55 @@ export default function DuelPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   if (phase === "loading") return <FullPageMsg text="Loading duel…" pulse />;
-  if (phase === "waiting") return <FullPageMsg text="Waiting for opponent…" pulse />;
+  if (phase === "waiting") {
+    const room = displayRoom;
+    const isPrivate = room?.is_private && room?.invite_code;
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
+        <div className="card-solid w-full max-w-sm p-8 text-center slide-up">
+          <div className="font-jp text-5xl mb-5 animate-pulse text-accent2">漢</div>
+
+          {isPrivate ? (
+            <>
+              <p className="text-lg font-medium mb-1">Waiting for opponent…</p>
+              <p className="text-white/40 text-sm mb-6">Share this code or link with your friend</p>
+              <div className="bg-white/4 rounded-2xl p-4 mb-3"
+                style={{ border: "1px solid rgba(127,119,221,0.2)" }}>
+                <p className="font-mono text-3xl font-bold tracking-widest mb-3 text-accent2">
+                  {room.invite_code}
+                </p>
+                <CopyButton
+                  text={`${typeof window !== "undefined" ? window.location.origin : ""}/play/${room.invite_code}`}
+                  label="Copy invite link"
+                />
+              </div>
+              <p className="text-xs text-white/25 mb-6">
+                They can also go to <span className="font-mono text-white/40">/play/{room.invite_code}</span>
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-medium mb-2">Finding a match…</p>
+              <p className="text-white/40 text-sm mb-6">Waiting for an opponent</p>
+            </>
+          )}
+
+          <button
+            onClick={async () => {
+              if (pollRef.current) clearInterval(pollRef.current);
+              await supabase.from("rooms")
+                .update({ status: "cancelled" })
+                .eq("id", roomId)
+                .eq("status", "waiting");
+              router.push("/");
+            }}
+            className="btn-ghost w-full">
+            Cancel
+          </button>
+        </div>
+      </main>
+    );
+  }
   if (phase === "finished" && displayRoom) {
     return <ResultScreen room={displayRoom} me={me} opponent={opponent}
       isP1={isP1.current} router={router} roundLog={roundLog}
@@ -714,6 +764,21 @@ function ResultScreen({ room, me, opponent, isP1, router, roundLog, eloChange, c
         </div>
       )}
     </main>
+  );
+}
+
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        try { await navigator.clipboard.writeText(text); } catch {}
+        setCopied(true); setTimeout(() => setCopied(false), 2000);
+      }}
+      className="w-full text-sm py-2 rounded-xl transition-all"
+      style={{ background: "rgba(127,119,221,0.2)", color: "#7F77DD", border: "1px solid rgba(127,119,221,0.3)" }}>
+      {copied ? "✓ Copied!" : label}
+    </button>
   );
 }
 
