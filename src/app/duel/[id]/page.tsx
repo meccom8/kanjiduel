@@ -372,7 +372,9 @@ export default function DuelPage() {
     if (!checkVocabAnswer(val, room.current_kanji)) return;
 
     lockedRef.current = true;
-    // Timer keeps running — don't clearInterval here
+    // Stop timer immediately — countdown 3-2-1 takes over
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimeLeft(0);
     if (soundRef.current) playTone("correct");
 
     const w = room.current_kanji as VocabWord;
