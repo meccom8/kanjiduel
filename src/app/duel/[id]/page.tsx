@@ -194,11 +194,29 @@ export default function DuelPage() {
         clearInterval(countdownRef.current!);
         inCountdownRef.current = false;
         setCountdown(null);
-        // Process any update that arrived while we were showing the result screen
+        setRoundWinner(null);
+        setLastWord(null);
+
+        // Process pending room update if one arrived during countdown
         if (pendingRoomRef.current) {
           const pending = pendingRoomRef.current;
           pendingRoomRef.current = null;
+          // If new word already arrived, go straight to playing
+          if (pending.current_kanji && pending.current_round === lastRoundRef.current) {
+            lastKnownWordRef.current = pending.current_kanji;
+            ime.reset();
+            setPhase("playing");
+            startTimer(pending.round_started_at);
+            setTimeout(() => inputRef.current?.focus(), 50);
+            onDone();
+            return;
+          }
           applyRoomUpdate(pending);
+        } else {
+          // No pending update — go to playing and wait for next poll to bring the word
+          ime.reset();
+          setPhase("playing");
+          setTimeout(() => inputRef.current?.focus(), 50);
         }
         onDone();
       } else {
@@ -276,6 +294,18 @@ export default function DuelPage() {
       setPhase("playing");
       startTimer(updated.round_started_at);
       setTimeout(() => inputRef.current?.focus(), 100);
+      return;
+    }
+
+    // ── New word for same round (arrived after countdown reset phase to playing) ─
+    if (updated.current_kanji && updated.current_round === lastRoundRef.current && !lockedRef.current) {
+      lastKnownWordRef.current = updated.current_kanji;
+      setDisplayRoom(updated);
+      // Make sure we're in playing phase with correct timer
+      if (roundStartedAtRef.current !== updated.round_started_at) {
+        startTimer(updated.round_started_at);
+      }
+      setPhase("playing");
       return;
     }
 
