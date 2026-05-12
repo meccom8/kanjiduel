@@ -71,6 +71,7 @@ export default function DuelPage() {
   const [conceded, setConceded] = useState(false);
   const [displayRoom, setDisplayRoom] = useState<Room | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [lastWord, setLastWord] = useState<VocabWord | null>(null); // keeps word visible during countdown
 
   const [hiraganaMode, setHiraganaMode] = useState(false);
   const [showRomaji, setShowRomaji] = useState(true);
@@ -265,14 +266,15 @@ export default function DuelPage() {
           setRoundLog(l => [...l, { winner: "opponent", word: w, answer: w.reading }]);
           setHistory(h => [...h, "opponent"]);
           setRoundWinner("opponent");
+          setLastWord(w);
           setPhase("round_result");
-          // Show for 3s then transition
           startCountdown(() => {});
         } else {
           if (soundRef.current) playTone("timeout");
           setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
           setHistory(h => [...h, "timeout"]);
           setRoundWinner("timeout");
+          setLastWord(w);
           setPhase("round_result");
           startCountdown(() => {});
         }
@@ -288,6 +290,7 @@ export default function DuelPage() {
       if (!inCountdownRef.current) {
         setCountdown(null);
         setRoundWinner(null);
+        setLastWord(null);
         setPhase("playing");
         startTimer(updated.round_started_at);
         setTimeout(() => inputRef.current?.focus(), 100);
@@ -335,7 +338,7 @@ export default function DuelPage() {
     if (soundRef.current) playTone("timeout");
 
     const w = room.current_kanji as VocabWord;
-    if (w) setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
+    if (w) { setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]); setLastWord(w); }
     setHistory(h => [...h, "timeout"]);
     setRoundWinner("timeout");
     setPhase("round_result");
@@ -377,6 +380,7 @@ export default function DuelPage() {
     setHistory(h => [...h, "me"]);
     setRoundWinner("me");
     setPhase("round_result");
+    setLastWord(w);
     ime.reset();
 
     const p1Score = isP1.current ? room.p1_score + 1 : room.p1_score;
@@ -510,7 +514,8 @@ export default function DuelPage() {
   const room = displayRoom;
   const myScore = room ? (isP1.current ? room.p1_score : room.p2_score) : 0;
   const oppScore = room ? (isP1.current ? room.p2_score : room.p1_score) : 0;
-  const word = room?.current_kanji as VocabWord | null;
+  // Use lastWord as fallback during countdown (current_kanji becomes null after answer)
+  const word = (room?.current_kanji ?? lastWord) as VocabWord | null;
   const timerPct = (timeLeft / ROUND_TIME) * 100;
   const myAccent = me?.accent_color ?? "#534AB7";
   const oppAccent = opponent?.accent_color ?? "#D85A30";
@@ -617,7 +622,11 @@ export default function DuelPage() {
               {roundWinner === "me" && (
                 <div>
                   <p className="text-base font-semibold mb-1" style={{ color: "#5DCAA5" }}>✓ You got it!</p>
-                  <p className="text-xs text-white/30">Next round in {countdown ?? 0}s</p>
+                  <p className="text-white/40 text-sm">
+                    <span className="font-mono text-white/60">{word?.reading}</span>
+                    {showRomaji && word?.romaji && <span className="text-white/30 ml-2">({word.romaji})</span>}
+                  </p>
+                  <p className="text-xs text-white/30 mt-1">Next round in {countdown ?? 0}s</p>
                 </div>
               )}
               {roundWinner === "opponent" && (
