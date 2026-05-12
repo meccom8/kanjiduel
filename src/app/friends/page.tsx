@@ -26,7 +26,13 @@ export default function FriendsPage() {
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [challenging, setChallenging] = useState<string | null>(null);
+  // Map friendId → { roomId, invite_code } for waiting private rooms
+  const [privateRooms, setPrivateRooms] = useState<Record<string, { roomId: string; code: string }>>({});
+  const [joinCode, setJoinCode] = useState("");
+  const [showJoinInput, setShowJoinInput] = useState(false);
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+  const pollRoomsRef = useRef<NodeJS.Timeout | null>(null);
+  const meRef = useRef<Profile | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -39,11 +45,37 @@ export default function FriendsPage() {
         .from("profiles").select("id, username, elo, avatar_url, accent_color, title")
         .eq("id", user.id).single();
       setMe(profile);
+      meRef.current = profile;
 
       await loadFriendships(user.id);
       setLoading(false);
     })();
+    return () => { if (pollRoomsRef.current) clearInterval(pollRoomsRef.current); };
   }, []);
+
+  // Poll every 3s for waiting private rooms from friends
+  useEffect(() => {
+    if (!friends.length || !me) return;
+    const poll = async () => {
+      const friendIds = friends.map(f => f.other.id);
+      const { data } = await supabase
+        .from("rooms")
+        .select("id, player1_id, invite_code")
+        .eq("status", "waiting")
+        .eq("is_private", true)
+        .is("player2_id", null)
+        .in("player1_id", friendIds);
+
+      const map: Record<string, { roomId: string; code: string }> = {};
+      for (const r of data ?? []) {
+        if (r.invite_code) map[r.player1_id] = { roomId: r.id, code: r.invite_code };
+      }
+      setPrivateRooms(map);
+    };
+    poll();
+    pollRoomsRef.current = setInterval(poll, 3000);
+    return () => { if (pollRoomsRef.current) clearInterval(pollRoomsRef.current); };
+  }, [friends, me]);
 
   async function loadFriendships(uid: string) {
     const { data } = await supabase
@@ -140,6 +172,10 @@ export default function FriendsPage() {
     setChallenging(null);
   }
 
+  async function joinRoom(code: string) {
+    router.push(`/play/${code.toUpperCase()}`);
+  }
+
   function getFriendshipStatus(profileId: string): "friend" | "pending_sent" | "pending_received" | "none" {
     if (friends.some(f => f.other.id === profileId)) return "friend";
     if (sent.some(f => f.other.id === profileId)) return "pending_sent";
@@ -157,7 +193,42 @@ export default function FriendsPage() {
     <main className="min-h-screen px-4 py-10 relative z-10 max-w-lg mx-auto">
       <Link href="/" className="text-sm text-white/30 hover:text-white/60 mb-6 inline-block">← Back</Link>
       <h1 className="text-2xl font-semibold mb-1">Friends</h1>
-      <p className="text-white/40 text-sm mb-6">Challenge friends to private duels</p>
+      <p className="text-white/40 text-sm mb-4">Challenge friends to private duels</p>
+
+      {/* Join with code */}
+      <div className="mb-4">
+        {!showJoinInput ? (
+          <button
+            onClick={() => setShowJoinInput(true)}
+            className="w-full py-2.5 rounded-xl text-sm font-medium transition-all"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}>
+            🔑 Join a private duel with a code
+          </button>
+        ) : (
+          <div className="card-solid p-4 flex gap-2">
+            <input
+              className="input-field flex-1 text-center font-mono text-lg tracking-widest uppercase"
+              placeholder="ABC123"
+              maxLength={6}
+              value={joinCode}
+              autoFocus
+              onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              onKeyDown={e => { if (e.key === "Enter" && joinCode.length === 6) joinRoom(joinCode); }}
+            />
+            <button
+              onClick={() => joinRoom(joinCode)}
+              disabled={joinCode.length !== 6}
+              className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+              style={{ background: "#534AB7", color: "white", opacity: joinCode.length === 6 ? 1 : 0.4 }}>
+              Join
+            </button>
+            <button onClick={() => { setShowJoinInput(false); setJoinCode(""); }}
+              className="px-3 py-2 rounded-xl text-white/30 hover:text-white/60 transition-colors text-sm">
+              ✕
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Search */}
       <div className="card-solid p-4 mb-4">
@@ -292,13 +363,22 @@ export default function FriendsPage() {
                     style={{ color: tier.color + "99" }}>{tier.name} · {f.other.elo} ELO</p>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => challengeFriend(f.other)}
-                    disabled={challenging === f.other.id}
-                    className="text-xs px-3 py-1.5 rounded-lg transition-all font-medium"
-                    style={{ background: "#534AB722", color: "#7F77DD", border: "1px solid #534AB744" }}>
-                    {challenging === f.other.id ? "…" : "⚡ Challenge"}
-                  </button>
+                  {privateRooms[f.other.id] ? (
+                    <button
+                      onClick={() => joinRoom(privateRooms[f.other.id].code)}
+                      className="text-xs px-3 py-1.5 rounded-lg transition-all font-medium animate-pulse"
+                      style={{ background: "#1D9E7522", color: "#5DCAA5", border: "1px solid #1D9E7544" }}>
+                      ⚡ Join!
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => challengeFriend(f.other)}
+                      disabled={challenging === f.other.id}
+                      className="text-xs px-3 py-1.5 rounded-lg transition-all font-medium"
+                      style={{ background: "#534AB722", color: "#7F77DD", border: "1px solid #534AB744" }}>
+                      {challenging === f.other.id ? "…" : "⚡ Challenge"}
+                    </button>
+                  )}
                   <button onClick={() => removeFriend(f.id)}
                     className="text-xs px-2 py-1.5 rounded-lg text-white/20 hover:text-red-400 transition-colors">
                     ✕
