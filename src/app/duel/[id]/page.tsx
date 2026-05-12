@@ -268,6 +268,9 @@ export default function DuelPage() {
           setRoundWinner("opponent");
           setLastWord(w);
           setPhase("round_result");
+          // Stop timer immediately for the loser too
+          if (timerRef.current) clearInterval(timerRef.current);
+          setTimeLeft(0);
           startCountdown(() => {});
         } else {
           if (soundRef.current) playTone("timeout");
