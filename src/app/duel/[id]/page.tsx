@@ -87,11 +87,13 @@ export default function DuelPage() {
   const roundStartedAtRef = useRef<string | null>(null);
   const finishedRef = useRef(false);
   const soundRef = useRef(true);
-  // KEY: blocks poll from overriding round_result screen during countdown
   const inCountdownRef = useRef(false);
-  // stores a room update that arrived while countdown was running
   const pendingRoomRef = useRef<Room | null>(null);
   const roundWinnerRef = useRef<"me" | "opponent" | "timeout" | null>(null);
+  // Track last known word and scores to detect round changes even when current_kanji is null
+  const lastKnownWordRef = useRef<VocabWord | null>(null);
+  const lastKnownMyScoreRef = useRef(0);
+  const lastKnownOppScoreRef = useRef(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -137,6 +139,9 @@ export default function DuelPage() {
       } else if (roomData.status === "active") {
         if (roomData.current_kanji) {
           lastRoundRef.current = roomData.current_round;
+          lastKnownWordRef.current = roomData.current_kanji;
+          lastKnownMyScoreRef.current = isP1.current ? roomData.p1_score : roomData.p2_score;
+          lastKnownOppScoreRef.current = isP1.current ? roomData.p2_score : roomData.p1_score;
           setPhase("playing"); startTimer(roomData.round_started_at);
         } else if (isP1.current) {
           await sendNextWord();
@@ -217,6 +222,7 @@ export default function DuelPage() {
     roomRef.current = updated;
     setDisplayRoom(updated);
 
+    // ── Finished ────────────────────────────────────────────────────────────
     if (updated.status === "finished" && !finishedRef.current) {
       finishedRef.current = true;
       if (pollRef.current) clearInterval(pollRef.current);
@@ -227,9 +233,8 @@ export default function DuelPage() {
       return;
     }
 
-    // ── Waiting → Active transition (opponent joined) ──────────────────────
+    // ── Waiting → Active (opponent joined) ──────────────────────────────────
     if (prev?.status === "waiting" && updated.status === "active") {
-      // Reload opponent profile now that player2_id is set
       const oppId = isP1.current ? updated.player2_id : updated.player1_id;
       if (oppId) {
         supabase.from("profiles")
@@ -239,6 +244,7 @@ export default function DuelPage() {
       }
       if (updated.current_kanji) {
         lastRoundRef.current = updated.current_round;
+        lastKnownWordRef.current = updated.current_kanji;
         setPhase("playing");
         startTimer(updated.round_started_at);
       } else if (isP1.current) {
@@ -250,57 +256,83 @@ export default function DuelPage() {
       return;
     }
 
-    if (
-      updated.current_kanji &&
-      updated.current_round !== lastRoundRef.current &&
-      !lockedRef.current
-    ) {
-      // Detect what happened to the previous round (for P2 who didn't answer)
-      if (prev?.current_kanji && prev.current_round !== updated.current_round) {
-        const prevOpp = isP1.current ? prev.p2_score : prev.p1_score;
-        const newOpp = isP1.current ? updated.p2_score : updated.p1_score;
-        const w = prev.current_kanji as VocabWord;
+    // ── Skip if already in countdown (defer to pendingRoomRef) ─────────────
+    // (handled by handleRoomUpdate before calling here)
 
-        if (newOpp > prevOpp) {
-          if (soundRef.current) playTone("wrong");
-          setRoundLog(l => [...l, { winner: "opponent", word: w, answer: w.reading }]);
-          setHistory(h => [...h, "opponent"]);
-          setRoundWinner("opponent");
-          setLastWord(w);
-          setPhase("round_result");
-          // Stop timer immediately for the loser too
-          if (timerRef.current) clearInterval(timerRef.current);
-          setTimeLeft(0);
-          startCountdown(() => {});
-        } else {
-          if (soundRef.current) playTone("timeout");
-          setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
-          setHistory(h => [...h, "timeout"]);
-          setRoundWinner("timeout");
-          setLastWord(w);
-          setPhase("round_result");
-          startCountdown(() => {});
-        }
-      }
-
+    // ── Track new word when it arrives ──────────────────────────────────────
+    if (updated.current_kanji && updated.current_round !== lastRoundRef.current && !lockedRef.current) {
+      // New round with a word — start playing
+      lastKnownWordRef.current = updated.current_kanji;
       lastRoundRef.current = updated.current_round;
+      lastKnownMyScoreRef.current = isP1.current ? updated.p1_score : updated.p2_score;
+      lastKnownOppScoreRef.current = isP1.current ? updated.p2_score : updated.p1_score;
       lockedRef.current = false;
       roundStartedAtRef.current = null;
       if (timerRef.current) clearInterval(timerRef.current);
       ime.reset();
+      setCountdown(null);
+      setRoundWinner(null);
+      setLastWord(null);
+      setPhase("playing");
+      startTimer(updated.round_started_at);
+      setTimeout(() => inputRef.current?.focus(), 100);
+      return;
+    }
 
-      // Only transition to playing if countdown isn't running (not already started above)
-      if (!inCountdownRef.current) {
-        setCountdown(null);
-        setRoundWinner(null);
-        setLastWord(null);
-        setPhase("playing");
-        startTimer(updated.round_started_at);
-        setTimeout(() => inputRef.current?.focus(), 100);
+    // ── Detect round change via score (even when current_kanji is null) ─────
+    // This fires when the winner has already set current_kanji=null
+    // but the loser's poll catches it before the new word arrives
+    if (
+      !lockedRef.current &&
+      updated.status === "active" &&
+      updated.current_round !== lastRoundRef.current
+    ) {
+      const myScore = isP1.current ? updated.p1_score : updated.p2_score;
+      const oppScore = isP1.current ? updated.p2_score : updated.p1_score;
+      const prevOppScore = lastKnownOppScoreRef.current;
+      const w = lastKnownWordRef.current;
+
+      lockedRef.current = true;
+      if (timerRef.current) clearInterval(timerRef.current);
+      setTimeLeft(0);
+
+      if (oppScore > prevOppScore) {
+        // Opponent scored
+        if (soundRef.current) playTone("wrong");
+        if (w) setRoundLog(l => [...l, { winner: "opponent", word: w, answer: w.reading }]);
+        setHistory(h => [...h, "opponent"]);
+        setRoundWinner("opponent");
+        if (w) setLastWord(w);
+        setPhase("round_result");
+        lastRoundRef.current = updated.current_round;
+        lastKnownOppScoreRef.current = oppScore;
+        lastKnownMyScoreRef.current = myScore;
+        startCountdown(() => {
+          lockedRef.current = false;
+          roundStartedAtRef.current = null;
+        });
       } else {
-        // Countdown is running — store the timer start for when it ends
-        pendingRoomRef.current = updated;
+        // Timeout — no score changed
+        if (soundRef.current) playTone("timeout");
+        if (w) setRoundLog(l => [...l, { winner: "timeout", word: w, answer: "(time up)" }]);
+        setHistory(h => [...h, "timeout"]);
+        setRoundWinner("timeout");
+        if (w) setLastWord(w);
+        setPhase("round_result");
+        lastRoundRef.current = updated.current_round;
+        startCountdown(() => {
+          lockedRef.current = false;
+          roundStartedAtRef.current = null;
+        });
       }
+      return;
+    }
+
+    // ── Update lastKnownWord when we see a new kanji ─────────────────────────
+    if (updated.current_kanji && updated.current_round === lastRoundRef.current) {
+      lastKnownWordRef.current = updated.current_kanji;
+      lastKnownMyScoreRef.current = isP1.current ? updated.p1_score : updated.p2_score;
+      lastKnownOppScoreRef.current = isP1.current ? updated.p2_score : updated.p1_score;
     }
 
     if (!updated.current_kanji && lockedRef.current && updated.status === "active") {
