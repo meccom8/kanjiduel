@@ -47,12 +47,15 @@ export async function POST(req: NextRequest) {
   const p1 = room.player1_id === userId ? 0 : WIN;
   const p2 = room.player2_id === userId ? 0 : WIN;
 
-  await supabase.rpc("finish_match", {
-    p_room_id: roomId,
-    p_winner_id: winnerId,
-    p_p1_score: p1,
-    p_p2_score: p2,
-  });
+  if (room.is_private) {
+    await supabase.from("rooms").update({
+      status: "finished", winner_id: winnerId, p1_score: p1, p2_score: p2,
+    }).eq("id", roomId);
+  } else {
+    await supabase.rpc("finish_match", {
+      p_room_id: roomId, p_winner_id: winnerId, p_p1_score: p1, p_p2_score: p2,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

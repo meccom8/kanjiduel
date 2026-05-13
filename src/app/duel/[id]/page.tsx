@@ -414,6 +414,13 @@ export default function DuelPage() {
     if(inactivityR.current) clearTimeout(inactivityR.current);
     const r=roomR.current!;
     const wid = p1>p2?r.player1_id:p2>p1?r.player2_id:null;
+    if(r.is_private){
+      // Private match: no ELO change, just close the room
+      await supabase.from("rooms").update({
+        status:"finished", p1_score:p1, p2_score:p2, ...(wid?{winner_id:wid}:{})
+      }).eq("id",roomId);
+      return;
+    }
     if(!wid){ await supabase.from("rooms").update({status:"finished",p1_score:p1,p2_score:p2}).eq("id",roomId); return; }
     await supabase.rpc("finish_match",{p_room_id:roomId,p_winner_id:wid,p_p1_score:p1,p_p2_score:p2});
   }
@@ -443,13 +450,21 @@ export default function DuelPage() {
     const wid=isP1.current?r.player2_id:r.player1_id;
     const p1=isP1.current?0:WIN, p2=isP1.current?WIN:0;
     try {
-      await supabase.rpc("finish_match",{p_room_id:roomId,p_winner_id:wid,p_p1_score:p1,p_p2_score:p2});
+      if(r.is_private){
+        await supabase.from("rooms").update({
+          status:"finished", winner_id:wid, p1_score:p1, p2_score:p2,
+        }).eq("id",roomId);
+      } else {
+        await supabase.rpc("finish_match",{p_room_id:roomId,p_winner_id:wid,p_p1_score:p1,p_p2_score:p2});
+      }
       // Re-fetch room so result screen has correct winner_id and scores
       const {data:fresh} = await supabase.from("rooms").select("*").eq("id",roomId).single();
       if(fresh){ roomR.current=fresh; setRoom(fresh); }
-      // Small delay to let match record commit before querying ELO changes
-      await new Promise(res=>setTimeout(res,400));
-      await loadElo(m.id, fresh??r);
+      if(!r.is_private){
+        // Small delay to let match record commit before querying ELO changes
+        await new Promise(res=>setTimeout(res,400));
+        await loadElo(m.id, fresh??r);
+      }
     } catch {
       done.current=false;
       return;
@@ -680,7 +695,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
             <div key={s.label} className="bg-white/4 rounded-xl p-3">
               <p className="text-xs text-white/40 truncate mb-1">{s.label}</p>
               <p className="font-mono text-2xl font-bold" style={{color:s.color}}>{s.score}</p>
-              {s.eloStart!==null&&(
+              {!room.is_private&&s.eloStart!==null&&(
                 <p className="text-xs text-white/35 mt-1 font-mono">
                   {s.eloStart}
                   {s.eloChange!==null&&(
@@ -691,7 +706,9 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
             </div>
           ))}
         </div>
-        {myEloChange!==null&&(
+        {room.is_private?(
+          <p className="text-xs text-white/25 mb-4">🎮 Fun match · ELO not counted</p>
+        ):myEloChange!==null&&(
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl mb-4"
             style={{background:myEloChange>=0?"rgba(29,158,117,0.15)":"rgba(226,75,74,0.15)",border:myEloChange>=0?"1px solid #1D9E7544":"1px solid #E24B4A44"}}>
             <span className="font-mono text-lg font-bold" style={{color:myEloChange>=0?"#5DCAA5":"#E24B4A"}}>{myEloChange>=0?"+":""}{myEloChange}</span>

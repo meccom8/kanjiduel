@@ -336,7 +336,13 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen px-4 py-10 relative z-10 max-w-lg mx-auto">
-      <Link href="/" className="text-sm text-white/30 hover:text-white/60 mb-6 inline-block">← Back</Link>
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/" className="text-sm text-white/30 hover:text-white/60 transition-colors">← Back</Link>
+        <Link href="/settings" className="text-sm font-medium px-3 py-1.5 rounded-lg transition-all"
+          style={{ background: "rgba(83,74,183,0.2)", color: "#7F77DD", border: "1px solid rgba(83,74,183,0.3)" }}>
+          ✏️ Edit profile
+        </Link>
+      </div>
 
       {/* ── Profile card ── */}
       <div className="card-solid p-6 mb-4 slide-up" style={{ border: `1px solid ${accentColor}22` }}>

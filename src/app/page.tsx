@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { href: "/friends", label: "Friends", icon: "👥", primary: false },
   { href: "/dictionary", label: "Dictionary", icon: "📚", primary: false },
   { href: "/leaderboard", label: "Leaderboard", icon: "🏆", primary: false },
-  { href: "/settings", label: "Customize profile", icon: "✏️", primary: false },
+  { href: "/settings", label: "Settings", icon: "⚙️", primary: false },
 ];
 
 export default function Home() {

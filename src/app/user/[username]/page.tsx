@@ -201,6 +201,7 @@ export default function UserProfile() {
   const [challenging, setChallenging] = useState(false);
   const [challengeCode, setChallengeCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [waitingRoom, setWaitingRoom] = useState<{id:string;invite_code:string}|null>(null);
 
   const supabase = createClient();
 
@@ -218,13 +219,17 @@ export default function UserProfile() {
       if (!data) { setNotFound(true); setLoading(false); return; }
       setProfile(data);
 
-      // Load friendship status
+      // Load friendship status + check if they have a waiting challenge room
       if (user && user.id !== data.id) {
-        const { data: fs } = await supabase
-          .from("friendships")
-          .select("id, requester_id, addressee_id, status")
-          .or(`and(requester_id.eq.${user.id},addressee_id.eq.${data.id}),and(requester_id.eq.${data.id},addressee_id.eq.${user.id})`)
-          .maybeSingle();
+        const [{ data: fs }, { data: wr }] = await Promise.all([
+          supabase.from("friendships")
+            .select("id, requester_id, addressee_id, status")
+            .or(`and(requester_id.eq.${user.id},addressee_id.eq.${data.id}),and(requester_id.eq.${data.id},addressee_id.eq.${user.id})`)
+            .maybeSingle(),
+          supabase.from("rooms").select("id, invite_code")
+            .eq("player1_id", data.id).eq("status", "waiting").eq("is_private", true)
+            .is("player2_id", null).maybeSingle(),
+        ]);
 
         if (fs) {
           setFriendshipId(fs.id);
@@ -232,6 +237,7 @@ export default function UserProfile() {
           else if (fs.status === "pending" && fs.requester_id === user.id) setFriendStatus("pending_sent");
           else if (fs.status === "pending" && fs.addressee_id === user.id) setFriendStatus("pending_received");
         }
+        if (wr) setWaitingRoom(wr);
       }
 
       const [{ data: kanjiData }, { data: matchData }] = await Promise.all([
@@ -268,6 +274,19 @@ export default function UserProfile() {
       setLoading(false);
     })();
   }, [username]);
+
+  // Poll every 4s for a waiting challenge room from this player
+  useEffect(() => {
+    if (!meId || !profile || meId === profile.id) return;
+    const pid = profile.id;
+    const t = setInterval(async () => {
+      const { data: wr } = await supabase.from("rooms").select("id, invite_code")
+        .eq("player1_id", pid).eq("status", "waiting").eq("is_private", true)
+        .is("player2_id", null).maybeSingle();
+      setWaitingRoom(wr ?? null);
+    }, 4000);
+    return () => clearInterval(t);
+  }, [meId, profile]);
 
   async function sendFriendRequest() {
     if (!meId || !profile) return;
@@ -389,14 +408,22 @@ export default function UserProfile() {
         {/* ── Friend / Challenge buttons ── */}
         {meId && meId !== profile.id && (
           <div className="flex gap-2 mb-4">
-            {/* Challenge button */}
-            <button
-              onClick={challengePlayer}
-              disabled={challenging}
-              className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
-              style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}44` }}>
-              {challenging ? "…" : "⚡ Challenge"}
-            </button>
+            {/* Challenge / Join button */}
+            {waitingRoom ? (
+              <a href={`/play/${waitingRoom.invite_code}`}
+                className="flex-1 py-2 rounded-xl text-sm font-medium text-center transition-all"
+                style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
+                ⚡ Join!
+              </a>
+            ) : (
+              <button
+                onClick={challengePlayer}
+                disabled={challenging}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}44` }}>
+                {challenging ? "…" : "⚡ Challenge"}
+              </button>
+            )}
 
             {/* Friend button */}
             {friendStatus === "none" && (
