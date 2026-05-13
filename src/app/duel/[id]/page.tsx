@@ -97,6 +97,7 @@ export default function DuelPage() {
   const seenNextAt = useRef<string|null>(null);    // next_round_at we already reacted to
   const wordR = useRef<VocabWord|null>(null);      // always-fresh copy of current word (tick closure is stale)
   const tokenR = useRef<string>('');               // user access token for beacon auth
+  const inactivityR = useRef<ReturnType<typeof setTimeout>|null>(null); // AFK forfeit timer
 
   const inputR = useRef<HTMLInputElement>(null);
   const timerR = useRef<ReturnType<typeof setInterval>|null>(null);
@@ -172,6 +173,7 @@ export default function DuelPage() {
     })();
     return ()=>{
       [timerR,pollR,cdR].forEach(r=>{ if(r.current) clearInterval(r.current); });
+      if(inactivityR.current) clearTimeout(inactivityR.current);
     };
   },[]);
 
@@ -212,7 +214,16 @@ export default function DuelPage() {
     if(r.status==="finished" && !done.current){
       done.current=true;
       [timerR,pollR,cdR].forEach(x=>{ if(x.current) clearInterval(x.current); });
-      loadElo(myId.current,r).then(()=>setPhase("finished"));
+      if(inactivityR.current) clearTimeout(inactivityR.current);
+      // Detect if opponent forfeited (forfeit pattern: winner has WIN, loser has 0)
+      const myS = isP1.current?r.p1_score:r.p2_score;
+      const opS = isP1.current?r.p2_score:r.p1_score;
+      if(myS===WIN && opS===0) setConceded(true);
+      // Delay to let the match record commit before querying it
+      setTimeout(async()=>{
+        await loadElo(myId.current,r);
+        setPhase("finished");
+      },500);
       return;
     }
 
@@ -220,7 +231,7 @@ export default function DuelPage() {
     if(r.status==="active" && r.player2_id && !oppR.current){
       const oid = isP1.current?r.player2_id:r.player1_id;
       supabase.from("profiles").select("id,username,elo,avatar_url,accent_color").eq("id",oid).single()
-        .then(({data})=>{ if(data) setOpp(data); });
+        .then(({data})=>{ if(data){ setOpp(data); setOppEloStart(data.elo); } });
       if(isP1.current){ setPhase("playing"); nextWord(); }
       else setPhase("playing");
     }
@@ -272,9 +283,17 @@ export default function DuelPage() {
     }
   }
 
+  // ── inactivity forfeit — fires 20s after last keypress ───────────────────
+  function resetInactivity(){
+    if(inactivityR.current) clearTimeout(inactivityR.current);
+    if(done.current) return;
+    inactivityR.current = setTimeout(()=>{ if(!done.current) concede(); }, 20000);
+  }
+
   // ── round timer ───────────────────────────────────────────────────────────
   function startRound(at:string|null){
     if(timerR.current) clearInterval(timerR.current);
+    resetInactivity();
     const t0 = at ? new Date(at).getTime() : Date.now();
     timerR.current = setInterval(()=>{
       const left = Math.max(0,ROUND_TIME-(Date.now()-t0)/1000);
@@ -392,6 +411,7 @@ export default function DuelPage() {
   }
 
   async function finish(p1:number,p2:number){
+    if(inactivityR.current) clearTimeout(inactivityR.current);
     const r=roomR.current!;
     const wid = p1>p2?r.player1_id:p2>p1?r.player2_id:null;
     if(!wid){ await supabase.from("rooms").update({status:"finished",p1_score:p1,p2_score:p2}).eq("id",roomId); return; }
@@ -419,11 +439,17 @@ export default function DuelPage() {
     const r=roomR.current; if(!r) return;
     done.current=true;
     [timerR,pollR,cdR].forEach(x=>{ if(x.current) clearInterval(x.current); });
+    if(inactivityR.current) clearTimeout(inactivityR.current);
     const wid=isP1.current?r.player2_id:r.player1_id;
     const p1=isP1.current?0:WIN, p2=isP1.current?WIN:0;
     try {
       await supabase.rpc("finish_match",{p_room_id:roomId,p_winner_id:wid,p_p1_score:p1,p_p2_score:p2});
-      await loadElo(m.id,r);
+      // Re-fetch room so result screen has correct winner_id and scores
+      const {data:fresh} = await supabase.from("rooms").select("*").eq("id",roomId).single();
+      if(fresh){ roomR.current=fresh; setRoom(fresh); }
+      // Small delay to let match record commit before querying ELO changes
+      await new Promise(res=>setTimeout(res,400));
+      await loadElo(m.id, fresh??r);
     } catch {
       done.current=false;
       return;
@@ -574,8 +600,8 @@ export default function DuelPage() {
             value={ime.displayed}
             disabled={phase==="result"}
             autoComplete="off" autoCorrect="off" spellCheck={false}
-            onChange={e=>{ ime.onChange(e); submit(ime.value); }}
-            onKeyDown={e=>{ if(e.key==="Enter") submit(ime.value); }}
+            onChange={e=>{ resetInactivity(); ime.onChange(e); submit(ime.value); }}
+            onKeyDown={e=>{ resetInactivity(); if(e.key==="Enter") submit(ime.value); }}
           />
           {hiraMode&&<div className="absolute right-3 top-1/2 -translate-y-1/2" style={{color:"rgba(255,255,255,0.2)",fontSize:11}}>あ</div>}
         </div>
