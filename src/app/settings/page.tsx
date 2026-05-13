@@ -59,7 +59,8 @@ function Toggle({ enabled, onToggle, color }: { enabled: boolean; onToggle: () =
 
 function applyTheme(theme: string, grid: string, kanjiSize: string, hc: boolean) {
   const html = document.documentElement;
-  html.classList.forEach(c => {
+  // Snapshot first — mutating classList while iterating it skips entries
+  Array.from(html.classList).forEach(c => {
     if (c.startsWith("theme-") || c.startsWith("grid-") || c.startsWith("kanji-") || c === "high-contrast")
       html.classList.remove(c);
   });

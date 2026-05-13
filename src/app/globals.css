@@ -139,71 +139,67 @@ body::before {
 .pulse-border { animation: pulse-border 1.5s ease-in-out infinite; }
 
 /* ── Themes ────────────────────────────────────────────────────────────────── */
+/* Classes are applied on <html> (document.documentElement) by the layout script
+   and applyTheme(). All selectors must target html.theme-* not body.theme-*. */
 
 /* Pure black */
-body.theme-black {
-  background: #000000;
-}
-body.theme-black .card-solid { background: #111111; }
-body.theme-black body::before { display: none; }
+html.theme-black body { background: #000000; }
+html.theme-black .card-solid { background: #111111; }
+html.theme-black body::before { display: none; }
 
 /* Pure white / light */
-body.theme-light {
+html.theme-light body {
   background: #f5f5f7;
   color: #1a1a2e;
 }
-body.theme-light .card-solid {
+html.theme-light .card-solid {
   background: #ffffff;
   border-color: rgba(0,0,0,0.08);
   color: #1a1a2e;
 }
-body.theme-light .card {
+html.theme-light .card {
   background: rgba(0,0,0,0.04);
   border-color: rgba(0,0,0,0.08);
 }
-body.theme-light .btn-ghost {
+html.theme-light .btn-ghost {
   background: rgba(0,0,0,0.06);
   color: #1a1a2e;
   border-color: rgba(0,0,0,0.12);
 }
-body.theme-light .input-field {
+html.theme-light .input-field {
   background: rgba(0,0,0,0.05);
   border-color: rgba(0,0,0,0.12);
   color: #1a1a2e;
 }
-body.theme-light body::before {
+html.theme-light body::before {
   background-image:
     linear-gradient(rgba(83,74,183,0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(83,74,183,0.08) 1px, transparent 1px);
 }
 
 /* Dark navy (default) */
-body.theme-navy {
-  background: #0d0d1a;
-}
+html.theme-navy body { background: #0d0d1a; }
 
 /* Dark purple */
-body.theme-purple {
-  background: #100a20;
-}
-body.theme-purple .card-solid { background: #1a1030; }
-body.theme-purple body::before {
+html.theme-purple body { background: #100a20; }
+html.theme-purple .card-solid { background: #1a1030; }
+html.theme-purple body::before {
   background-image:
     linear-gradient(rgba(127,119,221,0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(127,119,221,0.08) 1px, transparent 1px);
 }
 
 /* ── Grid intensity ──────────────────────────────────────────────────────────── */
-body.grid-none::before { display: none !important; }
-body.grid-subtle::before { opacity: 0.4; }
-body.grid-normal::before { opacity: 1; }
+html.grid-none body::before { display: none !important; }
+html.grid-subtle body::before { opacity: 0.4; }
+html.grid-normal body::before { opacity: 1; }
 
 /* ── Kanji size ──────────────────────────────────────────────────────────────── */
-body.kanji-large .font-jp.text-6xl { font-size: 5rem !important; }
-body.kanji-xl .font-jp.text-6xl { font-size: 6.5rem !important; }
+html.kanji-large .font-jp.text-6xl { font-size: 5rem !important; }
+html.kanji-xl .font-jp.text-6xl { font-size: 6.5rem !important; }
 
 /* ── High contrast ──────────────────────────────────────────────────────────── */
-body.high-contrast .card-solid { border-width: 2px !important; border-color: rgba(255,255,255,0.3) !important; }
-body.high-contrast .text-white\/30 { color: rgba(255,255,255,0.6) !important; }
-body.high-contrast .text-white\/40 { color: rgba(255,255,255,0.7) !important; }
-body.high-contrast .input-field { border-width: 2px !important; }
+html.high-contrast .card-solid { border-width: 2px !important; border-color: rgba(255,255,255,0.3) !important; }
+html.high-contrast .text-white\/30 { color: rgba(255,255,255,0.6) !important; }
+html.high-contrast .text-white\/40 { color: rgba(255,255,255,0.7) !important; }
+html.high-contrast .input-field { border-width: 2px !important; }
