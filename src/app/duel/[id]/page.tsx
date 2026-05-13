@@ -93,6 +93,7 @@ export default function DuelPage() {
   const iAnswered = useRef(false);     // I answered this round (so ignore next_round_at from poll)
   const seenWordId = useRef<string|null>(null);    // id of last word we started
   const seenNextAt = useRef<string|null>(null);    // next_round_at we already reacted to
+  const wordR = useRef<VocabWord|null>(null);      // always-fresh copy of current word (tick closure is stale)
 
   const inputR = useRef<HTMLInputElement>(null);
   const timerR = useRef<ReturnType<typeof setInterval>|null>(null);
@@ -137,6 +138,7 @@ export default function DuelPage() {
       } else if(rd.status==="active"){
         if(rd.current_kanji){
           seenWordId.current = rd.current_kanji.id;
+          wordR.current = rd.current_kanji;
           setWord(rd.current_kanji);
           setPhase("playing");
           startRound(rd.round_started_at);
@@ -206,6 +208,7 @@ export default function DuelPage() {
       seenNextAt.current = null;
       iAnswered.current = false;
       if(cdR.current) clearInterval(cdR.current);
+      wordR.current = r.current_kanji;
       setWord(r.current_kanji);
       setResult(null);
       setCd(null);
@@ -227,7 +230,7 @@ export default function DuelPage() {
       if(timerR.current) clearInterval(timerR.current);
       setTimeLeft(0);
       if(sfxR.current) tone("ko");
-      const w = word; // use current displayed word
+      const w = wordR.current; // use ref — tick closure is stale, word state would be null
       if(w){
         setLog(l=>[...l,{winner:"opp",word:w,answer:w.reading}]);
         setResult({who:"opp",word:w});
@@ -235,6 +238,12 @@ export default function DuelPage() {
       setHistory(h=>[...h,"opp"]);
       setPhase("result");
       startCd(r.next_round_at);
+      // P1 is responsible for sending the next word — must schedule it here too,
+      // not only in submit/timeout. Without this, the game blocks when P2 answers first.
+      if(isP1.current){
+        const delay = Math.max(100, new Date(r.next_round_at).getTime() - Date.now());
+        setTimeout(async()=>{ iAnswered.current=false; await nextWord(); }, delay);
+      }
     }
   }
 
@@ -288,14 +297,26 @@ export default function DuelPage() {
       if(p1>=WIN||p2>=WIN||nr>=ROUNDS){ await finish(p1,p2); return; }
       const nxt = new Date(Date.now()+DELAY).toISOString();
       seenNextAt.current=nxt;
-      await supabase.from("rooms").update({current_round:nr,current_kanji:null,next_round_at:nxt}).eq("id",roomId);
+      // Only write if current_kanji is still set — P2 may have answered concurrently
+      const {data:written} = await supabase.from("rooms")
+        .update({current_round:nr,current_kanji:null,next_round_at:nxt})
+        .eq("id",roomId)
+        .not("current_kanji","is",null)
+        .select("id");
+      if(!written?.length){
+        // P2 already resolved this round — tick() will pick up next_round_at and call nextWord
+        iAnswered.current=false;
+        seenNextAt.current=null;
+        return;
+      }
       startCd(nxt);
       setTimeout(async()=>{ iAnswered.current=false; await nextWord(); },DELAY);
     } else {
-      // P2: estimate countdown locally (P1 will set next_round_at, poll will pick it up)
+      // P2: estimate countdown locally (P1 will set next_round_at via their timeout or tick)
       const nxt = new Date(Date.now()+DELAY).toISOString();
       startCd(nxt);
-      setTimeout(()=>{ iAnswered.current=false; },DELAY);
+      // Don't reset iAnswered here — tick()'s new-word branch resets it when the word arrives.
+      // A premature reset would let stale next_round_at signals retrigger "opp answered".
     }
   }
 
@@ -339,9 +360,10 @@ export default function DuelPage() {
     startCd(nxt);
     if(isP1.current){
       setTimeout(async()=>{ iAnswered.current=false; await nextWord(); },DELAY);
-    } else {
-      setTimeout(()=>{ iAnswered.current=false; },DELAY);
     }
+    // P2: don't reset iAnswered here — tick()'s new-word branch resets it when P1 sends
+    // the next word. A premature reset would let P1's timeout write (different next_round_at)
+    // retrigger the "opp answered" branch on P2's side.
   }
 
   async function finish(p1:number,p2:number){
