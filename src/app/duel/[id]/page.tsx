@@ -27,8 +27,7 @@ type Phase = "loading"|"waiting"|"playing"|"result"|"finished";
 interface RoundLog { winner: "me"|"opp"|"time"; word: VocabWord; answer: string; }
 
 const ROUND_TIME = 12;
-const ROUNDS = 11;
-const WIN = 6;
+const WIN = 10;
 const DELAY = 3000;
 
 function tone(t: "ok"|"ko"|"to") {
@@ -72,7 +71,10 @@ export default function DuelPage() {
   const [log, setLog] = useState<RoundLog[]>([]);
   const [word, setWord] = useState<VocabWord|null>(null); // current displayed word
   const [result, setResult] = useState<{who:"me"|"opp"|"time"; word:VocabWord}|null>(null);
-  const [eloChange, setEloChange] = useState<number|null>(null);
+  const [myEloChange, setMyEloChange] = useState<number|null>(null);
+  const [oppEloChange, setOppEloChange] = useState<number|null>(null);
+  const [myEloStart, setMyEloStart] = useState<number|null>(null);
+  const [oppEloStart, setOppEloStart] = useState<number|null>(null);
   const [conceded, setConceded] = useState(false);
   const [room, setRoom] = useState<Room|null>(null);
 
@@ -116,6 +118,15 @@ export default function DuelPage() {
   // ── init ──────────────────────────────────────────────────────────────────
   useEffect(()=>{
     (async()=>{
+      // Detect reload: if we left this duel and are back via reload, cancel any pending forfeit
+      const navEntry = (performance.getEntriesByType?.('navigation')??[])[0] as PerformanceNavigationTiming|undefined;
+      const isReload = navEntry?.type === 'reload';
+      const leftKey = sessionStorage.getItem('duel_left');
+      sessionStorage.removeItem('duel_left');
+      if(isReload && leftKey === roomId){
+        fetch(`/api/cancel-forfeit?roomId=${roomId}`,{method:'POST'}).catch(()=>{});
+      }
+
       const {data:{user}} = await supabase.auth.getUser();
       if(!user){router.push("/login");return;}
       myId.current = user.id;
@@ -132,6 +143,8 @@ export default function DuelPage() {
               : Promise.resolve({data:null}),
       ]);
       setMe(mp.data); if(op.data) setOpp(op.data);
+      setMyEloStart(mp.data?.elo ?? null);
+      setOppEloStart(op.data?.elo ?? null);
 
       if(rd.status==="finished"){
         await loadElo(user.id,rd); setPhase("finished");
@@ -166,16 +179,21 @@ export default function DuelPage() {
     return ()=>{ if(pollR.current) clearInterval(pollR.current); };
   },[]);
 
-  // ── back button ───────────────────────────────────────────────────────────
+  // ── forfeit on close/navigate (not on reload) ────────────────────────────
   useEffect(()=>{
-    const ou=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue="";};
-    const op=()=>{ if(!done.current) concede(); };
-    window.addEventListener("beforeunload",ou);
-    window.addEventListener("popstate",op);
+    const handleUnload=()=>{
+      if(done.current) return;
+      const uid=myId.current;
+      sessionStorage.setItem('duel_left',roomId);
+      if(uid) navigator.sendBeacon(`/api/forfeit-duel?roomId=${roomId}&userId=${uid}`);
+    };
+    const handlePopState=()=>{ if(!done.current) concede(); };
+    window.addEventListener("beforeunload",handleUnload);
+    window.addEventListener("popstate",handlePopState);
     window.history.pushState(null,"",window.location.href);
     return ()=>{
-      window.removeEventListener("beforeunload",ou);
-      window.removeEventListener("popstate",op);
+      window.removeEventListener("beforeunload",handleUnload);
+      window.removeEventListener("popstate",handlePopState);
     };
   },[]);
 
@@ -294,7 +312,7 @@ export default function DuelPage() {
 
     if(isP1.current){
       const p1=r.p1_score, p2=r.p2_score, nr=r.current_round+1;
-      if(p1>=WIN||p2>=WIN||nr>=ROUNDS){ await finish(p1,p2); return; }
+      if(p1>=WIN||p2>=WIN||nr>=50){ await finish(p1,p2); return; }
       const nxt = new Date(Date.now()+DELAY).toISOString();
       seenNextAt.current=nxt;
       // Only write if current_kanji is still set — P2 may have answered concurrently
@@ -344,7 +362,7 @@ export default function DuelPage() {
     const nr = r.current_round+1;
     const nxt = new Date(Date.now()+DELAY).toISOString();
 
-    if(p1>=WIN||p2>=WIN||nr>=ROUNDS){
+    if(p1>=WIN||p2>=WIN||nr>=50){
       await supabase.from("rooms").update({p1_score:p1,p2_score:p2}).eq("id",roomId);
       await finish(p1,p2); return;
     }
@@ -378,7 +396,15 @@ export default function DuelPage() {
       .select("player1_id,p1_elo_change,p2_elo_change")
       .eq("player1_id",r.player1_id).eq("player2_id",r.player2_id)
       .order("played_at",{ascending:false}).limit(1).single();
-    if(data) setEloChange(data.player1_id===uid?data.p1_elo_change:data.p2_elo_change);
+    if(data){
+      if(data.player1_id===uid){
+        setMyEloChange(data.p1_elo_change);
+        setOppEloChange(data.p2_elo_change);
+      } else {
+        setMyEloChange(data.p2_elo_change);
+        setOppEloChange(data.p1_elo_change);
+      }
+    }
   }
 
   async function concede(){
@@ -388,8 +414,13 @@ export default function DuelPage() {
     [timerR,pollR,cdR].forEach(x=>{ if(x.current) clearInterval(x.current); });
     const wid=isP1.current?r.player2_id:r.player1_id;
     const p1=isP1.current?0:WIN, p2=isP1.current?WIN:0;
-    await supabase.rpc("finish_match",{p_room_id:roomId,p_winner_id:wid,p_p1_score:p1,p_p2_score:p2});
-    await loadElo(m.id,r);
+    try {
+      await supabase.rpc("finish_match",{p_room_id:roomId,p_winner_id:wid,p_p1_score:p1,p_p2_score:p2});
+      await loadElo(m.id,r);
+    } catch {
+      done.current=false;
+      return;
+    }
     setConceded(true); setPhase("finished");
   }
 
@@ -424,7 +455,7 @@ export default function DuelPage() {
     );
   }
 
-  if(phase==="finished"&&room) return <ResultScreen room={room} me={me} opp={opp} isP1={isP1.current} router={router} log={log} eloChange={eloChange} conceded={conceded} showRomaji={showRomaji}/>;
+  if(phase==="finished"&&room) return <ResultScreen room={room} me={me} opp={opp} isP1={isP1.current} router={router} log={log} myEloChange={myEloChange} oppEloChange={oppEloChange} myEloStart={myEloStart} oppEloStart={oppEloStart} conceded={conceded} showRomaji={showRomaji}/>;
 
   const myScore = room?(isP1.current?room.p1_score:room.p2_score):0;
   const opScore = room?(isP1.current?room.p2_score:room.p1_score):0;
@@ -455,8 +486,8 @@ export default function DuelPage() {
             </div>
           </div>
           <div className="text-center">
-            <p className="text-xs text-white/40 font-mono">{(room?.current_round??0)+1}/{ROUNDS}</p>
-            <p className="text-white/20 text-xs">round</p>
+            <p className="text-xs text-white/40 font-mono">round {(room?.current_round??0)+1}</p>
+            <p className="text-white/20 text-xs">first to {WIN}</p>
             {cd!==null&&cd>0&&<p className="font-mono font-bold text-3xl mt-1" style={{color:"#EF9F27",textShadow:"0 0 20px #EF9F2799"}}>{cd}</p>}
           </div>
           <div className="flex items-center gap-2 justify-end">
@@ -474,7 +505,7 @@ export default function DuelPage() {
 
         {/* progress dots */}
         <div className="flex gap-1 mb-3">
-          {Array.from({length:ROUNDS}).map((_,i)=>(
+          {Array.from({length:Math.min(Math.max(history.length+4,10),24)}).map((_,i)=>(
             <div key={i} className="flex-1 h-1 rounded-full" style={{
               background:i<history.length
                 ?history[i]==="me"?myC:history[i]==="opp"?"#E24B4A":"rgba(255,255,255,0.15)"
@@ -572,10 +603,12 @@ function CopyBtn({text,label}:{text:string;label:string}){
   );
 }
 
-function ResultScreen({room,me,opp,isP1,router,log,eloChange,conceded,showRomaji}:{
+function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEloStart,oppEloStart,conceded,showRomaji}:{
   room:Room;me:Profile|null;opp:Profile|null;
   isP1:boolean;router:ReturnType<typeof useRouter>;
-  log:RoundLog[];eloChange:number|null;conceded:boolean;showRomaji:boolean;
+  log:RoundLog[];myEloChange:number|null;oppEloChange:number|null;
+  myEloStart:number|null;oppEloStart:number|null;
+  conceded:boolean;showRomaji:boolean;
 }){
   const myS=isP1?room.p1_score:room.p2_score;
   const opS=isP1?room.p2_score:room.p1_score;
@@ -607,18 +640,28 @@ function ResultScreen({room,me,opp,isP1,router,log,eloChange,conceded,showRomaji
           </a>
         </div>
         <div className="grid grid-cols-2 gap-3 mb-4">
-          {[{label:me?.username??"You",score:myS,color:me?.accent_color??"#534AB7"},{label:opp?.username??"Opp",score:opS,color:opp?.accent_color??"#D85A30"}].map(s=>(
+          {[
+            {label:me?.username??"You",score:myS,color:me?.accent_color??"#534AB7",eloStart:myEloStart,eloChange:myEloChange},
+            {label:opp?.username??"Opp",score:opS,color:opp?.accent_color??"#D85A30",eloStart:oppEloStart,eloChange:oppEloChange},
+          ].map(s=>(
             <div key={s.label} className="bg-white/4 rounded-xl p-3">
               <p className="text-xs text-white/40 truncate mb-1">{s.label}</p>
               <p className="font-mono text-2xl font-bold" style={{color:s.color}}>{s.score}</p>
-              <p className="text-white/20 text-xs">/ {ROUNDS}</p>
+              {s.eloStart!==null&&(
+                <p className="text-xs text-white/35 mt-1 font-mono">
+                  {s.eloStart}
+                  {s.eloChange!==null&&(
+                    <span style={{color:s.eloChange>=0?"#5DCAA5":"#E24B4A"}}> {s.eloChange>=0?"+":""}{s.eloChange}</span>
+                  )}
+                </p>
+              )}
             </div>
           ))}
         </div>
-        {eloChange!==null&&(
+        {myEloChange!==null&&(
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl mb-4"
-            style={{background:eloChange>=0?"rgba(29,158,117,0.15)":"rgba(226,75,74,0.15)",border:eloChange>=0?"1px solid #1D9E7544":"1px solid #E24B4A44"}}>
-            <span className="font-mono text-lg font-bold" style={{color:eloChange>=0?"#5DCAA5":"#E24B4A"}}>{eloChange>=0?"+":""}{eloChange}</span>
+            style={{background:myEloChange>=0?"rgba(29,158,117,0.15)":"rgba(226,75,74,0.15)",border:myEloChange>=0?"1px solid #1D9E7544":"1px solid #E24B4A44"}}>
+            <span className="font-mono text-lg font-bold" style={{color:myEloChange>=0?"#5DCAA5":"#E24B4A"}}>{myEloChange>=0?"+":""}{myEloChange}</span>
             <span className="text-xs text-white/40">ELO</span>
           </div>
         )}
