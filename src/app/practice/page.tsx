@@ -348,7 +348,11 @@ export default function Practice() {
             disabled={phase === "feedback"}
             autoComplete="off" autoCorrect="off" spellCheck={false}
             onChange={ime.onChange}
-            onKeyDown={(e) => { if (e.key === "Enter" && phase === "playing") submitAnswer(ime.value); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && phase === "playing") submitAnswer(ime.value);
+              if (e.key === "Tab" && phase === "playing") { e.preventDefault(); skipQuestion(); }
+              if (e.key === "Escape" && phase === "playing") { e.preventDefault(); skipQuestion(); }
+            }}
           />
           {hiraganaMode && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>あ</div>
@@ -360,8 +364,9 @@ export default function Practice() {
         </p>
 
         {phase === "playing" && (
-          <button onClick={skipQuestion} className="w-full text-xs text-white/15 hover:text-white/35 transition-colors py-1.5">
+          <button onClick={skipQuestion} className="w-full text-xs text-white/15 hover:text-white/40 transition-colors py-1.5 flex items-center justify-center gap-2">
             Skip →
+            <span className="px-1.5 py-0.5 rounded font-mono text-white/20 border border-white/10" style={{ fontSize: 10 }}>Tab</span>
           </button>
         )}
 

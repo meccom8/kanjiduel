@@ -178,53 +178,6 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
           onClick={() => setShowRanks(false)}>
-          <div className="w-full max-w-sm rounded-2xl p-6 slide-up"
-            style={{ background: "#0d0d1a", border: "1px solid rgba(127,119,221,0.3)" }}
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-white">Rank ladder</h2>
-              <button onClick={() => setShowRanks(false)} className="text-white/30 hover:text-white/60 transition-colors text-xl">×</button>
-            </div>
-            <div className="flex flex-col gap-2">
-              {[
-                { name: "Bronze I",       min: 0,    color: "#8D6E63" },
-                { name: "Bronze II",      min: 200,  color: "#8D6E63" },
-                { name: "Silver I",       min: 400,  color: "#757575" },
-                { name: "Silver II",      min: 600,  color: "#757575" },
-                { name: "Gold I",         min: 800,  color: "#B8860B" },
-                { name: "Gold II",        min: 1000, color: "#B8860B" },
-                { name: "Platinum I",     min: 1200, color: "#4DB6AC" },
-                { name: "Platinum II",    min: 1400, color: "#4DB6AC" },
-                { name: "Diamond",        min: 1600, color: "#5C6BC0" },
-                { name: "Champion",       min: 1800, color: "#7B1FA2" },
-                { name: "Grand Champion", min: 2000, color: "#C62828" },
-              ].map(r => (
-                <div key={r.name} className="flex items-center gap-3 px-3 py-2 rounded-xl"
-                  style={{
-                    background: profile.elo >= r.min ? r.color + "15" : "rgba(255,255,255,0.02)",
-                    border: profile.elo >= r.min && profile.elo < (r.min + 200) ? `1px solid ${r.color}` : "1px solid transparent",
-                  }}>
-                  <span className="text-sm font-bold w-4" style={{ color: r.color }}>⬡</span>
-                  <span className="flex-1 text-sm" style={{ color: profile.elo >= r.min ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)" }}>
-                    {r.name}
-                    {profile.elo >= r.min && profile.elo < (r.min + 200) && (
-                      <span className="ml-2 text-xs" style={{ color: r.color }}>← you</span>
-                    )}
-                  </span>
-                  <span className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>{r.min}+</span>
-                </div>
-              ))}
-            </div>
-            <p className="text-center text-xs text-white/20 mt-4">Your ELO: <span className="font-mono" style={{ color: tier.color }}>{profile.elo}</span></p>
-          </div>
-        </div>
-      )}
-
-      {/* Ranks Modal */}
-      {showRanks && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
-          onClick={() => setShowRanks(false)}>
           <div className="w-full max-w-sm rounded-2xl overflow-hidden slide-up"
             style={{ background: "#0d0d1a", border: "1px solid rgba(127,119,221,0.3)" }}
             onClick={e => e.stopPropagation()}>

@@ -67,9 +67,9 @@ export default function Dictionary() {
   return (
     <main className="min-h-screen px-4 py-10 relative z-10 max-w-5xl mx-auto">
       {/* Header */}
+      <Link href="/" className="text-sm text-white/30 hover:text-white/60 mb-6 inline-block transition-colors">← Home</Link>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <Link href="/" className="font-jp text-xl text-accent2 hover:opacity-70 block mb-1">漢</Link>
           <h1 className="text-2xl font-semibold">Dictionary</h1>
           <p className="text-white/40 text-sm">{total.toLocaleString()} words · JLPT N5–N1</p>
         </div>

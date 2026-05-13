@@ -281,7 +281,6 @@ export default function Matchmaking() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
-      <div className="font-jp text-3xl mb-8 text-accent2">漢</div>
       <div className="card-solid w-full max-w-sm p-8 slide-up text-center">
         <div className="font-jp text-5xl mb-6 animate-pulse text-accent2">漢</div>
         <p className="text-lg font-medium mb-2">Finding a match{dots}</p>

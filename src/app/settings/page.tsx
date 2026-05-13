@@ -25,7 +25,6 @@ const THEMES = [
   { id:"navy",   label:"Dark Navy",   preview:"#0d0d1a" },
   { id:"black",  label:"Pure Black",  preview:"#000000" },
   { id:"purple", label:"Dark Purple", preview:"#100a20" },
-  { id:"light",  label:"Light",       preview:"#f5f5f7" },
 ];
 
 const GRID_OPTIONS = [
@@ -75,6 +74,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [bio, setBio] = useState("");
   const [title, setTitle] = useState("");
   const [accentColor, setAccentColor] = useState("#534AB7");
@@ -98,6 +99,22 @@ export default function Settings() {
   const router = useRouter();
   const supabase = createClient();
 
+  // Auto-save all prefs to localStorage whenever they change (after initial load)
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    try {
+      localStorage.setItem("pref_hiragana_mode", String(hiraganaMode));
+      localStorage.setItem("pref_show_romaji", String(showRomaji));
+      localStorage.setItem("pref_sound", String(soundEnabled));
+      localStorage.setItem("pref_show_meaning", String(showMeaning));
+      localStorage.setItem("pref_timer_style", timerStyle);
+      localStorage.setItem("pref_theme", theme);
+      localStorage.setItem("pref_grid", gridIntensity);
+      localStorage.setItem("pref_kanji_size", kanjiSize);
+      localStorage.setItem("pref_high_contrast", String(highContrast));
+    } catch {}
+  }, [prefsLoaded, hiraganaMode, showRomaji, soundEnabled, showMeaning, timerStyle, theme, gridIntensity, kanjiSize, highContrast]);
+
   useEffect(() => {
     try {
       setHiraganaMode(localStorage.getItem("pref_hiragana_mode") === "true");
@@ -110,6 +127,7 @@ export default function Settings() {
       setKanjiSize(localStorage.getItem("pref_kanji_size") || "normal");
       setHighContrast(localStorage.getItem("pref_high_contrast") === "true");
     } catch {}
+    setPrefsLoaded(true);
 
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -153,23 +171,18 @@ export default function Settings() {
   async function save() {
     if (!profile) return;
     setSaving(true);
-    try {
-      localStorage.setItem("pref_hiragana_mode", String(hiraganaMode));
-      localStorage.setItem("pref_show_romaji", String(showRomaji));
-      localStorage.setItem("pref_sound", String(soundEnabled));
-      localStorage.setItem("pref_show_meaning", String(showMeaning));
-      localStorage.setItem("pref_timer_style", timerStyle);
-      localStorage.setItem("pref_theme", theme);
-      localStorage.setItem("pref_grid", gridIntensity);
-      localStorage.setItem("pref_kanji_size", kanjiSize);
-      localStorage.setItem("pref_high_contrast", String(highContrast));
-    } catch {}
-    await supabase.from("profiles").update({
+    const { error } = await supabase.from("profiles").update({
       bio: bio.slice(0, 160), title: title || null,
       accent_color: accentColor, avatar_url: avatarUrl || null,
     }).eq("id", profile.id);
-    setSaving(false); setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaving(false);
+    if (!error) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } else {
+      setSaveError(true);
+      setTimeout(() => setSaveError(false), 3000);
+    }
   }
 
   if (loading) return (
@@ -181,8 +194,7 @@ export default function Settings() {
 
   const tier = getTier(profile.elo);
   const color = accentColor;
-  const isLight = theme === "light";
-  const muted = isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.3)";
+  const muted = "rgba(255,255,255,0.3)";
 
   const optBtn = (active: boolean) => ({
     background: active ? color + "22" : "rgba(255,255,255,0.04)",
@@ -228,7 +240,7 @@ export default function Settings() {
         {/* Theme */}
         <div className="mb-5">
           <p className="text-xs font-medium mb-3" style={{ color: muted }}>Background theme</p>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {THEMES.map(t => (
               <button key={t.id} onClick={() => handleTheme(t.id)}
                 className="flex flex-col items-center gap-2 p-2 rounded-xl transition-all"
@@ -399,9 +411,12 @@ export default function Settings() {
       </div>
 
       <button onClick={save} disabled={saving} className="btn-primary"
-        style={saved ? { background: "#1D9E75" } : {}}>
-        {saving ? "Saving..." : saved ? "✓ Saved!" : "Save changes"}
+        style={saved ? { background: "#1D9E75" } : saveError ? { background: "#E24B4A" } : {}}>
+        {saving ? "Saving..." : saved ? "✓ Profile saved!" : saveError ? "✗ Error — try again" : "Save profile"}
       </button>
+      <p className="text-center text-xs mt-2" style={{ color: muted }}>
+        Appearance &amp; gameplay settings are saved automatically
+      </p>
     </main>
   );
 }

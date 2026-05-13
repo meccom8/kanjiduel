@@ -147,35 +147,6 @@ html.theme-black body { background: #000000; }
 html.theme-black .card-solid { background: #111111; }
 html.theme-black body::before { display: none; }
 
-/* Pure white / light */
-html.theme-light body {
-  background: #f5f5f7;
-  color: #1a1a2e;
-}
-html.theme-light .card-solid {
-  background: #ffffff;
-  border-color: rgba(0,0,0,0.08);
-  color: #1a1a2e;
-}
-html.theme-light .card {
-  background: rgba(0,0,0,0.04);
-  border-color: rgba(0,0,0,0.08);
-}
-html.theme-light .btn-ghost {
-  background: rgba(0,0,0,0.06);
-  color: #1a1a2e;
-  border-color: rgba(0,0,0,0.12);
-}
-html.theme-light .input-field {
-  background: rgba(0,0,0,0.05);
-  border-color: rgba(0,0,0,0.12);
-  color: #1a1a2e;
-}
-html.theme-light body::before {
-  background-image:
-    linear-gradient(rgba(83,74,183,0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(83,74,183,0.08) 1px, transparent 1px);
-}
 
 /* Dark navy (default) */
 html.theme-navy body { background: #0d0d1a; }
