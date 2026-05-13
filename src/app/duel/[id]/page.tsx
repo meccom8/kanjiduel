@@ -96,6 +96,7 @@ export default function DuelPage() {
   const seenWordId = useRef<string|null>(null);    // id of last word we started
   const seenNextAt = useRef<string|null>(null);    // next_round_at we already reacted to
   const wordR = useRef<VocabWord|null>(null);      // always-fresh copy of current word (tick closure is stale)
+  const tokenR = useRef<string>('');               // user access token for beacon auth
 
   const inputR = useRef<HTMLInputElement>(null);
   const timerR = useRef<ReturnType<typeof setInterval>|null>(null);
@@ -118,18 +119,23 @@ export default function DuelPage() {
   // ── init ──────────────────────────────────────────────────────────────────
   useEffect(()=>{
     (async()=>{
-      // Detect reload: if we left this duel and are back via reload, cancel any pending forfeit
+      // Snapshot reload detection early (before any async — navEntry only valid synchronously)
       const navEntry = (performance.getEntriesByType?.('navigation')??[])[0] as PerformanceNavigationTiming|undefined;
       const isReload = navEntry?.type === 'reload';
       const leftKey = sessionStorage.getItem('duel_left');
       sessionStorage.removeItem('duel_left');
-      if(isReload && leftKey === roomId){
-        fetch(`/api/cancel-forfeit?roomId=${roomId}`,{method:'POST'}).catch(()=>{});
-      }
 
       const {data:{user}} = await supabase.auth.getUser();
       if(!user){router.push("/login");return;}
       myId.current = user.id;
+      const {data:{session}} = await supabase.auth.getSession();
+      if(session?.access_token) tokenR.current = session.access_token;
+
+      // Cancel any pending forfeit — must run after auth so token is available (still within 8s grace)
+      if(isReload && leftKey === roomId){
+        const tok = tokenR.current;
+        fetch(`/api/cancel-forfeit?roomId=${roomId}&token=${tok}`,{method:'POST'}).catch(()=>{});
+      }
 
       const {data:rd} = await supabase.from("rooms").select("*").eq("id",roomId).single();
       if(!rd){router.push("/");return;}
@@ -184,8 +190,9 @@ export default function DuelPage() {
     const handleUnload=()=>{
       if(done.current) return;
       const uid=myId.current;
+      const tok=tokenR.current;
       sessionStorage.setItem('duel_left',roomId);
-      if(uid) navigator.sendBeacon(`/api/forfeit-duel?roomId=${roomId}&userId=${uid}`);
+      if(uid) navigator.sendBeacon(`/api/forfeit-duel?roomId=${roomId}&userId=${uid}&token=${tok}`);
     };
     const handlePopState=()=>{ if(!done.current) concede(); };
     window.addEventListener("beforeunload",handleUnload);

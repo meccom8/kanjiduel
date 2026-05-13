@@ -1,15 +1,22 @@
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
-// Called when the duel page detects it was reloaded (not navigated away).
-// Updates created_at on the room so the forfeit-duel API sees the reconnect signal.
+function makeClient(token?: string) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : undefined
+  );
+}
+
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const roomId = searchParams.get("roomId");
+  const token  = searchParams.get("token") ?? undefined;
 
   if (!roomId) return NextResponse.json({ ok: false });
 
-  const supabase = createClient();
+  const supabase = makeClient(token);
 
   await supabase
     .from("rooms")
