@@ -1,16 +1,33 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import ServiceWorker from "@/components/ServiceWorker";
 
 export const metadata: Metadata = {
   title: "KanjiDuel — Real-time Kanji Battle",
   description:
     "Challenge players worldwide to kanji duels. Type the correct meaning or reading first to win the round. Climb the ranked ladder.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "KanjiDuel",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#534AB7",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
         {/* Apply theme before first paint to avoid flash */}
         <script dangerouslySetInnerHTML={{ __html: `
           try {
@@ -26,7 +43,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           } catch(e) {}
         ` }} />
       </head>
-      <body style={{ position: "relative", zIndex: 1 }}>{children}</body>
+      <body style={{ position: "relative", zIndex: 1 }}>
+        {children}
+        <ServiceWorker />
+      </body>
     </html>
   );
 }
