@@ -163,23 +163,22 @@ export default function Matchmaking() {
       MAX_ELO_RANGE,
       ELO_RANGE_START + Math.floor(elapsed / 15) * ELO_RANGE_EXPAND,
     );
-    const fifteenSecondsAgo = new Date(Date.now() - 15000).toISOString();
-    const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+    const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
 
-    // Clean stale rooms older than 15s
+    // Clean stale rooms older than 60s
     await supabase.from("rooms")
       .delete()
       .eq("status", "waiting")
-      .lt("created_at", fifteenSecondsAgo)
+      .lt("created_at", sixtySecondsAgo)
       .is("player2_id", null);
 
-    // Look for fresh waiting rooms only (not cancelled)
+    // Look for waiting rooms created in the last 60s
     const { data: waitingRooms } = await supabase
       .from("rooms")
       .select("id, player1_id")
       .eq("status", "waiting")
       .neq("player1_id", uid)
-      .gt("created_at", fifteenSecondsAgo)
+      .gt("created_at", sixtySecondsAgo)
       .is("player2_id", null)
       .order("created_at", { ascending: true })
       .limit(20);
