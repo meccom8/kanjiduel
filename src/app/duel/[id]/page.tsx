@@ -729,21 +729,36 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
   const iWon=room.winner_id?room.winner_id===myId2:myS>opS;
   const isDraw=!room.winner_id&&myS===opS;
 
-  const [rematchCode,setRematchCode] = useState<string|null>(null);
-  const [oppRematch,setOppRematch] = useState<string|null>(null);
+  const [rematchRoomId,setRematchRoomId] = useState<string|null>(null);
+  const [oppRematchId,setOppRematchId] = useState<string|null>(null);
   const [startingRematch,setStartingRematch] = useState(false);
+  const [joiningRematch,setJoiningRematch] = useState(false);
 
-  // Poll for opponent's rematch room
+  // Poll for opponent's rematch room (fetch room id directly)
   useEffect(()=>{
     if(!oppId) return;
     const t=setInterval(async()=>{
-      const {data}=await supabase.from("rooms").select("invite_code")
+      const {data}=await supabase.from("rooms").select("id")
         .eq("player1_id",oppId).eq("status","waiting").eq("is_private",true)
         .is("player2_id",null).maybeSingle();
-      setOppRematch(data?.invite_code??null);
+      setOppRematchId(data?.id??null);
     },3000);
     return ()=>clearInterval(t);
   },[oppId]);
+
+  // When we created a rematch room, poll until opponent joins → auto-navigate
+  useEffect(()=>{
+    if(!rematchRoomId) return;
+    const t=setInterval(async()=>{
+      const {data}=await supabase.from("rooms").select("status,player2_id")
+        .eq("id",rematchRoomId).single();
+      if(data?.player2_id){
+        clearInterval(t);
+        router.push(`/duel/${rematchRoomId}`);
+      }
+    },2000);
+    return ()=>clearInterval(t);
+  },[rematchRoomId]);
 
   async function startRematch(){
     if(startingRematch||!myId2) return;
@@ -753,8 +768,24 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
       player1_id:myId2, status:"waiting", category:room.category??"all",
       rounds:11, is_private:true, invite_code:code,
     }).select().single();
-    if(data) setRematchCode(code);
+    if(data) setRematchRoomId(data.id);
     setStartingRematch(false);
+  }
+
+  async function cancelRematch(){
+    if(!rematchRoomId) return;
+    await supabase.from("rooms").delete().eq("id",rematchRoomId).eq("status","waiting");
+    setRematchRoomId(null);
+  }
+
+  async function joinRematch(){
+    if(!oppRematchId||!myId2||joiningRematch) return;
+    setJoiningRematch(true);
+    const {error}=await supabase.from("rooms")
+      .update({player2_id:myId2,status:"active"})
+      .eq("id",oppRematchId).eq("status","waiting");
+    if(!error) router.push(`/duel/${oppRematchId}`);
+    else setJoiningRematch(false);
   }
   return(
     <main className="min-h-screen px-4 py-10 relative z-10 max-w-lg mx-auto">
@@ -809,29 +840,20 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
           </div>
         )}
         {/* Rematch */}
-        {oppRematch&&!rematchCode&&(
-          <a href={`/play/${oppRematch}`}
-            className="btn-primary flex items-center justify-center gap-2 mb-2 no-underline"
+        {oppRematchId&&!rematchRoomId&&(
+          <button onClick={joinRematch} disabled={joiningRematch}
+            className="btn-primary flex items-center justify-center gap-2 mb-2"
             style={{background:"linear-gradient(135deg,#1D9E75,#4DB6AC)"}}>
-            🔁 {opp?.username} wants a rematch — Join!
-          </a>
+            {joiningRematch?"Joining…":`🔁 ${opp?.username} wants a rematch — Join!`}
+          </button>
         )}
-        {rematchCode?(
-          <div className="mb-3 p-3 rounded-xl text-center"
-            style={{background:"rgba(83,74,183,0.15)",border:"1px solid rgba(83,74,183,0.3)"}}>
-            <p className="text-xs text-white/40 mb-1">Rematch room ready — share the code</p>
-            <p className="font-mono text-2xl font-bold tracking-widest mb-2" style={{color:"#7F77DD"}}>{rematchCode}</p>
-            <div className="flex gap-2">
-              <button onClick={()=>navigator.clipboard.writeText(`${window.location.origin}/play/${rematchCode}`)}
-                className="flex-1 text-xs py-1.5 rounded-lg"
-                style={{background:"rgba(127,119,221,0.2)",color:"#7F77DD"}}>Copy link</button>
-              <a href={`/play/${rematchCode}`}
-                className="flex-1 text-xs py-1.5 rounded-lg text-center"
-                style={{background:"rgba(83,74,183,0.3)",color:"#fff"}}>Go →</a>
-            </div>
-          </div>
+        {rematchRoomId?(
+          <button onClick={cancelRematch}
+            className="btn-ghost mb-2 flex items-center justify-center gap-2 opacity-70 hover:opacity-100">
+            ⏳ Waiting for {opp?.username}… Cancel
+          </button>
         ):(
-          !oppRematch&&(
+          !oppRematchId&&(
             <button onClick={startRematch} disabled={startingRematch}
               className="btn-ghost mb-1 flex items-center justify-center gap-2">
               {startingRematch?"…":"🔁 Rematch"}
