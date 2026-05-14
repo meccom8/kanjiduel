@@ -53,14 +53,25 @@ function ShopInner() {
 
   async function buy(priceId: string, type: "subscription" | "cosmetics") {
     setBuying(type);
-    const res = await fetch("/api/stripe/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ priceId, type }),
-    });
-    const { url } = await res.json();
-    if (url) window.location.href = url;
-    else setBuying(null);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId, type }),
+      });
+      const json = await res.json();
+      if (json.url) {
+        window.location.href = json.url;
+      } else {
+        console.error("Checkout error:", json);
+        alert("Error: " + (json.error ?? "Unknown error. Check console."));
+        setBuying(null);
+      }
+    } catch (e: any) {
+      console.error("Buy failed:", e);
+      alert("Request failed: " + e.message);
+      setBuying(null);
+    }
   }
 
   const hasCosmetics = profile?.owned_cosmetics?.includes("pack1");
