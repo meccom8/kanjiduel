@@ -15,6 +15,7 @@ interface Profile {
   title: string | null;
   accent_color: string | null;
   is_pro: boolean;
+  owned_cosmetics: string[] | null;
 }
 interface Match {
   id: string; player1_id: string; player2_id: string;
@@ -352,7 +353,7 @@ export default function ProfilePage() {
       {/* ── Profile card ── */}
       <div className="card-solid p-6 mb-4 slide-up" style={{ border: `1px solid ${accentColor}22` }}>
         <div className="flex items-center gap-4 mb-4">
-          <div className="relative flex-shrink-0">
+          <div className={`relative flex-shrink-0 ${profile.owned_cosmetics?.includes("pack1") ? "cosmetic-border" : ""}`}>
             <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold"
               style={{
                 background: profile.avatar_url ? "transparent" : accentColor + "33",

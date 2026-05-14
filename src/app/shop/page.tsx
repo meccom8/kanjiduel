@@ -180,7 +180,7 @@ function ShopInner() {
               {hasCosmetics ? (
                 <div className="w-full py-3 rounded-xl text-center text-sm font-semibold"
                   style={{ background: "#5DCAA522", color: "#5DCAA5", border: "1px solid #5DCAA544" }}>
-                  ✨ Déjà débloqué
+                  ✨ Already unlocked
                 </div>
               ) : (
                 <button

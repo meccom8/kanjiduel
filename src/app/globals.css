@@ -138,6 +138,30 @@ body::before {
   100% { transform: translateX(-50%) translateY(-32px) scale(0.9); opacity: 0; }
 }
 
+/* Cosmetics Pack — animated rainbow avatar border */
+@keyframes cosmetic-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.cosmetic-border { position: relative; isolation: isolate; }
+.cosmetic-border::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  background: conic-gradient(#FF6B9D, #C44FDC, #7F77DD, #4DB6AC, #FFD700, #FF6B9D);
+  animation: cosmetic-spin 3s linear infinite;
+  z-index: -1;
+}
+.cosmetic-border::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 9999px;
+  background: #0d0d1a;
+  z-index: -1;
+}
+
 @keyframes pulse-border {
   0%, 100% { border-color: rgba(83,74,183,0.3); }
   50% { border-color: rgba(83,74,183,0.8); }

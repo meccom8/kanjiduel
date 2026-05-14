@@ -14,6 +14,9 @@ const ACCENT_COLORS = [
   { name: "Sky",    value: "#0288D1" },
 ];
 
+// Sakura color — exclusive to Cosmetics Pack
+const SAKURA_COLOR = { name: "✨ Sakura", value: "#FF6B9D" };
+
 const TITLES = [
   "Beginner","Student","Scholar","Sensei","Master",
   "Kanji Hunter","Word Ninja","Vocab Warrior","Grammar God",
@@ -21,10 +24,20 @@ const TITLES = [
   "Daily Player","Streak Lord","Grand Champion",
 ];
 
+// Exclusive titles — Cosmetics Pack only
+const EXCLUSIVE_TITLES = [
+  "✨ Sakura Swordsman",
+  "✨ Ink Master",
+  "✨ Shadow Kanji",
+  "✨ Celestial Scribe",
+  "✨ Phantom Sensei",
+];
+
 interface Profile {
   id: string; username: string; elo: number;
   avatar_url: string | null; bio: string | null;
   title: string | null; accent_color: string | null;
+  owned_cosmetics: string[] | null;
 }
 
 export default function EditProfile() {
@@ -48,7 +61,7 @@ export default function EditProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       const { data } = await supabase.from("profiles")
-        .select("id,username,elo,avatar_url,bio,title,accent_color")
+        .select("id,username,elo,avatar_url,bio,title,accent_color,owned_cosmetics")
         .eq("id", user.id).single();
       if (data) {
         setProfile(data); setBio(data.bio ?? ""); setTitle(data.title ?? "");
@@ -182,6 +195,23 @@ export default function EditProfile() {
               <span className="text-xs" style={{ color: muted }}>{c.name}</span>
             </button>
           ))}
+          {/* Sakura — Cosmetics Pack exclusive */}
+          {profile.owned_cosmetics?.includes("pack1") ? (
+            <button onClick={() => setAccentColor(SAKURA_COLOR.value)}
+              className="flex flex-col items-center gap-1.5 transition-all">
+              <div className="w-8 h-8 rounded-full transition-all" style={{
+                background: "linear-gradient(135deg,#FF6B9D,#C44FDC)",
+                border: accentColor === SAKURA_COLOR.value ? "3px solid white" : "3px solid transparent",
+                boxShadow: accentColor === SAKURA_COLOR.value ? "0 0 12px #FF6B9D" : "none",
+              }} />
+              <span className="text-xs" style={{ color: "#FF6B9D" }}>✨ Sakura</span>
+            </button>
+          ) : (
+            <div className="flex flex-col items-center gap-1.5 opacity-40 cursor-not-allowed">
+              <div className="w-8 h-8 rounded-full" style={{ background: "linear-gradient(135deg,#FF6B9D,#C44FDC)", border: "3px solid transparent" }} />
+              <span className="text-xs" style={{ color: muted }}>🔒 Sakura</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -196,6 +226,27 @@ export default function EditProfile() {
               style={optBtn(title === t)}>{t || "None"}</button>
           ))}
         </div>
+        {/* Exclusive titles — Cosmetics Pack */}
+        {profile.owned_cosmetics?.includes("pack1") ? (
+          <div className="mt-3 pt-3 border-t border-white/5">
+            <p className="text-xs mb-2" style={{ color: "#FF6B9D" }}>✨ Exclusive titles</p>
+            <div className="flex flex-wrap gap-2">
+              {EXCLUSIVE_TITLES.map(t => (
+                <button key={t} onClick={() => setTitle(t)}
+                  className="px-3 py-1.5 rounded-lg text-xs transition-all"
+                  style={{
+                    background: title === t ? "#FF6B9D22" : "rgba(255,107,157,0.06)",
+                    border: title === t ? "1px solid #FF6B9D" : "1px solid rgba(255,107,157,0.2)",
+                    color: title === t ? "#FF6B9D" : "rgba(255,107,157,0.6)",
+                  }}>{t}</button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 pt-3 border-t border-white/5">
+            <p className="text-xs text-white/20">🔒 5 exclusive titles — unlock with Cosmetics Pack</p>
+          </div>
+        )}
       </div>
 
       {/* ── Bio ── */}

@@ -19,6 +19,7 @@ interface Profile {
   title: string | null;
   accent_color: string | null;
   is_pro: boolean;
+  owned_cosmetics: string[] | null;
 }
 interface Match {
   id: string; player1_id: string; player2_id: string;
@@ -225,7 +226,7 @@ export default function UserProfile() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, elo, wins, losses, draws, streak, best_streak, avatar_url, bio, title, accent_color, is_pro")
+        .select("id, username, elo, wins, losses, draws, streak, best_streak, avatar_url, bio, title, accent_color, is_pro, owned_cosmetics")
         .eq("username", username)
         .single();
 
@@ -393,12 +394,14 @@ export default function UserProfile() {
       {/* ── Profile card ── */}
       <div className="card-solid p-6 mb-4 slide-up" style={{ border: `1px solid ${accentColor}22` }}>
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold flex-shrink-0"
-            style={{ background: accentColor + "33", color: accentColor, border: `2px solid ${accentColor}55` }}>
+          <div className={`flex-shrink-0 ${profile.owned_cosmetics?.includes("pack1") ? "cosmetic-border" : ""}`}>
+          <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold"
+            style={{ background: accentColor + "33", color: accentColor, border: profile.owned_cosmetics?.includes("pack1") ? "none" : `2px solid ${accentColor}55` }}>
             {profile.avatar_url
               ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
               : profile.username.slice(0, 2).toUpperCase()
             }
+          </div>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
