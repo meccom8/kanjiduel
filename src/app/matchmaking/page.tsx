@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
-const ELO_RANGE_START = 100;
+const ELO_RANGE_START = 200;
 const ELO_RANGE_EXPAND = 100;
 const MAX_ELO_RANGE = 1000;
 
@@ -197,15 +197,38 @@ export default function Matchmaking() {
     }
 
     if (bestRoom) {
-      const { error } = await supabase.from("rooms")
-        .update({ player2_id: uid, status: "active" })
-        .eq("id", bestRoom.id)
-        .eq("status", "waiting");
-      if (!error) {
-        matchFoundRef.current = true;
-        router.push(`/duel/${bestRoom.id}`);
-        return;
+      // Tiebreaker: when both players have waiting rooms they find each other
+      // simultaneously and both try to join → they land in different rooms.
+      // Rule: the player with the lexicographically-LOWER uid is the joiner;
+      // the other one waits for their room to be filled.
+      const iHaveRoom = !!roomIdRef.current;
+      const shouldJoin = !iHaveRoom || uid < bestRoom.player1_id;
+
+      if (shouldJoin) {
+        // If I have my own waiting room, delete it first to avoid ghost rooms
+        if (roomIdRef.current) {
+          await supabase.from("rooms")
+            .delete().eq("id", roomIdRef.current).eq("status", "waiting");
+          if (channelRef.current) {
+            try { channelRef.current.unsubscribe(); } catch {}
+            channelRef.current = null;
+          }
+          roomIdRef.current = null;
+          setRoomId(null);
+        }
+
+        const { error } = await supabase.from("rooms")
+          .update({ player2_id: uid, status: "active" })
+          .eq("id", bestRoom.id)
+          .eq("status", "waiting");
+        if (!error) {
+          matchFoundRef.current = true;
+          router.push(`/duel/${bestRoom.id}`);
+          return;
+        }
+        // If update failed (race), fall through and re-create room below
       }
+      // If shouldJoin=false: we wait, the opponent will join our room
     }
 
     // No match — create our waiting room if we don't have one yet
