@@ -200,8 +200,12 @@ export default function UserProfile() {
   const [friendStatus, setFriendStatus] = useState<"none" | "pending_sent" | "pending_received" | "friend">("none");
   const [challenging, setChallenging] = useState(false);
   const [challengeCode, setChallengeCode] = useState<string | null>(null);
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [challengeCategory, setChallengeCategory] = useState("all");
+  const [challengeBlitz, setChallengeBlitz] = useState(false);
   const [copied, setCopied] = useState(false);
   const [waitingRoom, setWaitingRoom] = useState<{id:string;invite_code:string}|null>(null);
+  const [activeRoom, setActiveRoom] = useState<{id:string}|null>(null);
 
   const supabase = createClient();
 
@@ -221,7 +225,7 @@ export default function UserProfile() {
 
       // Load friendship status + check if they have a waiting challenge room
       if (user && user.id !== data.id) {
-        const [{ data: fs }, { data: wr }] = await Promise.all([
+        const [{ data: fs }, { data: wr }, { data: ar }] = await Promise.all([
           supabase.from("friendships")
             .select("id, requester_id, addressee_id, status")
             .or(`and(requester_id.eq.${user.id},addressee_id.eq.${data.id}),and(requester_id.eq.${data.id},addressee_id.eq.${user.id})`)
@@ -229,6 +233,9 @@ export default function UserProfile() {
           supabase.from("rooms").select("id, invite_code")
             .eq("player1_id", data.id).eq("status", "waiting").eq("is_private", true)
             .is("player2_id", null).maybeSingle(),
+          supabase.from("rooms").select("id")
+            .or(`player1_id.eq.${data.id},player2_id.eq.${data.id}`)
+            .eq("status", "active").maybeSingle(),
         ]);
 
         if (fs) {
@@ -238,6 +245,7 @@ export default function UserProfile() {
           else if (fs.status === "pending" && fs.addressee_id === user.id) setFriendStatus("pending_received");
         }
         if (wr) setWaitingRoom(wr);
+        if (ar) setActiveRoom(ar);
       }
 
       const [{ data: kanjiData }, { data: matchData }] = await Promise.all([
@@ -312,12 +320,14 @@ export default function UserProfile() {
 
   async function challengePlayer() {
     if (!meId || !profile || challenging) return;
+    setShowChallengeModal(false);
     setChallenging(true);
     const code = Array.from({ length: 6 }, () =>
       "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]
     ).join("");
+    const cat = challengeBlitz ? `blitz:${challengeCategory}` : challengeCategory;
     const { data: room } = await supabase.from("rooms").insert({
-      player1_id: meId, status: "waiting", category: "all", rounds: 11,
+      player1_id: meId, status: "waiting", category: cat, rounds: 11,
       is_private: true, invite_code: code,
     }).select().single();
     if (room) {
@@ -419,7 +429,7 @@ export default function UserProfile() {
               </a>
             ) : (
               <button
-                onClick={challengePlayer}
+                onClick={() => { setChallengeCategory("all"); setChallengeBlitz(false); setShowChallengeModal(true); }}
                 disabled={challenging}
                 className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
                 style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}44` }}>
@@ -454,6 +464,15 @@ export default function UserProfile() {
               </button>
             )}
           </div>
+        )}
+
+        {/* Watch live */}
+        {activeRoom && (
+          <Link href={`/spectate/${activeRoom.id}`}
+            className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-medium mb-2 transition-all"
+            style={{ background: "rgba(29,158,117,0.15)", color: "#5DCAA5", border: "1px solid rgba(29,158,117,0.3)" }}>
+            👁 Watch live
+          </Link>
         )}
 
         {/* Challenge code display */}
@@ -537,6 +556,49 @@ export default function UserProfile() {
           </div>
         )}
       </div>
+
+      {/* ── Challenge config modal ── */}
+      {showChallengeModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-6"
+          style={{background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)"}}
+          onClick={()=>setShowChallengeModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl p-5 slide-up"
+            style={{background:"#0d0d1a",border:"1px solid rgba(127,119,221,0.3)"}}
+            onClick={e=>e.stopPropagation()}>
+            <p className="font-semibold mb-1">Challenge {profile.username}</p>
+            <p className="text-xs text-white/40 mb-4">Pick a category and mode</p>
+            <p className="text-xs text-white/40 mb-2 uppercase tracking-widest">Category</p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {["all","N5","N4","N3","N2","N1"].map(c=>(
+                <button key={c} onClick={()=>setChallengeCategory(c)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{
+                    background: challengeCategory===c ? "rgba(127,119,221,0.3)" : "rgba(255,255,255,0.05)",
+                    border: challengeCategory===c ? "1px solid #7F77DD" : "1px solid rgba(255,255,255,0.08)",
+                    color: challengeCategory===c ? "#7F77DD" : "rgba(255,255,255,0.5)",
+                  }}>{c==="all"?"All levels":c}</button>
+              ))}
+            </div>
+            <p className="text-xs text-white/40 mb-2 uppercase tracking-widest">Mode</p>
+            <div className="flex gap-2 mb-5">
+              {[{id:false,label:"Normal · 12s"},{id:true,label:"⚡ Blitz · 5s"}].map(m=>(
+                <button key={String(m.id)} onClick={()=>setChallengeBlitz(m.id)}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+                  style={{
+                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(127,119,221,0.2)") : "rgba(255,255,255,0.05)",
+                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #7F77DD") : "1px solid rgba(255,255,255,0.08)",
+                    color: challengeBlitz===m.id ? (m.id?"#EF9F27":"#7F77DD") : "rgba(255,255,255,0.5)",
+                  }}>{m.label}</button>
+              ))}
+            </div>
+            <button onClick={challengePlayer}
+              className="w-full py-3 rounded-xl text-sm font-semibold"
+              style={{background:"linear-gradient(135deg,#534AB7,#7F77DD)",color:"#fff"}}>
+              ⚡ Send challenge
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Ranks modal ── */}
       {showRanks && (

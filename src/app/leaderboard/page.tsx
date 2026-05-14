@@ -5,26 +5,29 @@ import { getTier, winRate } from "@/lib/elo";
 import Link from "next/link";
 
 interface Profile {
-  id: string;
-  username: string;
-  elo: number;
-  wins: number;
-  losses: number;
-  draws: number;
-  avatar_url: string | null;
-  accent_color: string | null;
+  id: string; username: string; elo: number;
+  wins: number; losses: number; draws: number;
+  avatar_url: string | null; accent_color: string | null;
+}
+interface MonthlyEntry {
+  id: string; username: string; elo: number;
+  avatar_url: string | null; accent_color: string | null;
+  gained: number; wins: number;
 }
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 export default function Leaderboard() {
   const [players, setPlayers] = useState<Profile[]>([]);
+  const [monthly, setMonthly] = useState<MonthlyEntry[]>([]);
+  const [tab, setTab] = useState<"alltime"|"monthly">("alltime");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const supabase = createClient();
 
   useEffect(() => {
     (async () => {
+      // All-time
       let query = supabase
         .from("profiles")
         .select("id, username, elo, wins, losses, draws, avatar_url, accent_color")
@@ -33,6 +36,37 @@ export default function Leaderboard() {
       if (search.trim()) query = query.ilike("username", `%${search}%`);
       const { data } = await query;
       setPlayers(data ?? []);
+
+      // Monthly: matches from start of current month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const { data: matches } = await supabase
+        .from("matches")
+        .select("player1_id,player2_id,winner_id,p1_elo_change,p2_elo_change")
+        .gte("played_at", monthStart);
+
+      if (matches?.length) {
+        const gainMap: Record<string, { gained: number; wins: number }> = {};
+        for (const m of matches) {
+          [
+            { id: m.player1_id, delta: m.p1_elo_change, won: m.winner_id === m.player1_id },
+            { id: m.player2_id, delta: m.p2_elo_change, won: m.winner_id === m.player2_id },
+          ].forEach(({ id, delta, won }) => {
+            if (!id) return;
+            if (!gainMap[id]) gainMap[id] = { gained: 0, wins: 0 };
+            gainMap[id].gained += delta;
+            if (won) gainMap[id].wins++;
+          });
+        }
+        const ids = Object.keys(gainMap);
+        const { data: profiles } = await supabase
+          .from("profiles").select("id,username,elo,avatar_url,accent_color").in("id", ids);
+        const entries: MonthlyEntry[] = (profiles ?? []).map((p: any) => ({
+          ...p, gained: gainMap[p.id]?.gained ?? 0, wins: gainMap[p.id]?.wins ?? 0,
+        })).sort((a: MonthlyEntry, b: MonthlyEntry) => b.gained - a.gained).slice(0, 50);
+        setMonthly(entries);
+      }
+
       setLoading(false);
     })();
   }, [search]);
@@ -53,24 +87,32 @@ export default function Leaderboard() {
         </Link>
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <input
-          className="input-field"
-          placeholder="Search player..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      {/* Tabs */}
+      <div className="flex gap-1 bg-white/4 rounded-xl p-1 mb-4">
+        {([["alltime","🏆 All time"],["monthly","📅 This month"]] as const).map(([key,label])=>(
+          <button key={key} onClick={()=>setTab(key)}
+            className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+            style={{background:tab===key?"rgba(83,74,183,0.35)":"transparent",color:tab===key?"#7F77DD":"rgba(255,255,255,0.35)"}}>
+            {label}
+          </button>
+        ))}
       </div>
+
+      {/* Search (only for all-time) */}
+      {tab==="alltime"&&(
+        <div className="mb-4">
+          <input className="input-field" placeholder="Search player..."
+            value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-16 text-white/30">Loading…</div>
-      ) : (
+      ) : tab==="alltime" ? (
         <div className="card-solid overflow-hidden">
           {players.length === 0 && (
             <div className="text-center py-12 text-white/30">
-              <p>No players yet</p>
-              <p className="text-sm mt-1">Be the first to play!</p>
+              <p>No players yet</p><p className="text-sm mt-1">Be the first to play!</p>
             </div>
           )}
           {players.map((p, i) => {
@@ -78,42 +120,55 @@ export default function Leaderboard() {
             const wr = winRate(p.wins, p.losses);
             const total = p.wins + p.losses;
             return (
-              <Link
-                key={p.username}
-                href={`/user/${p.username}`}
-                className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors cursor-pointer"
-              >
-                {/* Rank */}
+              <Link key={p.username} href={`/user/${p.username}`}
+                className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors">
                 <span className="font-mono text-sm w-6 text-center flex-shrink-0"
                   style={{ color: i < 3 ? "#EF9F27" : "rgba(255,255,255,0.2)" }}>
                   {MEDALS[i] ?? i + 1}
                 </span>
-
-                {/* Avatar */}
-                <div
-                  className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                  style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: `1.5px solid ${(p.accent_color ?? tier.color)}33` }}
-                >
-                  {p.avatar_url
-                    ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
-                    : p.username.slice(0, 2).toUpperCase()}
+                <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                  style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: `1.5px solid ${(p.accent_color ?? tier.color)}33` }}>
+                  {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                 </div>
-
-                {/* Name + tier */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{p.username}</p>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ background: tier.bg + "22", color: tier.color }}
-                  >
-                    {tier.name}
-                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: tier.bg + "22", color: tier.color }}>{tier.name}</span>
                 </div>
-
-                {/* Stats */}
                 <div className="text-right flex-shrink-0">
                   <p className="font-mono text-sm font-bold" style={{ color: tier.color }}>{p.elo}</p>
                   <p className="text-xs text-white/30">{total > 0 ? `${wr}% WR` : "—"}</p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="card-solid overflow-hidden">
+          {monthly.length === 0 ? (
+            <div className="text-center py-12 text-white/30 text-sm">No ranked matches this month yet</div>
+          ) : monthly.map((p, i) => {
+            const tier = getTier(p.elo);
+            const color = p.accent_color ?? tier.color;
+            return (
+              <Link key={p.id} href={`/user/${p.username}`}
+                className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors">
+                <span className="font-mono text-sm w-6 text-center flex-shrink-0"
+                  style={{ color: i < 3 ? "#EF9F27" : "rgba(255,255,255,0.2)" }}>
+                  {MEDALS[i] ?? i + 1}
+                </span>
+                <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                  style={{ background: color + "33", color, border: `1.5px solid ${color}33` }}>
+                  {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{p.username}</p>
+                  <p className="text-xs text-white/30">{p.wins} wins this month</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="font-mono text-sm font-bold" style={{ color: p.gained >= 0 ? "#5DCAA5" : "#E24B4A" }}>
+                    {p.gained >= 0 ? "+" : ""}{p.gained}
+                  </p>
+                  <p className="text-xs text-white/30">ELO gained</p>
                 </div>
               </Link>
             );

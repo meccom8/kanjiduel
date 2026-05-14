@@ -26,9 +26,7 @@ interface Profile {
 type Phase = "loading"|"waiting"|"playing"|"result"|"finished";
 interface RoundLog { winner: "me"|"opp"|"time"; word: VocabWord; answer: string; }
 
-const ROUND_TIME = 12;
 const WIN = 10;
-const DELAY = 3000;
 
 function tone(t: "ok"|"ko"|"to") {
   try {
@@ -65,7 +63,7 @@ export default function DuelPage() {
   const [me, setMe] = useState<Profile|null>(null);
   const [opp, setOpp] = useState<Profile|null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
-  const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
+  const [timeLeft, setTimeLeft] = useState(12);
   const [cd, setCd] = useState<number|null>(null); // countdown 3-2-1
   const [history, setHistory] = useState<("me"|"opp"|"time")[]>([]);
   const [log, setLog] = useState<RoundLog[]>([]);
@@ -102,6 +100,8 @@ export default function DuelPage() {
   const inactivityR = useRef<ReturnType<typeof setTimeout>|null>(null); // AFK forfeit timer
   const channelR = useRef<any>(null);              // realtime broadcast channel for reactions
   const reactCooldownR = useRef(false);            // prevent reaction spam
+  const roundTimeR = useRef(12);                   // 12s normal / 5s blitz
+  const delayR = useRef(3000);                     // 3s normal / 1500ms blitz
 
   const inputR = useRef<HTMLInputElement>(null);
   const timerR = useRef<ReturnType<typeof setInterval>|null>(null);
@@ -155,6 +155,10 @@ export default function DuelPage() {
       if(!rd){router.push("/");return;}
       roomR.current=rd; isP1.current=rd.player1_id===user.id;
       setRoom(rd);
+      // Blitz: category prefixed with "blitz:"
+      const isBlitz = (rd.category??'').startsWith('blitz:');
+      roundTimeR.current = isBlitz ? 5 : 12;
+      delayR.current     = isBlitz ? 1500 : 3000;
 
       const oppId = isP1.current?rd.player2_id:rd.player1_id;
       const [mp,op] = await Promise.all([
@@ -301,7 +305,8 @@ export default function DuelPage() {
   function resetInactivity(){
     if(inactivityR.current) clearTimeout(inactivityR.current);
     if(done.current) return;
-    inactivityR.current = setTimeout(()=>{ if(!done.current) concede(); }, 20000);
+    const afkMs = roundTimeR.current <= 5 ? 10000 : 20000;
+    inactivityR.current = setTimeout(()=>{ if(!done.current) concede(); }, afkMs);
   }
 
   // ── send a reaction (broadcast, no DB) ───────────────────────────────────
@@ -319,7 +324,7 @@ export default function DuelPage() {
     resetInactivity();
     const t0 = at ? new Date(at).getTime() : Date.now();
     timerR.current = setInterval(()=>{
-      const left = Math.max(0,ROUND_TIME-(Date.now()-t0)/1000);
+      const left = Math.max(0,roundTimeR.current-(Date.now()-t0)/1000);
       setTimeLeft(Math.ceil(left));
       if(left<=0){ clearInterval(timerR.current!); timeout(); }
     },200);
@@ -338,7 +343,9 @@ export default function DuelPage() {
 
   // ── next word (P1 only) ───────────────────────────────────────────────────
   async function nextWord(){
-    const words = await fetchRandomWords(supabase,10);
+    const rawCat = (roomR.current?.category??'all').replace(/^blitz:/,'');
+    const jlpt = rawCat==='all' ? undefined : rawCat;
+    const words = await fetchRandomWords(supabase,10,jlpt);
     if(!words.length) return;
     await supabase.from("rooms").update({
       current_kanji: words[0],
@@ -362,7 +369,7 @@ export default function DuelPage() {
     if(isP1.current){
       const p1=r.p1_score, p2=r.p2_score, nr=r.current_round+1;
       if(p1>=WIN||p2>=WIN||nr>=50){ await finish(p1,p2); return; }
-      const nxt = new Date(Date.now()+DELAY).toISOString();
+      const nxt = new Date(Date.now()+delayR.current).toISOString();
       seenNextAt.current=nxt;
       // Only write if current_kanji is still set — P2 may have answered concurrently
       const {data:written} = await supabase.from("rooms")
@@ -377,10 +384,10 @@ export default function DuelPage() {
         return;
       }
       startCd(nxt);
-      setTimeout(async()=>{ iAnswered.current=false; await nextWord(); },DELAY);
+      setTimeout(async()=>{ iAnswered.current=false; await nextWord(); },delayR.current);
     } else {
       // P2: estimate countdown locally (P1 will set next_round_at via their timeout or tick)
-      const nxt = new Date(Date.now()+DELAY).toISOString();
+      const nxt = new Date(Date.now()+delayR.current).toISOString();
       startCd(nxt);
       // Don't reset iAnswered here — tick()'s new-word branch resets it when the word arrives.
       // A premature reset would let stale next_round_at signals retrigger "opp answered".
@@ -409,7 +416,7 @@ export default function DuelPage() {
     const p1 = isP1.current?r.p1_score+1:r.p1_score;
     const p2 = isP1.current?r.p2_score:r.p2_score+1;
     const nr = r.current_round+1;
-    const nxt = new Date(Date.now()+DELAY).toISOString();
+    const nxt = new Date(Date.now()+delayR.current).toISOString();
 
     if(p1>=WIN||p2>=WIN||nr>=50){
       await supabase.from("rooms").update({p1_score:p1,p2_score:p2}).eq("id",roomId);
@@ -426,7 +433,7 @@ export default function DuelPage() {
 
     startCd(nxt);
     if(isP1.current){
-      setTimeout(async()=>{ iAnswered.current=false; await nextWord(); },DELAY);
+      setTimeout(async()=>{ iAnswered.current=false; await nextWord(); },delayR.current);
     }
     // P2: don't reset iAnswered here — tick()'s new-word branch resets it when P1 sends
     // the next word. A premature reset would let P1's timeout write (different next_round_at)
@@ -530,7 +537,8 @@ export default function DuelPage() {
 
   const myScore = room?(isP1.current?room.p1_score:room.p2_score):0;
   const opScore = room?(isP1.current?room.p2_score:room.p1_score):0;
-  const pct = (timeLeft/ROUND_TIME)*100;
+  const pct = (timeLeft/roundTimeR.current)*100;
+  const isBlitzMode = (room?.category??'').startsWith('blitz:');
   const myC = me?.accent_color??"#534AB7";
   const opC = opp?.accent_color??"#D85A30";
   const border = phase==="result"
@@ -565,6 +573,7 @@ export default function DuelPage() {
             </div>
           </div>
           <div className="text-center">
+            {isBlitzMode&&<p className="text-xs font-bold mb-0.5" style={{color:"#EF9F27"}}>⚡ BLITZ</p>}
             <p className="text-xs text-white/40 font-mono">round {(room?.current_round??0)+1}</p>
             <p className="text-white/20 text-xs">first to {WIN}</p>
             {cd!==null&&cd>0&&<p className="font-mono font-bold text-3xl mt-1" style={{color:"#EF9F27",textShadow:"0 0 20px #EF9F2799"}}>{cd}</p>}
@@ -712,11 +721,41 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
   myEloStart:number|null;oppEloStart:number|null;
   conceded:boolean;showRomaji:boolean;
 }){
+  const supabase = createClient();
   const myS=isP1?room.p1_score:room.p2_score;
   const opS=isP1?room.p2_score:room.p1_score;
   const myId2=isP1?room.player1_id:room.player2_id;
+  const oppId=isP1?room.player2_id:room.player1_id;
   const iWon=room.winner_id?room.winner_id===myId2:myS>opS;
   const isDraw=!room.winner_id&&myS===opS;
+
+  const [rematchCode,setRematchCode] = useState<string|null>(null);
+  const [oppRematch,setOppRematch] = useState<string|null>(null);
+  const [startingRematch,setStartingRematch] = useState(false);
+
+  // Poll for opponent's rematch room
+  useEffect(()=>{
+    if(!oppId) return;
+    const t=setInterval(async()=>{
+      const {data}=await supabase.from("rooms").select("invite_code")
+        .eq("player1_id",oppId).eq("status","waiting").eq("is_private",true)
+        .is("player2_id",null).maybeSingle();
+      setOppRematch(data?.invite_code??null);
+    },3000);
+    return ()=>clearInterval(t);
+  },[oppId]);
+
+  async function startRematch(){
+    if(startingRematch||!myId2) return;
+    setStartingRematch(true);
+    const code=Array.from({length:6},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*32)]).join("");
+    const {data}=await supabase.from("rooms").insert({
+      player1_id:myId2, status:"waiting", category:room.category??"all",
+      rounds:11, is_private:true, invite_code:code,
+    }).select().single();
+    if(data) setRematchCode(code);
+    setStartingRematch(false);
+  }
   return(
     <main className="min-h-screen px-4 py-10 relative z-10 max-w-lg mx-auto">
       <div className="card-solid p-6 text-center mb-4 slide-up">
@@ -768,6 +807,36 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
             <span className="font-mono text-lg font-bold" style={{color:myEloChange>=0?"#5DCAA5":"#E24B4A"}}>{myEloChange>=0?"+":""}{myEloChange}</span>
             <span className="text-xs text-white/40">ELO</span>
           </div>
+        )}
+        {/* Rematch */}
+        {oppRematch&&!rematchCode&&(
+          <a href={`/play/${oppRematch}`}
+            className="btn-primary flex items-center justify-center gap-2 mb-2 no-underline"
+            style={{background:"linear-gradient(135deg,#1D9E75,#4DB6AC)"}}>
+            🔁 {opp?.username} wants a rematch — Join!
+          </a>
+        )}
+        {rematchCode?(
+          <div className="mb-3 p-3 rounded-xl text-center"
+            style={{background:"rgba(83,74,183,0.15)",border:"1px solid rgba(83,74,183,0.3)"}}>
+            <p className="text-xs text-white/40 mb-1">Rematch room ready — share the code</p>
+            <p className="font-mono text-2xl font-bold tracking-widest mb-2" style={{color:"#7F77DD"}}>{rematchCode}</p>
+            <div className="flex gap-2">
+              <button onClick={()=>navigator.clipboard.writeText(`${window.location.origin}/play/${rematchCode}`)}
+                className="flex-1 text-xs py-1.5 rounded-lg"
+                style={{background:"rgba(127,119,221,0.2)",color:"#7F77DD"}}>Copy link</button>
+              <a href={`/play/${rematchCode}`}
+                className="flex-1 text-xs py-1.5 rounded-lg text-center"
+                style={{background:"rgba(83,74,183,0.3)",color:"#fff"}}>Go →</a>
+            </div>
+          </div>
+        ):(
+          !oppRematch&&(
+            <button onClick={startRematch} disabled={startingRematch}
+              className="btn-ghost mb-1 flex items-center justify-center gap-2">
+              {startingRematch?"…":"🔁 Rematch"}
+            </button>
+          )
         )}
         <div className="flex flex-col gap-2">
           <button className="btn-primary" onClick={()=>router.push("/matchmaking")}>⚡ Play again</button>

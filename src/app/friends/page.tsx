@@ -26,6 +26,10 @@ export default function FriendsPage() {
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [challenging, setChallenging] = useState<string | null>(null);
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [modalTarget, setModalTarget] = useState<Profile | null>(null);
+  const [challengeCategory, setChallengeCategory] = useState("all");
+  const [challengeBlitz, setChallengeBlitz] = useState(false);
   // Map friendId → { roomId, invite_code } for waiting private rooms
   const [privateRooms, setPrivateRooms] = useState<Record<string, { roomId: string; code: string }>>({});
   const [joinCode, setJoinCode] = useState("");
@@ -144,27 +148,26 @@ export default function FriendsPage() {
     if (me) await loadFriendships(me.id);
   }
 
-  async function challengeFriend(friend: Profile) {
-    if (!me || challenging) return;
-    setChallenging(friend.id);
+  function openChallengeModal(friend: Profile) {
+    setModalTarget(friend);
+    setChallengeCategory("all");
+    setChallengeBlitz(false);
+    setShowChallengeModal(true);
+  }
 
-    // Generate invite code
+  async function challengeFriend() {
+    if (!me || !modalTarget) return;
+    setShowChallengeModal(false);
+    setChallenging(modalTarget.id);
     const code = Array.from({ length: 6 }, () =>
       "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]
     ).join("");
-
-    // Create private room
+    const cat = challengeBlitz ? `blitz:${challengeCategory}` : challengeCategory;
     const { data: room } = await supabase.from("rooms").insert({
-      player1_id: me.id,
-      status: "waiting",
-      category: "all",
-      rounds: 11,
-      is_private: true,
-      invite_code: code,
+      player1_id: me.id, status: "waiting", category: cat,
+      rounds: 11, is_private: true, invite_code: code,
     }).select().single();
-
     if (room) {
-      // Copy invite link to clipboard
       const link = `${window.location.origin}/play/${code}`;
       try { await navigator.clipboard.writeText(link); } catch {}
       router.push(`/duel/${room.id}`);
@@ -372,8 +375,8 @@ export default function FriendsPage() {
                     </button>
                   ) : (
                     <button
-                      onClick={() => challengeFriend(f.other)}
-                      disabled={challenging === f.other.id}
+                      onClick={() => openChallengeModal(f.other)}
+                      disabled={!!challenging}
                       className="text-xs px-3 py-1.5 rounded-lg transition-all font-medium"
                       style={{ background: "#534AB722", color: "#7F77DD", border: "1px solid #534AB744" }}>
                       {challenging === f.other.id ? "…" : "⚡ Challenge"}
@@ -389,6 +392,51 @@ export default function FriendsPage() {
           })
         )}
       </div>
+
+      {/* Challenge config modal */}
+      {showChallengeModal && modalTarget && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-6"
+          style={{background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)"}}
+          onClick={()=>setShowChallengeModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl p-5 slide-up"
+            style={{background:"#0d0d1a",border:"1px solid rgba(127,119,221,0.3)"}}
+            onClick={e=>e.stopPropagation()}>
+            <p className="font-semibold mb-1">Challenge {modalTarget.username}</p>
+            <p className="text-xs text-white/40 mb-4">Pick a category and mode</p>
+            {/* Category */}
+            <p className="text-xs text-white/40 mb-2 uppercase tracking-widest">Category</p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {["all","N5","N4","N3","N2","N1"].map(c=>(
+                <button key={c} onClick={()=>setChallengeCategory(c)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{
+                    background: challengeCategory===c ? "rgba(127,119,221,0.3)" : "rgba(255,255,255,0.05)",
+                    border: challengeCategory===c ? "1px solid #7F77DD" : "1px solid rgba(255,255,255,0.08)",
+                    color: challengeCategory===c ? "#7F77DD" : "rgba(255,255,255,0.5)",
+                  }}>{c==="all"?"All levels":c}</button>
+              ))}
+            </div>
+            {/* Mode */}
+            <p className="text-xs text-white/40 mb-2 uppercase tracking-widest">Mode</p>
+            <div className="flex gap-2 mb-5">
+              {[{id:false,label:"Normal · 12s"},{id:true,label:"⚡ Blitz · 5s"}].map(m=>(
+                <button key={String(m.id)} onClick={()=>setChallengeBlitz(m.id)}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+                  style={{
+                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(127,119,221,0.2)") : "rgba(255,255,255,0.05)",
+                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #7F77DD") : "1px solid rgba(255,255,255,0.08)",
+                    color: challengeBlitz===m.id ? (m.id?"#EF9F27":"#7F77DD") : "rgba(255,255,255,0.5)",
+                  }}>{m.label}</button>
+              ))}
+            </div>
+            <button onClick={challengeFriend}
+              className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
+              style={{background:"linear-gradient(135deg,#534AB7,#7F77DD)",color:"#fff"}}>
+              ⚡ Send challenge
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Sent requests */}
       {sent.length > 0 && (

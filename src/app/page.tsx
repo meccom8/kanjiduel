@@ -31,14 +31,21 @@ export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRanks, setShowRanks] = useState(false);
+  const [pendingFriends, setPendingFriends] = useState(0);
   const supabase = createClient();
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+        const [{ data }, { count }] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", user.id).single(),
+          supabase.from("friendships")
+            .select("id", { count: "exact", head: true })
+            .eq("addressee_id", user.id).eq("status", "pending"),
+        ]);
         setProfile(data);
+        setPendingFriends(count ?? 0);
       }
       setLoading(false);
     })();
@@ -147,9 +154,15 @@ export default function Home() {
                 }}
               >
                 <span className="text-base w-6 text-center">{item.icon}</span>
-                <span className={`text-sm font-medium ${item.primary ? "text-white" : "text-white/70 group-hover:text-white"} transition-colors`}>
+                <span className={`text-sm font-medium ${item.primary ? "text-white" : "text-white/70 group-hover:text-white"} transition-colors flex-1`}>
                   {item.label}
                 </span>
+                {item.href === "/friends" && pendingFriends > 0 && (
+                  <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
+                    style={{background:"#EF9F27",color:"#000",fontSize:10,minWidth:18,textAlign:"center"}}>
+                    {pendingFriends}
+                  </span>
+                )}
                 {!item.primary && (
                   <span className="ml-auto text-white/20 group-hover:text-white/40 transition-colors text-xs">→</span>
                 )}
