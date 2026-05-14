@@ -151,7 +151,7 @@ export default function Matchmaking() {
         clearInterval(pollRef.current!);
         router.push(`/duel/${roomId}`);
       }
-    }, 2000);
+    }, 1500);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [roomId]);
 
@@ -161,7 +161,7 @@ export default function Matchmaking() {
 
     const currentRange = Math.min(
       MAX_ELO_RANGE,
-      ELO_RANGE_START + Math.floor(elapsed / 15) * ELO_RANGE_EXPAND,
+      ELO_RANGE_START + Math.floor(elapsed / 10) * ELO_RANGE_EXPAND,
     );
     const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
 
@@ -212,17 +212,13 @@ export default function Matchmaking() {
       const shouldJoin = !iHaveRoom || uid < bestRoom.player1_id;
 
       if (shouldJoin) {
-        // Use .select() so we can tell if 0 or 1 rows were actually updated.
-        // Supabase returns error=null even when 0 rows match the WHERE clause,
-        // so checking updated.length is the only reliable way to confirm a join.
-        const { data: updated, error } = await supabase.from("rooms")
+        const { error } = await supabase.from("rooms")
           .update({ player2_id: uid, status: "active" })
           .eq("id", bestRoom.id)
-          .eq("status", "waiting")
-          .select("id");
+          .eq("status", "waiting");
 
-        if (!error && updated && updated.length > 0) {
-          // Successfully claimed the room — clean up our own waiting room
+        if (!error) {
+          // Successfully joined — clean up own waiting room then navigate
           matchFoundRef.current = true;
           if (roomIdRef.current) {
             await supabase.from("rooms")
@@ -237,7 +233,7 @@ export default function Matchmaking() {
           router.push(`/duel/${bestRoom.id}`);
           return;
         }
-        // 0 rows updated (race lost or RLS) → keep own room, retry next cycle
+        // error → room was taken or deleted, keep own room and retry
       }
       // shouldJoin=false → wait, the lower-UUID opponent will join our room
     }
@@ -293,10 +289,10 @@ export default function Matchmaking() {
         .eq("status", "waiting");
     }
 
-    // Retry in 5s
+    // Retry in 3s
     searchRef.current = setTimeout(() => {
-      startSearch(uid, elo, elapsed + 5);
-    }, 5000);
+      startSearch(uid, elo, elapsed + 3);
+    }, 3000);
   }
 
   // ── Cancel ─────────────────────────────────────────────────────────────────
@@ -309,7 +305,7 @@ export default function Matchmaking() {
 
   const currentRange = Math.min(
     MAX_ELO_RANGE,
-    ELO_RANGE_START + Math.floor(searchTime / 15) * ELO_RANGE_EXPAND,
+    ELO_RANGE_START + Math.floor(searchTime / 10) * ELO_RANGE_EXPAND,
   );
 
   return (
