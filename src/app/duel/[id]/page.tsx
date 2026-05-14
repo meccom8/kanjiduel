@@ -730,29 +730,55 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
   const isDraw=!room.winner_id&&myS===opS;
 
   const [rematchRoomId,setRematchRoomId] = useState<string|null>(null);
+  const rematchRoomIdRef = useRef<string|null>(null);
   const [oppRematchId,setOppRematchId] = useState<string|null>(null);
   const [startingRematch,setStartingRematch] = useState(false);
   const [joiningRematch,setJoiningRematch] = useState(false);
+  const rematchDoneRef = useRef(false);
 
-  // Poll for opponent's rematch room (fetch room id directly)
+  // keep ref in sync so async callbacks always see latest value
+  useEffect(()=>{ rematchRoomIdRef.current = rematchRoomId; },[rematchRoomId]);
+
+  // Poll for opponent's rematch room every 2s
+  // If both clicked Rematch at the same time → tiebreaker: lower UUID joins
   useEffect(()=>{
-    if(!oppId) return;
+    if(!oppId||!myId2) return;
     const t=setInterval(async()=>{
+      if(rematchDoneRef.current) return;
       const {data}=await supabase.from("rooms").select("id")
         .eq("player1_id",oppId).eq("status","waiting").eq("is_private",true)
         .is("player2_id",null).maybeSingle();
-      setOppRematchId(data?.id??null);
-    },3000);
+      const oppRid = data?.id ?? null;
+      setOppRematchId(oppRid);
+
+      // Both have rooms → tiebreaker: lower UUID is the joiner
+      if(oppRid && rematchRoomIdRef.current && myId2 < oppId){
+        // I have lower UUID → delete my room, join theirs
+        rematchDoneRef.current = true;
+        clearInterval(t);
+        await supabase.from("rooms").delete()
+          .eq("id",rematchRoomIdRef.current).eq("status","waiting");
+        rematchRoomIdRef.current = null;
+        setRematchRoomId(null);
+        const {error}=await supabase.from("rooms")
+          .update({player2_id:myId2,status:"active"})
+          .eq("id",oppRid).eq("status","waiting");
+        if(!error) router.push(`/duel/${oppRid}`);
+        else rematchDoneRef.current = false; // retry if race failed
+      }
+    },2000);
     return ()=>clearInterval(t);
-  },[oppId]);
+  },[oppId,myId2]);
 
   // When we created a rematch room, poll until opponent joins → auto-navigate
   useEffect(()=>{
     if(!rematchRoomId) return;
     const t=setInterval(async()=>{
-      const {data}=await supabase.from("rooms").select("status,player2_id")
+      if(rematchDoneRef.current) return;
+      const {data}=await supabase.from("rooms").select("player2_id")
         .eq("id",rematchRoomId).single();
       if(data?.player2_id){
+        rematchDoneRef.current = true;
         clearInterval(t);
         router.push(`/duel/${rematchRoomId}`);
       }
@@ -768,13 +794,14 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
       player1_id:myId2, status:"waiting", category:room.category??"all",
       rounds:11, is_private:true, invite_code:code,
     }).select().single();
-    if(data) setRematchRoomId(data.id);
+    if(data){ rematchRoomIdRef.current=data.id; setRematchRoomId(data.id); }
     setStartingRematch(false);
   }
 
   async function cancelRematch(){
     if(!rematchRoomId) return;
     await supabase.from("rooms").delete().eq("id",rematchRoomId).eq("status","waiting");
+    rematchRoomIdRef.current=null;
     setRematchRoomId(null);
   }
 
@@ -784,7 +811,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
     const {error}=await supabase.from("rooms")
       .update({player2_id:myId2,status:"active"})
       .eq("id",oppRematchId).eq("status","waiting");
-    if(!error) router.push(`/duel/${oppRematchId}`);
+    if(!error){ rematchDoneRef.current=true; router.push(`/duel/${oppRematchId}`); }
     else setJoiningRematch(false);
   }
   return(
