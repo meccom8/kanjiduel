@@ -13,26 +13,21 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, stripe_customer_id")
+    .select("username")
     .eq("id", user.id)
     .single();
 
-  // Reuse or create Stripe customer
-  let customerId = profile?.stripe_customer_id as string | undefined;
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: user.email,
-      name: profile?.username,
-      metadata: { supabase_id: user.id },
-    });
-    customerId = customer.id;
-    await supabase.from("profiles").update({ stripe_customer_id: customerId }).eq("id", user.id);
-  }
+  // Always create a fresh Stripe customer (simple — no stripe_customer_id column needed)
+  const customer = await stripe.customers.create({
+    email: user.email ?? undefined,
+    name: profile?.username ?? undefined,
+    metadata: { supabase_id: user.id },
+  });
 
   const origin = req.headers.get("origin") ?? "http://localhost:3000";
 
   const session = await stripe.checkout.sessions.create({
-    customer: customerId,
+    customer: customer.id,
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
     mode: type === "subscription" ? "subscription" : "payment",
