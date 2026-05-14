@@ -699,9 +699,13 @@ export default function UserProfile() {
                       <span className="text-white/20 mx-1">-</span>
                       <span style={{ color: "#D85A30" }}>{oppScore}</span>
                     </p>
-                    <p className="text-xs font-mono mt-0.5" style={{ color: eloChange >= 0 ? "#5DCAA5" : "#E24B4A" }}>
-                      {eloChange >= 0 ? "+" : ""}{eloChange} ELO
-                    </p>
+                    {viewerIsPro ? (
+                      <p className="text-xs font-mono mt-0.5" style={{ color: eloChange >= 0 ? "#5DCAA5" : "#E24B4A" }}>
+                        {eloChange >= 0 ? "+" : ""}{eloChange} ELO
+                      </p>
+                    ) : (
+                      <p className="text-xs font-mono mt-0.5 text-white/20">?? ELO</p>
+                    )}
                   </div>
                 </div>
               );

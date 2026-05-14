@@ -554,9 +554,13 @@ export default function ProfilePage() {
                       <span className="text-white/20 mx-1">-</span>
                       <span style={{ color: "#D85A30" }}>{opp}</span>
                     </p>
-                    <p className="text-xs font-mono mt-0.5" style={{ color: elo >= 0 ? "#5DCAA5" : "#E24B4A" }}>
-                      {elo >= 0 ? "+" : ""}{elo} ELO
-                    </p>
+                    {profile.is_pro ? (
+                      <p className="text-xs font-mono mt-0.5" style={{ color: elo >= 0 ? "#5DCAA5" : "#E24B4A" }}>
+                        {elo >= 0 ? "+" : ""}{elo} ELO
+                      </p>
+                    ) : (
+                      <p className="text-xs font-mono mt-0.5 text-white/20">?? ELO</p>
+                    )}
                   </div>
                 </div>
               );
