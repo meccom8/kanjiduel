@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier, TIERS, winRate } from "@/lib/elo";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 interface Profile {
   id: string;
@@ -202,15 +202,19 @@ export default function UserProfile() {
   const [friendshipId, setFriendshipId] = useState<string | null>(null);
   const [friendStatus, setFriendStatus] = useState<"none" | "pending_sent" | "pending_received" | "friend">("none");
   const [challenging, setChallenging] = useState(false);
-  const [challengeCode, setChallengeCode] = useState<string | null>(null);
   const [showChallengeModal, setShowChallengeModal] = useState(false);
   const [challengeCategory, setChallengeCategory] = useState("all");
   const [challengeBlitz, setChallengeBlitz] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [waitingRoom, setWaitingRoom] = useState<{id:string;invite_code:string}|null>(null);
   const [activeRoom, setActiveRoom] = useState<{id:string}|null>(null);
+  // My outgoing challenge room
+  const [myChallengeRoomId, setMyChallengeRoomId] = useState<string|null>(null);
+  const myChallengeRoomIdRef = useRef<string|null>(null);
+  const challengeDoneRef = useRef(false);
+  const [joiningChallenge, setJoiningChallenge] = useState(false);
 
   const supabase = createClient();
+  const router = useRouter();
 
   useEffect(() => {
     (async () => {
@@ -295,18 +299,55 @@ export default function UserProfile() {
     })();
   }, [username]);
 
-  // Poll every 4s for a waiting challenge room from this player
+  // Poll every 3s: opponent's waiting challenge room + active room + tiebreaker
   useEffect(() => {
     if (!meId || !profile || meId === profile.id) return;
     const pid = profile.id;
     const t = setInterval(async () => {
-      const { data: wr } = await supabase.from("rooms").select("id, invite_code")
-        .eq("player1_id", pid).eq("status", "waiting").eq("is_private", true)
-        .is("player2_id", null).maybeSingle();
+      const [{ data: wr }, { data: ar }] = await Promise.all([
+        supabase.from("rooms").select("id,invite_code")
+          .eq("player1_id", pid).eq("status", "waiting").eq("is_private", true)
+          .is("player2_id", null).maybeSingle(),
+        supabase.from("rooms").select("id")
+          .or(`player1_id.eq.${pid},player2_id.eq.${pid}`)
+          .eq("status", "active").maybeSingle(),
+      ]);
       setWaitingRoom(wr ?? null);
-    }, 4000);
+      setActiveRoom(ar ?? null);
+
+      // Tiebreaker: both clicked Challenge simultaneously → lower UUID joins
+      const oppRid = wr?.id;
+      if (oppRid && myChallengeRoomIdRef.current && !challengeDoneRef.current && meId < pid) {
+        challengeDoneRef.current = true;
+        const myRid = myChallengeRoomIdRef.current;
+        myChallengeRoomIdRef.current = null;
+        setMyChallengeRoomId(null);
+        await supabase.from("rooms").delete().eq("id", myRid).eq("status", "waiting");
+        const { error } = await supabase.from("rooms")
+          .update({ player2_id: meId, status: "active" })
+          .eq("id", oppRid).eq("status", "waiting");
+        if (!error) router.push(`/duel/${oppRid}`);
+        else challengeDoneRef.current = false;
+      }
+    }, 3000);
     return () => clearInterval(t);
   }, [meId, profile]);
+
+  // Poll own challenge room until opponent joins → auto-navigate
+  useEffect(() => {
+    if (!myChallengeRoomId) return;
+    const t = setInterval(async () => {
+      if (challengeDoneRef.current) return;
+      const { data } = await supabase.from("rooms").select("player2_id")
+        .eq("id", myChallengeRoomId).single();
+      if (data?.player2_id) {
+        challengeDoneRef.current = true;
+        clearInterval(t);
+        router.push(`/duel/${myChallengeRoomId}`);
+      }
+    }, 2000);
+    return () => clearInterval(t);
+  }, [myChallengeRoomId]);
 
   async function sendFriendRequest() {
     if (!meId || !profile) return;
@@ -340,12 +381,25 @@ export default function UserProfile() {
       player1_id: meId, status: "waiting", category: cat, rounds: 11,
       is_private: true, invite_code: code,
     }).select().single();
-    if (room) {
-      setChallengeCode(code);
-      const link = `${window.location.origin}/play/${code}`;
-      try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
-    }
+    if (room) { myChallengeRoomIdRef.current = room.id; setMyChallengeRoomId(room.id); }
     setChallenging(false);
+  }
+
+  async function cancelChallenge() {
+    if (!myChallengeRoomId) return;
+    await supabase.from("rooms").delete().eq("id", myChallengeRoomId).eq("status", "waiting");
+    myChallengeRoomIdRef.current = null;
+    setMyChallengeRoomId(null);
+  }
+
+  async function joinChallenge() {
+    if (!waitingRoom || !meId || joiningChallenge) return;
+    setJoiningChallenge(true);
+    const { error } = await supabase.from("rooms")
+      .update({ player2_id: meId, status: "active" })
+      .eq("id", waitingRoom.id).eq("status", "waiting");
+    if (!error) { challengeDoneRef.current = true; router.push(`/duel/${waitingRoom.id}`); }
+    else setJoiningChallenge(false);
   }
 
   if (loading) return (
@@ -439,12 +493,18 @@ export default function UserProfile() {
         {meId && meId !== profile.id && (
           <div className="flex gap-2 mb-4">
             {/* Challenge / Join button */}
-            {waitingRoom ? (
-              <a href={`/play/${waitingRoom.invite_code}`}
-                className="flex-1 py-2 rounded-xl text-sm font-medium text-center transition-all"
-                style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
-                ⚡ Join!
-              </a>
+            {waitingRoom && !myChallengeRoomId ? (
+              <button onClick={joinChallenge} disabled={joiningChallenge}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                style={{ background: "linear-gradient(135deg,#1D9E75,#4DB6AC)", color: "#fff" }}>
+                {joiningChallenge ? "Joining…" : `⚡ Join ${profile.username}'s challenge!`}
+              </button>
+            ) : myChallengeRoomId ? (
+              <button onClick={cancelChallenge}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                ⏳ Waiting for {profile.username}… Cancel
+              </button>
             ) : (
               <button
                 onClick={() => { setChallengeCategory("all"); setChallengeBlitz(false); setShowChallengeModal(true); }}
@@ -484,37 +544,14 @@ export default function UserProfile() {
           </div>
         )}
 
-        {/* Watch live */}
-        {activeRoom && (
-          <Link href={`/spectate/${activeRoom.id}`}
+        {/* Watch live — only when player is in an active match */}
+        {activeRoom && meId !== profile.id && (
+          <Link href={`/duel/${activeRoom.id}`}
             className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-medium mb-2 transition-all"
             style={{ background: "rgba(29,158,117,0.15)", color: "#5DCAA5", border: "1px solid rgba(29,158,117,0.3)" }}>
-            👁 Watch live
+            <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            Watch live
           </Link>
-        )}
-
-        {/* Challenge code display */}
-        {challengeCode && (
-          <div className="mb-4 p-3 rounded-xl text-center"
-            style={{ background: accentColor + "11", border: `1px solid ${accentColor}33` }}>
-            <p className="text-xs text-white/40 mb-1">Share this link or code</p>
-            <p className="font-mono text-xl font-bold tracking-widest mb-2" style={{ color: accentColor }}>
-              {challengeCode}
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/play/${challengeCode}`); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                className="flex-1 text-xs py-1.5 rounded-lg transition-all"
-                style={{ background: accentColor + "22", color: accentColor }}>
-                {copied ? "✓ Copied!" : "Copy link"}
-              </button>
-              <a href={`/duel/${challengeCode}`}
-                className="flex-1 text-xs py-1.5 rounded-lg text-center transition-all"
-                style={{ background: "#534AB722", color: "#7F77DD" }}>
-                Go to duel →
-              </a>
-            </div>
-          </div>
         )}
 
         {nextTier && (

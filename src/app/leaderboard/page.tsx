@@ -23,6 +23,8 @@ export default function Leaderboard() {
   const [tab, setTab] = useState<"alltime"|"monthly">("alltime");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [liveIds, setLiveIds] = useState<Set<string>>(new Set());
+  const [liveRooms, setLiveRooms] = useState<Record<string, string>>({}); // playerId → roomId
   const supabase = createClient();
 
   useEffect(() => {
@@ -70,6 +72,25 @@ export default function Leaderboard() {
       setLoading(false);
     })();
   }, [search]);
+
+  // Poll for live players every 8s
+  useEffect(() => {
+    async function fetchLive() {
+      const { data } = await supabase.from("rooms")
+        .select("id,player1_id,player2_id").eq("status", "active");
+      const ids = new Set<string>();
+      const rooms: Record<string, string> = {};
+      for (const r of data ?? []) {
+        if (r.player1_id) { ids.add(r.player1_id); rooms[r.player1_id] = r.id; }
+        if (r.player2_id) { ids.add(r.player2_id); rooms[r.player2_id] = r.id; }
+      }
+      setLiveIds(ids);
+      setLiveRooms(rooms);
+    }
+    fetchLive();
+    const t = setInterval(fetchLive, 8000);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <main className="min-h-screen px-4 py-12 relative z-10 max-w-lg mx-auto">
@@ -119,6 +140,8 @@ export default function Leaderboard() {
             const tier = getTier(p.elo);
             const wr = winRate(p.wins, p.losses);
             const total = p.wins + p.losses;
+            const isLive = liveIds.has(p.id);
+            const roomId = liveRooms[p.id];
             return (
               <Link key={p.username} href={`/user/${p.username}`}
                 className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors">
@@ -127,11 +150,21 @@ export default function Leaderboard() {
                   {MEDALS[i] ?? i + 1}
                 </span>
                 <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                  style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: `1.5px solid ${(p.accent_color ?? tier.color)}33` }}>
+                  style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: `1.5px solid ${isLive ? "#1D9E75" : (p.accent_color ?? tier.color) + "33"}` }}>
                   {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{p.username}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{p.username}</p>
+                    {isLive && (
+                      <Link href={`/duel/${roomId}`} onClick={e => e.stopPropagation()}
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-white hover:opacity-80 transition-opacity"
+                        style={{ background: "rgba(29,158,117,0.25)", border: "1px solid rgba(29,158,117,0.4)", fontSize: 9 }}>
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                        LIVE
+                      </Link>
+                    )}
+                  </div>
                   <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: tier.bg + "22", color: tier.color }}>{tier.name}</span>
                 </div>
                 <div className="text-right flex-shrink-0">
@@ -149,6 +182,8 @@ export default function Leaderboard() {
           ) : monthly.map((p, i) => {
             const tier = getTier(p.elo);
             const color = p.accent_color ?? tier.color;
+            const isLive = liveIds.has(p.id);
+            const roomId = liveRooms[p.id];
             return (
               <Link key={p.id} href={`/user/${p.username}`}
                 className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors">
@@ -157,11 +192,21 @@ export default function Leaderboard() {
                   {MEDALS[i] ?? i + 1}
                 </span>
                 <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                  style={{ background: color + "33", color, border: `1.5px solid ${color}33` }}>
+                  style={{ background: color + "33", color, border: `1.5px solid ${isLive ? "#1D9E75" : color + "33"}` }}>
                   {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{p.username}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{p.username}</p>
+                    {isLive && (
+                      <Link href={`/duel/${roomId}`} onClick={e => e.stopPropagation()}
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-white hover:opacity-80 transition-opacity"
+                        style={{ background: "rgba(29,158,117,0.25)", border: "1px solid rgba(29,158,117,0.4)", fontSize: 9 }}>
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                        LIVE
+                      </Link>
+                    )}
+                  </div>
                   <p className="text-xs text-white/30">{p.wins} wins this month</p>
                 </div>
                 <div className="text-right flex-shrink-0">
