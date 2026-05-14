@@ -18,6 +18,7 @@ interface Profile {
   bio: string | null;
   title: string | null;
   accent_color: string | null;
+  is_pro: boolean;
 }
 interface Match {
   id: string; player1_id: string; player2_id: string;
@@ -216,7 +217,7 @@ export default function UserProfile() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, elo, wins, losses, draws, streak, best_streak, avatar_url, bio, title, accent_color")
+        .select("id, username, elo, wins, losses, draws, streak, best_streak, avatar_url, bio, title, accent_color, is_pro")
         .eq("username", username)
         .single();
 
@@ -394,6 +395,12 @@ export default function UserProfile() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <h1 className="text-xl font-semibold">{profile.username}</h1>
+              {profile.is_pro && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "#EF9F2722", color: "#EF9F27", border: "1px solid #EF9F2744" }}>
+                  ✦ Pro
+                </span>
+              )}
               {profile.title && (
                 <span className="text-xs px-2 py-0.5 rounded-full"
                   style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}33` }}>
@@ -697,29 +704,44 @@ export default function UserProfile() {
       {/* ── Tab: ELO Curve ── */}
       {tab === "elo" && (
         <div className="card-solid p-5">
-          <EloChart matches={matches} profileId={profile.id} accentColor={accentColor} />
-          {matches.length > 0 && (() => {
-            const eloChanges = matches.map(m =>
-              m.player1_id === profile.id ? m.p1_elo_change : m.p2_elo_change
-            );
-            const bestGain = Math.max(...eloChanges);
-            const worstLoss = Math.min(...eloChanges);
-            const avgChange = eloChanges.reduce((a, b) => a + b, 0) / eloChanges.length;
-            return (
-              <div className="grid grid-cols-3 gap-2 mt-5">
-                {[
-                  { label: "Best gain", val: `+${bestGain}`, color: "#5DCAA5" },
-                  { label: "Worst loss", val: `${worstLoss}`, color: "#E24B4A" },
-                  { label: "Avg change", val: (avgChange >= 0 ? "+" : "") + avgChange.toFixed(1), color: avgChange >= 0 ? "#5DCAA5" : "#E24B4A" },
-                ].map(s => (
-                  <div key={s.label} className="bg-white/4 rounded-xl p-3 text-center">
-                    <p className="font-mono text-lg font-bold" style={{ color: s.color }}>{s.val}</p>
-                    <p className="text-xs text-white/30 mt-0.5">{s.label}</p>
-                  </div>
-                ))}
+          {!profile.is_pro ? (
+            <div className="relative">
+              <div className="blur-sm pointer-events-none select-none opacity-40">
+                <EloChart matches={matches} profileId={profile.id} accentColor={accentColor} />
               </div>
-            );
-          })()}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                <span className="text-2xl">✦</span>
+                <p className="text-sm font-semibold text-white">Pro feature</p>
+                <p className="text-xs text-white/40 text-center">This player hasn't unlocked their ELO chart yet</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <EloChart matches={matches} profileId={profile.id} accentColor={accentColor} />
+              {matches.length > 0 && (() => {
+                const eloChanges = matches.map(m =>
+                  m.player1_id === profile.id ? m.p1_elo_change : m.p2_elo_change
+                );
+                const bestGain = Math.max(...eloChanges);
+                const worstLoss = Math.min(...eloChanges);
+                const avgChange = eloChanges.reduce((a, b) => a + b, 0) / eloChanges.length;
+                return (
+                  <div className="grid grid-cols-3 gap-2 mt-5">
+                    {[
+                      { label: "Best gain", val: `+${bestGain}`, color: "#5DCAA5" },
+                      { label: "Worst loss", val: `${worstLoss}`, color: "#E24B4A" },
+                      { label: "Avg change", val: (avgChange >= 0 ? "+" : "") + avgChange.toFixed(1), color: avgChange >= 0 ? "#5DCAA5" : "#E24B4A" },
+                    ].map(s => (
+                      <div key={s.label} className="bg-white/4 rounded-xl p-3 text-center">
+                        <p className="font-mono text-lg font-bold" style={{ color: s.color }}>{s.val}</p>
+                        <p className="text-xs text-white/30 mt-0.5">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </>
+          )}
         </div>
       )}
 
