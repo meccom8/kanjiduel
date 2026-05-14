@@ -289,14 +289,18 @@ export default function ProfilePage() {
       }
       setJlptStats(jlpt);
       if (m && p) {
-        const ids = [...new Set(m.map((x: Match) => x.player1_id === user.id ? x.player2_id : x.player1_id))];
-        const { data: opps } = await supabase.from("profiles").select("id,username").in("id", ids);
+        const ids = [...new Set(
+          m.map((x: Match) => x.player1_id === user.id ? x.player2_id : x.player1_id)
+        )].filter((id): id is string => !!id);
         const map: Record<string, string> = {};
-        opps?.forEach((o: any) => { map[o.id] = o.username; });
-        setMatches(m.map((x: Match) => ({
-          ...x,
-          opponent_username: map[x.player1_id === user.id ? x.player2_id : x.player1_id] ?? "?",
-        })));
+        if (ids.length > 0) {
+          const { data: opps } = await supabase.from("profiles").select("id,username").in("id", ids);
+          opps?.forEach((o: any) => { map[o.id] = o.username; });
+        }
+        setMatches(m.map((x: Match) => {
+          const oppId = x.player1_id === user.id ? x.player2_id : x.player1_id;
+          return { ...x, opponent_username: oppId ? (map[oppId] ?? "Deleted user") : "Unknown" };
+        }));
       }
       setLoading(false);
     })();

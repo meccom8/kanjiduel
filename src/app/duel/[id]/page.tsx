@@ -77,6 +77,8 @@ export default function DuelPage() {
   const [oppEloStart, setOppEloStart] = useState<number|null>(null);
   const [conceded, setConceded] = useState(false);
   const [room, setRoom] = useState<Room|null>(null);
+  const [oppReaction, setOppReaction] = useState<string|null>(null);
+  const [myReactionSent, setMyReactionSent] = useState<string|null>(null);
 
   const [hiraMode, setHiraMode] = useState(false);
   const [showRomaji, setShowRomaji] = useState(true);
@@ -98,6 +100,8 @@ export default function DuelPage() {
   const wordR = useRef<VocabWord|null>(null);      // always-fresh copy of current word (tick closure is stale)
   const tokenR = useRef<string>('');               // user access token for beacon auth
   const inactivityR = useRef<ReturnType<typeof setTimeout>|null>(null); // AFK forfeit timer
+  const channelR = useRef<any>(null);              // realtime broadcast channel for reactions
+  const reactCooldownR = useRef(false);            // prevent reaction spam
 
   const inputR = useRef<HTMLInputElement>(null);
   const timerR = useRef<ReturnType<typeof setInterval>|null>(null);
@@ -131,6 +135,15 @@ export default function DuelPage() {
       myId.current = user.id;
       const {data:{session}} = await supabase.auth.getSession();
       if(session?.access_token) tokenR.current = session.access_token;
+
+      // Realtime broadcast channel for reactions (ephemeral, no DB write)
+      const ch = supabase.channel(`duel-reactions:${roomId}`)
+        .on('broadcast', {event:'reaction'}, ({payload}:any) => {
+          setOppReaction(payload.emoji);
+          setTimeout(()=>setOppReaction(null), 2500);
+        })
+        .subscribe();
+      channelR.current = ch;
 
       // Cancel any pending forfeit — must run after auth so token is available (still within 8s grace)
       if(isReload && leftKey === roomId){
@@ -174,6 +187,7 @@ export default function DuelPage() {
     return ()=>{
       [timerR,pollR,cdR].forEach(r=>{ if(r.current) clearInterval(r.current); });
       if(inactivityR.current) clearTimeout(inactivityR.current);
+      channelR.current?.unsubscribe();
     };
   },[]);
 
@@ -288,6 +302,15 @@ export default function DuelPage() {
     if(inactivityR.current) clearTimeout(inactivityR.current);
     if(done.current) return;
     inactivityR.current = setTimeout(()=>{ if(!done.current) concede(); }, 20000);
+  }
+
+  // ── send a reaction (broadcast, no DB) ───────────────────────────────────
+  function sendReaction(emoji:string){
+    if(reactCooldownR.current) return;
+    reactCooldownR.current=true;
+    setMyReactionSent(emoji);
+    channelR.current?.send({type:'broadcast',event:'reaction',payload:{emoji}});
+    setTimeout(()=>{ reactCooldownR.current=false; setMyReactionSent(null); },3000);
   }
 
   // ── round timer ───────────────────────────────────────────────────────────
@@ -544,9 +567,17 @@ export default function DuelPage() {
               <p className="font-mono text-2xl font-bold" style={{color:opC}}>{opScore}</p>
               <p className="text-xs font-mono opacity-60" style={{color:opC}}>{opp?.elo??"—"}</p>
             </div>
-            <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
-              style={{background:opC+"33",color:opC,border:`1.5px solid ${opC}44`}}>
-              {opp?.avatar_url?<img src={opp.avatar_url} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
+            <div className="relative flex-shrink-0">
+              {oppReaction&&(
+                <div key={oppReaction+Date.now()} className="absolute -top-8 left-1/2 -translate-x-1/2 text-2xl pointer-events-none"
+                  style={{animation:"reactionPop 2.5s ease-out forwards"}}>
+                  {oppReaction}
+                </div>
+              )}
+              <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
+                style={{background:opC+"33",color:opC,border:`1.5px solid ${opC}44`}}>
+                {opp?.avatar_url?<img src={opp.avatar_url} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
+              </div>
             </div>
           </div>
         </div>
@@ -628,6 +659,21 @@ export default function DuelPage() {
             :"Time up!"
             :`${timeLeft}s · first correct answer wins the round`}
         </p>
+
+        {/* Quick reactions */}
+        <div className="flex justify-center gap-2 mb-3">
+          {["👍","😂","😤","🔥"].map(e=>(
+            <button key={e} onClick={()=>sendReaction(e)}
+              className="text-lg w-11 h-11 rounded-xl transition-all hover:scale-110 active:scale-95"
+              style={{
+                background: myReactionSent===e ? "rgba(127,119,221,0.25)" : "rgba(255,255,255,0.05)",
+                border: myReactionSent===e ? "1px solid rgba(127,119,221,0.4)" : "1px solid rgba(255,255,255,0.08)",
+                opacity: reactCooldownR.current&&myReactionSent!==e ? 0.4 : 1,
+              }}>
+              {e}
+            </button>
+          ))}
+        </div>
 
         <button onClick={concede}
           className="w-full text-xs text-white/15 hover:text-red-400/60 transition-colors py-2 border border-white/5 rounded-xl hover:border-red-400/20">
