@@ -140,12 +140,8 @@ export default function Settings() {
 
   return (
     <main className="min-h-screen px-4 py-10 relative z-10 max-w-lg mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <Link href="/" className="text-sm hover:opacity-60 transition-opacity" style={{ color: muted }}>← Back</Link>
-        <Link href="/edit-profile" className="text-sm font-medium px-3 py-1.5 rounded-lg transition-all"
-          style={{ background: "rgba(83,74,183,0.2)", color: "#7F77DD", border: "1px solid rgba(83,74,183,0.3)" }}>
-          ✏️ Edit profile
-        </Link>
       </div>
       <h1 className="text-2xl font-semibold mb-1">Settings</h1>
       <p className="text-sm mb-8" style={{ color: muted }}>Appearance &amp; gameplay</p>
