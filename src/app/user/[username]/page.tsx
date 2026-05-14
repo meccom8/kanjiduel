@@ -197,6 +197,7 @@ export default function UserProfile() {
 
   // Friend / challenge state
   const [meId, setMeId] = useState<string | null>(null);
+  const [viewerIsPro, setViewerIsPro] = useState(false);
   const [friendshipId, setFriendshipId] = useState<string | null>(null);
   const [friendStatus, setFriendStatus] = useState<"none" | "pending_sent" | "pending_received" | "friend">("none");
   const [challenging, setChallenging] = useState(false);
@@ -214,6 +215,13 @@ export default function UserProfile() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setMeId(user?.id ?? null);
+
+      // Check if the viewer (current user) has Pro
+      if (user) {
+        const { data: me } = await supabase
+          .from("profiles").select("is_pro").eq("id", user.id).single();
+        setViewerIsPro(me?.is_pro ?? false);
+      }
 
       const { data } = await supabase
         .from("profiles")
@@ -704,7 +712,7 @@ export default function UserProfile() {
       {/* ── Tab: ELO Curve ── */}
       {tab === "elo" && (
         <div className="card-solid p-5">
-          {!profile.is_pro ? (
+          {!viewerIsPro ? (
             <div className="relative">
               <div className="blur-sm pointer-events-none select-none opacity-40">
                 <EloChart matches={matches} profileId={profile.id} accentColor={accentColor} />
@@ -712,7 +720,11 @@ export default function UserProfile() {
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                 <span className="text-2xl">✦</span>
                 <p className="text-sm font-semibold text-white">Pro feature</p>
-                <p className="text-xs text-white/40 text-center">This player hasn't unlocked their ELO chart yet</p>
+                <p className="text-xs text-white/40 text-center">Unlock ELO charts for all players with Pro</p>
+                <Link href="/shop" className="mt-1 text-xs font-semibold px-4 py-2 rounded-xl"
+                  style={{ background: "linear-gradient(135deg, #534AB7, #7F77DD)", color: "#fff" }}>
+                  Upgrade — €2.99/mo
+                </Link>
               </div>
             </div>
           ) : (
