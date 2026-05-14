@@ -197,38 +197,49 @@ export default function Matchmaking() {
     }
 
     if (bestRoom) {
-      // Tiebreaker: when both players have waiting rooms they find each other
-      // simultaneously and both try to join → they land in different rooms.
-      // Rule: the player with the lexicographically-LOWER uid is the joiner;
-      // the other one waits for their room to be filled.
+      // Tiebreaker: prevent the simultaneous-join race where both players find
+      // each other's rooms and both try to join at the same time, landing in
+      // two separate active rooms that never start.
+      //
+      // Rule: if BOTH players have waiting rooms, only the player with the
+      // lexicographically-LOWER uid joins. The other waits for their room to
+      // be filled. If only one player has a room, the other always joins.
+      //
+      // IMPORTANT: we join FIRST, then clean up our own room afterwards.
+      // Deleting before joining caused a deadlock (if join fails → no room →
+      // higher-UUID player keeps skipping the recreated room forever).
       const iHaveRoom = !!roomIdRef.current;
       const shouldJoin = !iHaveRoom || uid < bestRoom.player1_id;
 
       if (shouldJoin) {
-        // If I have my own waiting room, delete it first to avoid ghost rooms
-        if (roomIdRef.current) {
-          await supabase.from("rooms")
-            .delete().eq("id", roomIdRef.current).eq("status", "waiting");
-          if (channelRef.current) {
-            try { channelRef.current.unsubscribe(); } catch {}
-            channelRef.current = null;
-          }
-          roomIdRef.current = null;
-          setRoomId(null);
-        }
-
-        const { error } = await supabase.from("rooms")
+        // Use .select() so we can tell if 0 or 1 rows were actually updated.
+        // Supabase returns error=null even when 0 rows match the WHERE clause,
+        // so checking updated.length is the only reliable way to confirm a join.
+        const { data: updated, error } = await supabase.from("rooms")
           .update({ player2_id: uid, status: "active" })
           .eq("id", bestRoom.id)
-          .eq("status", "waiting");
-        if (!error) {
+          .eq("status", "waiting")
+          .select("id");
+
+        if (!error && updated && updated.length > 0) {
+          // Successfully claimed the room — clean up our own waiting room
           matchFoundRef.current = true;
+          if (roomIdRef.current) {
+            await supabase.from("rooms")
+              .delete().eq("id", roomIdRef.current).eq("status", "waiting");
+            if (channelRef.current) {
+              try { channelRef.current.unsubscribe(); } catch {}
+              channelRef.current = null;
+            }
+            roomIdRef.current = null;
+            setRoomId(null);
+          }
           router.push(`/duel/${bestRoom.id}`);
           return;
         }
-        // If update failed (race), fall through and re-create room below
+        // 0 rows updated (race lost or RLS) → keep own room, retry next cycle
       }
-      // If shouldJoin=false: we wait, the opponent will join our room
+      // shouldJoin=false → wait, the lower-UUID opponent will join our room
     }
 
     // No match — create our waiting room if we don't have one yet
