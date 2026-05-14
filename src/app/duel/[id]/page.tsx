@@ -546,9 +546,17 @@ export default function DuelPage() {
         {/* scores */}
         <div className="grid grid-cols-3 items-center mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
-              style={{background:myC+"33",color:myC,border:`1.5px solid ${myC}44`}}>
-              {me?.avatar_url?<img src={me.avatar_url} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
+            <div className="relative flex-shrink-0">
+              {myReactionSent&&(
+                <div key={myReactionSent+Date.now()} className="absolute -top-8 left-1/2 -translate-x-1/2 text-2xl pointer-events-none"
+                  style={{animation:"reactionPop 2.5s ease-out forwards"}}>
+                  {myReactionSent}
+                </div>
+              )}
+              <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
+                style={{background:myC+"33",color:myC,border:`1.5px solid ${myC}44`}}>
+                {me?.avatar_url?<img src={me.avatar_url} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
+              </div>
             </div>
             <div>
               <p className="text-xs text-white/40 truncate max-w-20">{me?.username??"You"}</p>
