@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase";
 import { getTier, TIERS, winRate } from "@/lib/elo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { OnlineDot } from "@/contexts/PresenceContext";
 
 interface Profile {
   id: string; username: string; elo: number;
@@ -366,8 +367,9 @@ export default function ProfilePage() {
               }
             </div>
             {/* Online indicator */}
-            <div className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full bg-green-400 border-2"
-              style={{ borderColor: "#0d0d1a" }} />
+            <span className="absolute bottom-0 right-0">
+              <OnlineDot userId={profile.id} size={12} />
+            </span>
           </div>
 
           <div className="flex-1 min-w-0">

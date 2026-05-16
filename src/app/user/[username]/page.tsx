@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase";
 import { getTier, TIERS, winRate } from "@/lib/elo";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { OnlineDot } from "@/contexts/PresenceContext";
 
 interface Profile {
   id: string;
@@ -448,14 +449,17 @@ export default function UserProfile() {
       {/* ── Profile card ── */}
       <div className="card-solid p-6 mb-4 slide-up" style={{ border: `1px solid ${accentColor}22` }}>
         <div className="flex items-center gap-4 mb-4">
-          <div className={`flex-shrink-0 ${profile.owned_cosmetics?.includes("pack1") ? "cosmetic-border" : ""}`}>
-          <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold"
-            style={{ background: accentColor + "33", color: accentColor, border: profile.owned_cosmetics?.includes("pack1") ? "none" : `2px solid ${accentColor}55` }}>
-            {profile.avatar_url
-              ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-              : profile.username.slice(0, 2).toUpperCase()
-            }
-          </div>
+          <div className={`flex-shrink-0 relative ${profile.owned_cosmetics?.includes("pack1") ? "cosmetic-border" : ""}`}>
+            <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold"
+              style={{ background: accentColor + "33", color: accentColor, border: profile.owned_cosmetics?.includes("pack1") ? "none" : `2px solid ${accentColor}55` }}>
+              {profile.avatar_url
+                ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                : profile.username.slice(0, 2).toUpperCase()
+              }
+            </div>
+            <span className="absolute bottom-0 right-0">
+              <OnlineDot userId={profile.id} size={12} />
+            </span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier, winRate } from "@/lib/elo";
 import Link from "next/link";
+import { OnlineDot } from "@/contexts/PresenceContext";
 
 interface Profile {
   id: string; username: string; elo: number;
@@ -149,9 +150,14 @@ export default function Leaderboard() {
                   style={{ color: i < 3 ? "#EF9F27" : "rgba(255,255,255,0.2)" }}>
                   {MEDALS[i] ?? i + 1}
                 </span>
-                <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                  style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: `1.5px solid ${isLive ? "#1D9E75" : (p.accent_color ?? tier.color) + "33"}` }}>
-                  {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                <div className="relative flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
+                    style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: `1.5px solid ${isLive ? "#1D9E75" : (p.accent_color ?? tier.color) + "33"}` }}>
+                    {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5">
+                    <OnlineDot userId={p.id} size={9} />
+                  </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -191,9 +197,14 @@ export default function Leaderboard() {
                   style={{ color: i < 3 ? "#EF9F27" : "rgba(255,255,255,0.2)" }}>
                   {MEDALS[i] ?? i + 1}
                 </span>
-                <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                  style={{ background: color + "33", color, border: `1.5px solid ${isLive ? "#1D9E75" : color + "33"}` }}>
-                  {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                <div className="relative flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
+                    style={{ background: color + "33", color, border: `1.5px solid ${isLive ? "#1D9E75" : color + "33"}` }}>
+                    {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5">
+                    <OnlineDot userId={p.id} size={9} />
+                  </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
