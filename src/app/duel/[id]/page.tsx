@@ -27,6 +27,12 @@ interface Profile {
 type Phase = "loading"|"waiting"|"playing"|"result"|"finished";
 interface RoundLog { winner: "me"|"opp"|"time"; word: VocabWord; answer: string; }
 
+function safeAvatar(avatar_url: string | null | undefined, avatar_static_url: string | null | undefined): string | null {
+  if (avatar_static_url) return avatar_static_url;
+  if (avatar_url?.toLowerCase().endsWith(".gif")) return null;
+  return avatar_url ?? null;
+}
+
 const WIN = 10;
 
 function tone(t: "ok"|"ko"|"to") {
@@ -564,7 +570,7 @@ export default function DuelPage() {
               )}
               <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                 style={{background:myC+"33",color:myC,border:`1.5px solid ${myC}44`}}>
-                {me?.avatar_url?<img src={me.avatar_static_url??me.avatar_url} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
+                {safeAvatar(me?.avatar_url,me?.avatar_static_url)?<img src={safeAvatar(me?.avatar_url,me?.avatar_static_url)!} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
               </div>
             </div>
             <div>
@@ -594,7 +600,7 @@ export default function DuelPage() {
               )}
               <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                 style={{background:opC+"33",color:opC,border:`1.5px solid ${opC}44`}}>
-                {opp?.avatar_url?<img src={opp.avatar_static_url??opp.avatar_url} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
+                {safeAvatar(opp?.avatar_url,opp?.avatar_static_url)?<img src={safeAvatar(opp?.avatar_url,opp?.avatar_static_url)!} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
               </div>
             </div>
           </div>
@@ -826,7 +832,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
           <div className="flex flex-col items-center gap-1">
             <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold"
               style={{background:(me?.accent_color??"#534AB7")+"33",color:me?.accent_color??"#7F77DD",border:`2px solid ${me?.accent_color??"#534AB7"}44`}}>
-              {me?.avatar_url?<img src={me.avatar_static_url??me.avatar_url} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
+              {safeAvatar(me?.avatar_url,me?.avatar_static_url)?<img src={safeAvatar(me?.avatar_url,me?.avatar_static_url)!} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
             </div>
             <p className="text-xs text-white/50">{me?.username??"You"}</p>
           </div>
@@ -834,7 +840,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
           <a href={`/user/${opp?.username}`} className="flex flex-col items-center gap-1 hover:opacity-80">
             <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold"
               style={{background:(opp?.accent_color??"#D85A30")+"33",color:opp?.accent_color??"#D85A30",border:`2px solid ${opp?.accent_color??"#D85A30"}44`}}>
-              {opp?.avatar_url?<img src={opp.avatar_static_url??opp.avatar_url} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
+              {safeAvatar(opp?.avatar_url,opp?.avatar_static_url)?<img src={safeAvatar(opp?.avatar_url,opp?.avatar_static_url)!} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
             </div>
             <p className="text-xs text-white/50">{opp?.username??"?"}</p>
           </a>

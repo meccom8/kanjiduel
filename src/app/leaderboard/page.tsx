@@ -20,6 +20,13 @@ interface MonthlyEntry {
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
+/** Returns a non-animated avatar URL, or null if the only option is a GIF without a static fallback */
+function safeAvatar(avatar_url: string | null | undefined, avatar_static_url: string | null | undefined): string | null {
+  if (avatar_static_url) return avatar_static_url;
+  if (avatar_url?.toLowerCase().endsWith(".gif")) return null;
+  return avatar_url ?? null;
+}
+
 export default function Leaderboard() {
   const [players, setPlayers] = useState<Profile[]>([]);
   const [monthly, setMonthly] = useState<MonthlyEntry[]>([]);
@@ -155,7 +162,7 @@ export default function Leaderboard() {
                 <div className="relative flex-shrink-0">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
                     style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: `1.5px solid ${isLive ? "#1D9E75" : (p.accent_color ?? tier.color) + "33"}` }}>
-                    {p.avatar_url ? <img src={p.avatar_static_url ?? p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                    {safeAvatar(p.avatar_url, p.avatar_static_url) ? <img src={safeAvatar(p.avatar_url, p.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5">
                     <OnlineDot userId={p.id} size={9} />
@@ -202,7 +209,7 @@ export default function Leaderboard() {
                 <div className="relative flex-shrink-0">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
                     style={{ background: color + "33", color, border: `1.5px solid ${isLive ? "#1D9E75" : color + "33"}` }}>
-                    {p.avatar_url ? <img src={p.avatar_static_url ?? p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                    {safeAvatar(p.avatar_url, p.avatar_static_url) ? <img src={safeAvatar(p.avatar_url, p.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5">
                     <OnlineDot userId={p.id} size={9} />

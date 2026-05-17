@@ -18,6 +18,12 @@ interface Friendship {
   other: Profile;
 }
 
+function safeAvatar(avatar_url: string | null | undefined, avatar_static_url: string | null | undefined): string | null {
+  if (avatar_static_url) return avatar_static_url;
+  if (avatar_url?.toLowerCase().endsWith(".gif")) return null;
+  return avatar_url ?? null;
+}
+
 export default function FriendsPage() {
   const [me, setMe] = useState<Profile | null>(null);
   const [friends, setFriends] = useState<Friendship[]>([]);
@@ -261,7 +267,7 @@ export default function FriendsPage() {
                   <div className="relative flex-shrink-0">
                     <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                       style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
-                      {p.avatar_url ? <img src={p.avatar_static_url ?? p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                      {safeAvatar(p.avatar_url, p.avatar_static_url) ? <img src={safeAvatar(p.avatar_url, p.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                     </div>
                     <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={p.id} size={9} /></span>
                   </div>
@@ -312,7 +318,7 @@ export default function FriendsPage() {
                 <div className="relative flex-shrink-0">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                     style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
-                    {f.other.avatar_url ? <img src={f.other.avatar_static_url ?? f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                    {safeAvatar(f.other.avatar_url, f.other.avatar_static_url) ? <img src={safeAvatar(f.other.avatar_url, f.other.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={9} /></span>
                 </div>
@@ -357,7 +363,7 @@ export default function FriendsPage() {
                 <div className="relative flex-shrink-0">
                   <Link href={`/user/${f.other.username}`} className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold hover:opacity-80 transition-opacity block"
                     style={{ background: color + "33", color, border: `2px solid ${color}44` }}>
-                    {f.other.avatar_url ? <img src={f.other.avatar_static_url ?? f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                    {safeAvatar(f.other.avatar_url, f.other.avatar_static_url) ? <img src={safeAvatar(f.other.avatar_url, f.other.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
                   </Link>
                   <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={10} /></span>
                 </div>

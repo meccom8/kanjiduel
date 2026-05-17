@@ -7,6 +7,12 @@ import { useParams, useRouter } from "next/navigation";
 import { OnlineDot } from "@/contexts/PresenceContext";
 import { gifCropStyle } from "@/components/CropModal";
 
+function safeAvatar(avatar_url: string | null | undefined, avatar_static_url: string | null | undefined): string | null {
+  if (avatar_static_url) return avatar_static_url;
+  if (avatar_url?.toLowerCase().endsWith(".gif")) return null;
+  return avatar_url ?? null;
+}
+
 interface Profile {
   id: string;
   username: string;
@@ -464,8 +470,8 @@ export default function UserProfile() {
               border: hasBorder ? "none" : `2px solid ${accentColor}55`,
               boxShadow: hasBanner ? "0 0 0 4px #0d0d1a" : "none",
             }}>
-            {profile.avatar_url
-              ? <img src={profile.avatar_static_url ?? profile.avatar_url} alt="avatar" className="w-full h-full object-cover" style={gifCropStyle(profile.avatar_crop, 64, 64)} />
+            {safeAvatar(profile.avatar_url, profile.avatar_static_url)
+              ? <img src={safeAvatar(profile.avatar_url, profile.avatar_static_url)!} alt="avatar" className="w-full h-full object-cover" style={gifCropStyle(profile.avatar_crop, 64, 64)} />
               : profile.username.slice(0, 2).toUpperCase()}
           </div>
         );
