@@ -661,8 +661,8 @@ export default function UserProfile() {
                   </div>
                 </div>
               )}
-            </div>{/* /content */}
-          </div>{/* /card */}
+            </div>
+          </div>
         );
       })()}
 

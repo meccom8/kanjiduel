@@ -513,8 +513,8 @@ export default function ProfilePage() {
                   </div>
                 </div>
               )}
-            </div>{/* /content */}
-          </div>{/* /card */}
+            </div>
+          </div>
         );
       })()}
 
