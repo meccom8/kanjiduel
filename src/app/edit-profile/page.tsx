@@ -5,6 +5,10 @@ import { getTier } from "@/lib/elo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CropModal, { type CropResult, gifCropStyle } from "@/components/CropModal";
+import {
+  BORDER_STYLES, PACK_ACCENT_COLORS, RANK_BADGE_DEFS, SPECIAL_BADGE_DEFS,
+  getBorderClass, RARITY_COLORS, type Rarity,
+} from "@/lib/cosmetics";
 
 const ACCENT_COLORS = [
   { name: "Violet", value: "#534AB7" },
@@ -14,7 +18,6 @@ const ACCENT_COLORS = [
   { name: "Rose",   value: "#C2185B" },
   { name: "Sky",    value: "#0288D1" },
 ];
-const SAKURA_COLOR = { name: "✨ Sakura", value: "#FF6B9D" };
 
 const TITLES = [
   "Beginner","Student","Scholar","Sensei","Master",
@@ -31,15 +34,19 @@ interface AvatarCrop { tx: number; ty: number; zoom: number; }
 
 interface Profile {
   id: string; username: string; elo: number;
+  wins: number; losses: number; draws: number;
+  streak: number; best_streak: number;
   avatar_url: string | null; bio: string | null;
   title: string | null; accent_color: string | null;
   owned_cosmetics: string[] | null;
   is_pro: boolean;
   avatar_border: boolean | null;
+  avatar_border_style: string | null;
   banner_url: string | null;
   avatar_crop: AvatarCrop | null;
   banner_crop: AvatarCrop | null;
   avatar_static_url: string | null;
+  featured_badges: string[] | null;
 }
 
 export default function EditProfile() {
@@ -58,7 +65,8 @@ export default function EditProfile() {
   const [bannerUrl, setBannerUrl] = useState("");
   const [bannerCrop, setBannerCrop] = useState<AvatarCrop>({ tx: 0, ty: 0, zoom: 1 });
   const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [avatarBorder, setAvatarBorder] = useState(true);
+  const [avatarBorderStyle, setAvatarBorderStyle] = useState<string | null>("rainbow");
+  const [featuredBadges, setFeaturedBadges] = useState<string[]>([]);
 
   // Crop modal state
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -84,7 +92,13 @@ export default function EditProfile() {
         setAvatarCrop(data.avatar_crop ?? { tx: 0, ty: 0, zoom: 1 });
         setBannerUrl(data.banner_url ?? "");
         setBannerCrop(data.banner_crop ?? { tx: 0, ty: 0, zoom: 1 });
-        setAvatarBorder(data.avatar_border !== false);
+        // avatar_border_style: use new column if set, else derive from old boolean
+        setAvatarBorderStyle(
+          data.avatar_border_style !== undefined
+            ? data.avatar_border_style
+            : data.avatar_border !== false ? "rainbow" : null
+        );
+        setFeaturedBadges(data.featured_badges ?? []);
       }
       setLoading(false);
     })();
@@ -191,9 +205,11 @@ export default function EditProfile() {
       ...baseFields,
       avatar_static_url: avatarStaticUrl || null,
       avatar_crop: avatarCrop,
-      avatar_border: avatarBorder,
+      avatar_border: !!avatarBorderStyle,
+      avatar_border_style: avatarBorderStyle,
       banner_url: bannerUrl || null,
       banner_crop: bannerCrop,
+      featured_badges: featuredBadges,
     }).eq("id", profile.id);
 
     if (error) {
@@ -227,6 +243,40 @@ export default function EditProfile() {
     border: active ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.08)",
     color: active ? color : muted,
   });
+
+  // Border class for preview
+  const borderClass = hasPack ? getBorderClass(avatarBorderStyle) : "";
+
+  // Badges available for selection in edit-profile (rank + special, computed from profile)
+  const availableBadges = [
+    ...RANK_BADGE_DEFS.map(b => ({
+      ...b,
+      unlocked: profile.elo >= b.minElo,
+    })),
+    ...SPECIAL_BADGE_DEFS.map(b => ({
+      ...b,
+      unlocked:
+        b.id === "cosmetics_pack" ? !!hasPack :
+        b.id === "kanjiduel_pro"  ? !!profile.is_pro :
+        false,
+    })),
+    // Win count badges (from profile.wins)
+    { id: "first_win", icon: "⚔️", name: "First blood", desc: "Win your first duel",   rarity: "common"  as Rarity, unlocked: (profile.wins ?? 0) >= 1   },
+    { id: "wins_10",   icon: "🏅", name: "Warrior",      desc: "Win 10 duels",          rarity: "common"  as Rarity, unlocked: (profile.wins ?? 0) >= 10  },
+    { id: "wins_50",   icon: "🥇", name: "Veteran",      desc: "Win 50 duels",          rarity: "rare"    as Rarity, unlocked: (profile.wins ?? 0) >= 50  },
+    { id: "wins_100",  icon: "👑", name: "Legend",        desc: "Win 100 duels",         rarity: "epic"    as Rarity, unlocked: (profile.wins ?? 0) >= 100 },
+    { id: "streak_3",  icon: "🔥", name: "On fire",       desc: "3-game win streak",     rarity: "common"  as Rarity, unlocked: (profile.best_streak ?? 0) >= 3  },
+    { id: "streak_7",  icon: "🌋", name: "Unstoppable",   desc: "7-game win streak",     rarity: "rare"    as Rarity, unlocked: (profile.best_streak ?? 0) >= 7  },
+    { id: "streak_15", icon: "☄️", name: "Godlike",       desc: "15-game win streak",    rarity: "legendary" as Rarity, unlocked: (profile.best_streak ?? 0) >= 15 },
+  ];
+
+  const toggleFeaturedBadge = (id: string) => {
+    setFeaturedBadges(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length >= 3) return prev; // max 3
+      return [...prev, id];
+    });
+  };
 
   const avatarIsGif = avatarUrl.toLowerCase().includes(".gif");
   const bannerIsGif = bannerUrl.toLowerCase().includes(".gif");
@@ -268,11 +318,11 @@ export default function EditProfile() {
         )}
         {/* Avatar overlapping banner */}
         <div className="absolute left-5" style={{ top: 73, zIndex: 10 }}>
-          <div className={hasPack && avatarBorder ? "cosmetic-border" : "relative"}>
+          <div className={borderClass || "relative"}>
             <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-lg font-bold"
               style={{
                 background: avatarUrl ? "transparent" : color + "33",
-                border: hasPack && avatarBorder ? "none" : `2px solid ${color}55`,
+                border: borderClass ? "none" : `2px solid ${color}55`,
                 boxShadow: "0 0 0 3px #0d0d1a",
                 color,
               }}>
@@ -402,38 +452,69 @@ export default function EditProfile() {
 
       {/* ── Avatar border ── */}
       <div className="card-solid p-5 mb-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium mb-0.5">Animated avatar border</p>
-            <p className="text-xs" style={{ color: muted }}>Rainbow spinning border · Cosmetics Pack</p>
-          </div>
-          {hasPack ? (
-            <button onClick={() => setAvatarBorder(v => !v)}
-              className="relative flex-shrink-0 w-12 h-6 rounded-full transition-all duration-200"
-              style={{ background: avatarBorder ? "#534AB7" : "rgba(255,255,255,0.1)" }}>
-              <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200"
-                style={{ left: avatarBorder ? "calc(100% - 22px)" : "2px" }} />
-            </button>
-          ) : (
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-medium">Animated avatar border</p>
+          {!hasPack && (
             <Link href="/shop" className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg"
               style={{ background: "#EF9F2712", color: "#EF9F27", border: "1px solid #EF9F2733" }}>
               🔒 Get Pack
             </Link>
           )}
         </div>
-        {hasPack && (
-          <div className="mt-4 flex items-center gap-3">
-            <div className={`flex-shrink-0 ${avatarBorder ? "cosmetic-border" : ""}`}>
-              <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
-                style={{ background: avatarUrl ? "transparent" : color + "33", color, border: avatarBorder ? "none" : `2px solid ${color}55` }}>
-                {avatarUrl
-                  ? <img src={avatarUrl} alt="" className="w-full h-full" style={{ objectFit: "cover" }} />
-                  : profile.username.slice(0, 2).toUpperCase()}
-              </div>
+        <p className="text-xs mb-4" style={{ color: muted }}>
+          {hasPack ? "Choose a spinning border style · Cosmetics Pack" : "6 animated border styles · unlock with Cosmetics Pack"}
+        </p>
+        {hasPack ? (
+          <>
+            {/* Style grid */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {/* "None" option */}
+              <button
+                onClick={() => setAvatarBorderStyle(null)}
+                className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all"
+                style={{
+                  background: !avatarBorderStyle ? color + "22" : "rgba(255,255,255,0.04)",
+                  border: !avatarBorderStyle ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.08)",
+                }}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white/20"
+                  style={{ border: "2px dashed rgba(255,255,255,0.15)" }}>
+                  ✕
+                </div>
+                <span className="text-xs" style={{ color: !avatarBorderStyle ? color : muted }}>None</span>
+              </button>
+              {BORDER_STYLES.map(s => (
+                <button key={s.id}
+                  onClick={() => setAvatarBorderStyle(s.id)}
+                  className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all"
+                  style={{
+                    background: avatarBorderStyle === s.id ? color + "22" : "rgba(255,255,255,0.04)",
+                    border: avatarBorderStyle === s.id ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.08)",
+                  }}>
+                  <div className="w-8 h-8 rounded-full" style={{ background: s.gradient }} />
+                  <span className="text-xs" style={{ color: avatarBorderStyle === s.id ? color : muted }}>{s.label}</span>
+                </button>
+              ))}
             </div>
-            <p className="text-xs" style={{ color: muted }}>
-              {avatarBorder ? "Border visible on your profile" : "Border hidden"}
-            </p>
+            {/* Live preview */}
+            <div className="flex items-center gap-3">
+              <div className={`flex-shrink-0 ${borderClass || "relative"}`}>
+                <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
+                  style={{ background: avatarUrl ? "transparent" : color + "33", color, border: borderClass ? "none" : `2px solid ${color}55` }}>
+                  {avatarUrl
+                    ? <img src={avatarUrl} alt="" className="w-full h-full" style={{ objectFit: "cover" }} />
+                    : profile.username.slice(0, 2).toUpperCase()}
+                </div>
+              </div>
+              <p className="text-xs" style={{ color: muted }}>
+                {avatarBorderStyle ? `${BORDER_STYLES.find(s => s.id === avatarBorderStyle)?.label ?? avatarBorderStyle} border active` : "No border"}
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="flex gap-2">
+            {BORDER_STYLES.map(s => (
+              <div key={s.id} className="w-8 h-8 rounded-full opacity-30" style={{ background: s.gradient }} />
+            ))}
           </div>
         )}
       </div>
@@ -453,22 +534,94 @@ export default function EditProfile() {
               <span className="text-xs" style={{ color: muted }}>{c.name}</span>
             </button>
           ))}
-          {hasPack ? (
-            <button onClick={() => setAccentColor(SAKURA_COLOR.value)} className="flex flex-col items-center gap-1.5 transition-all">
-              <div className="w-8 h-8 rounded-full transition-all" style={{
-                background: "linear-gradient(135deg,#FF6B9D,#C44FDC)",
-                border: accentColor === SAKURA_COLOR.value ? "3px solid white" : "3px solid transparent",
-                boxShadow: accentColor === SAKURA_COLOR.value ? "0 0 12px #FF6B9D" : "none",
-              }} />
-              <span className="text-xs" style={{ color: "#FF6B9D" }}>✨ Sakura</span>
-            </button>
-          ) : (
-            <div className="flex flex-col items-center gap-1.5 opacity-40 cursor-not-allowed">
-              <div className="w-8 h-8 rounded-full" style={{ background: "linear-gradient(135deg,#FF6B9D,#C44FDC)", border: "3px solid transparent" }} />
-              <span className="text-xs" style={{ color: muted }}>🔒 Sakura</span>
-            </div>
-          )}
         </div>
+        {/* ✨ Cosmetics Pack exclusive colors */}
+        {hasPack ? (
+          <div className="mt-3 pt-3 border-t border-white/5">
+            <p className="text-xs mb-2.5" style={{ color: "#FF6B9D" }}>✨ Exclusive colors</p>
+            <div className="flex gap-3 flex-wrap">
+              {PACK_ACCENT_COLORS.map(c => (
+                <button key={c.value} onClick={() => setAccentColor(c.value)} className="flex flex-col items-center gap-1.5 transition-all">
+                  <div className="w-8 h-8 rounded-full transition-all" style={{
+                    background: c.value,
+                    border: accentColor === c.value ? "3px solid white" : "3px solid rgba(255,107,157,0.3)",
+                    boxShadow: accentColor === c.value ? `0 0 12px ${c.value}` : "none",
+                  }} />
+                  <span className="text-xs" style={{ color: accentColor === c.value ? c.value : "rgba(255,107,157,0.6)" }}>{c.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between gap-3">
+            <p className="text-xs text-white/20">🔒 5 exclusive colors — unlock with Cosmetics Pack</p>
+            <Link href="/shop" className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg"
+              style={{ background: "#EF9F2712", color: "#EF9F27", border: "1px solid #EF9F2733" }}>
+              Get Pack
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* ── Featured badges ── */}
+      <div className="card-solid p-5 mb-4">
+        <p className="text-sm font-medium mb-1">Featured badges</p>
+        <p className="text-xs mb-4" style={{ color: muted }}>
+          Pick up to 3 badges to display in duels · {featuredBadges.length}/3 selected
+        </p>
+        {/* Unlocked badges */}
+        {availableBadges.some(b => b.unlocked) && (
+          <>
+            <p className="text-xs mb-2" style={{ color: muted }}>Unlocked</p>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {availableBadges.filter(b => b.unlocked).map(b => {
+                const isSelected = featuredBadges.includes(b.id);
+                const rc = RARITY_COLORS[b.rarity];
+                const canSelect = isSelected || featuredBadges.length < 3;
+                return (
+                  <button key={b.id}
+                    onClick={() => canSelect && toggleFeaturedBadge(b.id)}
+                    className="rounded-xl p-2.5 text-center transition-all"
+                    style={{
+                      background: isSelected ? rc + "22" : "rgba(255,255,255,0.04)",
+                      border: isSelected ? `2px solid ${rc}` : "1px solid rgba(255,255,255,0.08)",
+                      opacity: !canSelect ? 0.4 : 1,
+                      cursor: canSelect ? "pointer" : "not-allowed",
+                    }}
+                    title={b.name + " — " + b.desc}>
+                    <div className="text-xl mb-0.5">{b.icon}</div>
+                    <p className="text-xs leading-tight truncate" style={{ color: isSelected ? rc : "rgba(255,255,255,0.4)", fontSize: 9 }}>{b.name}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+        {/* Locked badges (greyed out) */}
+        {availableBadges.some(b => !b.unlocked) && (
+          <>
+            <p className="text-xs mb-2 text-white/20">Locked</p>
+            <div className="grid grid-cols-4 gap-2">
+              {availableBadges.filter(b => !b.unlocked).map(b => (
+                <div key={b.id} className="rounded-xl p-2.5 text-center opacity-25"
+                  style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+                  title={b.desc}>
+                  <div className="text-xl mb-0.5" style={{ filter: "grayscale(1)" }}>{b.icon}</div>
+                  <p className="text-xs text-white/20 leading-tight truncate" style={{ fontSize: 9 }}>{b.name}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {featuredBadges.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-white/5 flex items-center gap-2">
+            <p className="text-xs text-white/40">In duel:</p>
+            {featuredBadges.map(id => {
+              const b = availableBadges.find(x => x.id === id);
+              return <span key={id} className="text-lg" title={b?.name}>{b?.icon ?? "🏅"}</span>;
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Title ── */}

@@ -138,11 +138,62 @@ body::before {
   100% { transform: translateX(-50%) translateY(-32px) scale(0.9); opacity: 0; }
 }
 
-/* Cosmetics Pack — animated rainbow avatar border */
+/* Cosmetics Pack — animated avatar border styles */
 @keyframes cosmetic-spin {
   0%   { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* Base wrapper — all border styles share this */
+.cb { position: relative; isolation: isolate; }
+.cb::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 9999px;
+  background: #0d0d1a;
+  z-index: -1;
+}
+.cb::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  z-index: -1;
+}
+
+/* Rainbow */
+.cb-rainbow::before {
+  background: conic-gradient(#FF6B9D, #C44FDC, #7F77DD, #4DB6AC, #FFD700, #FF6B9D);
+  animation: cosmetic-spin 3s linear infinite;
+}
+/* Sakura */
+.cb-sakura::before {
+  background: conic-gradient(#FF6B9D, #C44FDC, #FF85A2, #C44FDC, #FF6B9D);
+  animation: cosmetic-spin 4s linear infinite;
+}
+/* Gold */
+.cb-gold::before {
+  background: conic-gradient(#FFD700, #EF9F27, #B8860B, #EF9F27, #FFD700);
+  animation: cosmetic-spin 4s linear infinite;
+}
+/* Ice */
+.cb-ice::before {
+  background: conic-gradient(#00BCD4, #B2EBF2, #4DB6AC, #B2EBF2, #00BCD4);
+  animation: cosmetic-spin 5s linear infinite;
+}
+/* Fire */
+.cb-fire::before {
+  background: conic-gradient(#FF5722, #FF9800, #FFD700, #FF9800, #FF5722);
+  animation: cosmetic-spin 2s linear infinite;
+}
+/* Neon */
+.cb-neon::before {
+  background: conic-gradient(#39FF14, #00FF88, #7FFF00, #00FF88, #39FF14);
+  animation: cosmetic-spin 3s linear infinite;
+}
+
+/* Legacy alias (kept for any cached markup) */
 .cosmetic-border { position: relative; isolation: isolate; }
 .cosmetic-border::before {
   content: '';

@@ -5,11 +5,14 @@ import { getTier } from "@/lib/elo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { OnlineDot } from "@/contexts/PresenceContext";
+import { getBorderClass } from "@/lib/cosmetics";
 
 interface Profile {
   id: string; username: string; elo: number;
   avatar_url: string | null; accent_color: string | null; title: string | null;
   avatar_static_url: string | null;
+  avatar_border_style: string | null;
+  owned_cosmetics: string[] | null;
 }
 interface Friendship {
   id: string;
@@ -54,7 +57,7 @@ export default function FriendsPage() {
       if (!user) { router.push("/login"); return; }
 
       const { data: profile } = await supabase
-        .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url")
+        .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url, avatar_border_style, owned_cosmetics")
         .eq("id", user.id).single();
       setMe(profile);
       meRef.current = profile;
@@ -99,7 +102,7 @@ export default function FriendsPage() {
 
     const othersIds = data.map(f => f.requester_id === uid ? f.addressee_id : f.requester_id);
     const { data: profiles } = await supabase
-      .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url")
+      .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url, avatar_border_style, owned_cosmetics")
       .in("id", othersIds);
 
     const profileMap: Record<string, Profile> = {};
@@ -123,7 +126,7 @@ export default function FriendsPage() {
       setSearching(true);
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, elo, avatar_url, accent_color, title, avatar_static_url")
+        .select("id, username, elo, avatar_url, accent_color, title, avatar_static_url, avatar_border_style, owned_cosmetics")
         .ilike("username", `%${search}%`)
         .neq("id", me?.id ?? "")
         .limit(8);
@@ -262,12 +265,15 @@ export default function FriendsPage() {
               const status = getFriendshipStatus(p.id);
               const tier = getTier(p.elo);
               const color = p.accent_color ?? tier.color;
+              const searchBorderCls = p.owned_cosmetics?.includes("pack1") ? getBorderClass(p.avatar_border_style) : "";
               return (
                 <div key={p.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/4">
                   <div className="relative flex-shrink-0">
+                    <div className={searchBorderCls || "relative"}>
                     <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
-                      style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
+                      style={{ background: color + "33", color, border: searchBorderCls ? "none" : `1.5px solid ${color}44` }}>
                       {safeAvatar(p.avatar_url, p.avatar_static_url) ? <img src={safeAvatar(p.avatar_url, p.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                    </div>
                     </div>
                     <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={p.id} size={9} /></span>
                   </div>
@@ -313,12 +319,15 @@ export default function FriendsPage() {
           {pending.map(f => {
             const tier = getTier(f.other.elo);
             const color = f.other.accent_color ?? tier.color;
+            const pendingBorderCls = f.other.owned_cosmetics?.includes("pack1") ? getBorderClass(f.other.avatar_border_style) : "";
             return (
               <div key={f.id} className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0">
                 <div className="relative flex-shrink-0">
+                  <div className={pendingBorderCls || "relative"}>
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
-                    style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
+                    style={{ background: color + "33", color, border: pendingBorderCls ? "none" : `1.5px solid ${color}44` }}>
                     {safeAvatar(f.other.avatar_url, f.other.avatar_static_url) ? <img src={safeAvatar(f.other.avatar_url, f.other.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                  </div>
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={9} /></span>
                 </div>
@@ -358,13 +367,16 @@ export default function FriendsPage() {
           friends.map(f => {
             const tier = getTier(f.other.elo);
             const color = f.other.accent_color ?? tier.color;
+            const friendBorderCls = f.other.owned_cosmetics?.includes("pack1") ? getBorderClass(f.other.avatar_border_style) : "";
             return (
               <div key={f.id} className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0">
                 <div className="relative flex-shrink-0">
+                  <div className={friendBorderCls || "relative"}>
                   <Link href={`/user/${f.other.username}`} className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold hover:opacity-80 transition-opacity block"
-                    style={{ background: color + "33", color, border: `2px solid ${color}44` }}>
+                    style={{ background: color + "33", color, border: friendBorderCls ? "none" : `2px solid ${color}44` }}>
                     {safeAvatar(f.other.avatar_url, f.other.avatar_static_url) ? <img src={safeAvatar(f.other.avatar_url, f.other.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
                   </Link>
+                  </div>
                   <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={10} /></span>
                 </div>
                 <div className="flex-1 min-w-0">

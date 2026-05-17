@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase";
 import { checkVocabAnswer, fetchRandomWords, type VocabWord } from "@/lib/vocab";
 import { useImeInput } from "@/hooks/useImeInput";
 import { useRouter, useParams } from "next/navigation";
+import { getBorderClass, getBadgeIcon } from "@/lib/cosmetics";
 
 interface Room {
   id: string;
@@ -23,6 +24,9 @@ interface Profile {
   id: string; username: string; elo: number;
   avatar_url?: string | null; accent_color?: string | null;
   avatar_static_url?: string | null;
+  avatar_border_style?: string | null;
+  owned_cosmetics?: string[] | null;
+  featured_badges?: string[] | null;
 }
 type Phase = "loading"|"waiting"|"playing"|"result"|"finished";
 interface RoundLog { winner: "me"|"opp"|"time"; word: VocabWord; answer: string; }
@@ -169,8 +173,8 @@ export default function DuelPage() {
 
       const oppId = isP1.current?rd.player2_id:rd.player1_id;
       const [mp,op] = await Promise.all([
-        supabase.from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url").eq("id",user.id).single(),
-        oppId ? supabase.from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url").eq("id",oppId).single()
+        supabase.from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url,avatar_border_style,owned_cosmetics,featured_badges").eq("id",user.id).single(),
+        oppId ? supabase.from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url,avatar_border_style,owned_cosmetics,featured_badges").eq("id",oppId).single()
               : Promise.resolve({data:null}),
       ]);
       setMe(mp.data); if(op.data) setOpp(op.data);
@@ -255,7 +259,7 @@ export default function DuelPage() {
     // opp just joined
     if(r.status==="active" && r.player2_id && !oppR.current){
       const oid = isP1.current?r.player2_id:r.player1_id;
-      supabase.from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url").eq("id",oid).single()
+      supabase.from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url,avatar_border_style,owned_cosmetics,featured_badges").eq("id",oid).single()
         .then(({data})=>{ if(data){ setOpp(data); setOppEloStart(data.elo); } });
       if(isP1.current){ setPhase("playing"); nextWord(); }
       else setPhase("playing");
@@ -560,6 +564,9 @@ export default function DuelPage() {
 
         {/* scores */}
         <div className="grid grid-cols-3 items-center mb-4">
+          {(() => {
+            const myBorderCls = me?.owned_cosmetics?.includes("pack1") ? getBorderClass(me?.avatar_border_style) : "";
+            return (
           <div className="flex items-center gap-2">
             <div className="relative flex-shrink-0">
               {myReactionSent&&(
@@ -568,26 +575,39 @@ export default function DuelPage() {
                   {myReactionSent}
                 </div>
               )}
+              <div className={myBorderCls || "relative"}>
               <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
-                style={{background:myC+"33",color:myC,border:`1.5px solid ${myC}44`}}>
+                style={{background:myC+"33",color:myC,border:myBorderCls?"none":`1.5px solid ${myC}44`}}>
                 {safeAvatar(me?.avatar_url,me?.avatar_static_url)?<img src={safeAvatar(me?.avatar_url,me?.avatar_static_url)!} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
+              </div>
               </div>
             </div>
             <div>
               <p className="text-xs text-white/40 truncate max-w-20">{me?.username??"You"}</p>
+              {me?.featured_badges && me.featured_badges.length > 0 && (
+                <p className="text-sm leading-none mb-0.5">{me.featured_badges.map(id => getBadgeIcon(id)).join(" ")}</p>
+              )}
               <p className="font-mono text-2xl font-bold" style={{color:myC}}>{myScore}</p>
               <p className="text-xs font-mono opacity-60" style={{color:myC}}>{me?.elo??"—"}</p>
             </div>
           </div>
+            );
+          })()}
           <div className="text-center">
             {isBlitzMode&&<p className="text-xs font-bold mb-0.5" style={{color:"#EF9F27"}}>⚡ BLITZ</p>}
             <p className="text-xs text-white/40 font-mono">round {(room?.current_round??0)+1}</p>
             <p className="text-white/20 text-xs">first to {WIN}</p>
             {cd!==null&&cd>0&&<p className="font-mono font-bold text-3xl mt-1" style={{color:"#EF9F27",textShadow:"0 0 20px #EF9F2799"}}>{cd}</p>}
           </div>
+          {(() => {
+            const oppBorderCls = opp?.owned_cosmetics?.includes("pack1") ? getBorderClass(opp?.avatar_border_style) : "";
+            return (
           <div className="flex items-center gap-2 justify-end">
             <div className="text-right">
               <p className="text-xs text-white/40 truncate max-w-20">{opp?.username??"Opp"}</p>
+              {opp?.featured_badges && opp.featured_badges.length > 0 && (
+                <p className="text-sm leading-none mb-0.5">{opp.featured_badges.map(id => getBadgeIcon(id)).join(" ")}</p>
+              )}
               <p className="font-mono text-2xl font-bold" style={{color:opC}}>{opScore}</p>
               <p className="text-xs font-mono opacity-60" style={{color:opC}}>{opp?.elo??"—"}</p>
             </div>
@@ -598,12 +618,16 @@ export default function DuelPage() {
                   {oppReaction}
                 </div>
               )}
+              <div className={oppBorderCls || "relative"}>
               <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
-                style={{background:opC+"33",color:opC,border:`1.5px solid ${opC}44`}}>
+                style={{background:opC+"33",color:opC,border:oppBorderCls?"none":`1.5px solid ${opC}44`}}>
                 {safeAvatar(opp?.avatar_url,opp?.avatar_static_url)?<img src={safeAvatar(opp?.avatar_url,opp?.avatar_static_url)!} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
+              </div>
               </div>
             </div>
           </div>
+            );
+          })()}
         </div>
 
         {/* progress dots */}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { OnlineDot } from "@/contexts/PresenceContext";
 import { gifCropStyle } from "@/components/CropModal";
+import { getBorderClass, RANK_BADGE_DEFS, SPECIAL_BADGE_DEFS, RARITY_COLORS } from "@/lib/cosmetics";
 
 interface Profile {
   id: string; username: string; elo: number;
@@ -19,9 +20,11 @@ interface Profile {
   is_pro: boolean;
   owned_cosmetics: string[] | null;
   avatar_border: boolean | null;
+  avatar_border_style: string | null;
   banner_url: string | null;
   avatar_crop: { tx: number; ty: number; zoom: number } | null;
   banner_crop: { tx: number; ty: number; zoom: number } | null;
+  featured_badges: string[] | null;
 }
 interface Match {
   id: string; player1_id: string; player2_id: string;
@@ -57,78 +60,39 @@ function computeBadges(
   const n1Acc = n1Stats ? n1Stats.correct / (n1Stats.correct + n1Stats.wrong) : 0;
 
   return [
+    // ── Rank badges (one per rank tier) ───────────────────────────────────────
+    ...RANK_BADGE_DEFS.map(b => ({
+      id: b.id, icon: b.icon, name: b.name, desc: b.desc,
+      unlocked: profile.elo >= b.minElo, rarity: b.rarity,
+    })),
+    // ── Special badges ────────────────────────────────────────────────────────
     {
-      id: "first_win", icon: "⚔️", name: "First blood", desc: "Win your first duel",
-      unlocked: wins >= 1, rarity: "common",
+      id: "cosmetics_pack", icon: "✨", name: "Cosmetics Pack", desc: "Own the Cosmetics Pack",
+      unlocked: !!profile.owned_cosmetics?.includes("pack1"), rarity: "epic" as const,
     },
     {
-      id: "wins_10", icon: "🏅", name: "Warrior", desc: "Win 10 duels",
-      unlocked: wins >= 10, rarity: "common",
+      id: "kanjiduel_pro", icon: "✦", name: "KanjiDuel Pro", desc: "KanjiDuel Pro subscriber",
+      unlocked: !!profile.is_pro, rarity: "legendary" as const,
     },
-    {
-      id: "wins_50", icon: "🥇", name: "Veteran", desc: "Win 50 duels",
-      unlocked: wins >= 50, rarity: "rare",
-    },
-    {
-      id: "wins_100", icon: "👑", name: "Legend", desc: "Win 100 duels",
-      unlocked: wins >= 100, rarity: "epic",
-    },
-    {
-      id: "streak_3", icon: "🔥", name: "On fire", desc: "3-game win streak",
-      unlocked: (profile.best_streak ?? 0) >= 3, rarity: "common",
-    },
-    {
-      id: "streak_7", icon: "🌋", name: "Unstoppable", desc: "7-game win streak",
-      unlocked: (profile.best_streak ?? 0) >= 7, rarity: "rare",
-    },
-    {
-      id: "streak_15", icon: "☄️", name: "Godlike", desc: "15-game win streak",
-      unlocked: (profile.best_streak ?? 0) >= 15, rarity: "legendary",
-    },
-    {
-      id: "elo_1000", icon: "🥈", name: "Gold contender", desc: "Reach 1000 ELO",
-      unlocked: profile.elo >= 1000, rarity: "common",
-    },
-    {
-      id: "elo_1600", icon: "💎", name: "Diamond", desc: "Reach 1600 ELO",
-      unlocked: profile.elo >= 1600, rarity: "rare",
-    },
-    {
-      id: "elo_2000", icon: "🏆", name: "Grand Champion", desc: "Reach 2000 ELO",
-      unlocked: profile.elo >= 2000, rarity: "legendary",
-    },
-    {
-      id: "kanji_100", icon: "📖", name: "Student", desc: "Study 100 kanji",
-      unlocked: kanjiStats.length >= 100, rarity: "common",
-    },
-    {
-      id: "kanji_500", icon: "📚", name: "Scholar", desc: "Study 500 kanji",
-      unlocked: kanjiStats.length >= 500, rarity: "rare",
-    },
-    {
-      id: "kanji_1000", icon: "🎓", name: "Master", desc: "Study 1000 kanji",
-      unlocked: kanjiStats.length >= 1000, rarity: "epic",
-    },
-    {
-      id: "accuracy_80", icon: "🎯", name: "Sharp mind", desc: "80%+ overall accuracy",
-      unlocked: overallAcc >= 0.8 && totalSeen >= 50, rarity: "rare",
-    },
-    {
-      id: "n1_master", icon: "🗾", name: "N1 master", desc: "80%+ accuracy on N1",
-      unlocked: n1Acc >= 0.8 && (n1Stats?.correct ?? 0) + (n1Stats?.wrong ?? 0) >= 20, rarity: "legendary",
-    },
-    {
-      id: "winrate_60", icon: "📈", name: "Consistent", desc: "60%+ win rate (20+ games)",
-      unlocked: wr >= 60 && (profile.wins + profile.losses) >= 20, rarity: "rare",
-    },
-    {
-      id: "games_50", icon: "🎮", name: "Dedicated", desc: "Play 50 games",
-      unlocked: (profile.wins + profile.losses + profile.draws) >= 50, rarity: "common",
-    },
-    {
-      id: "games_200", icon: "🕹️", name: "Addicted", desc: "Play 200 games",
-      unlocked: (profile.wins + profile.losses + profile.draws) >= 200, rarity: "epic",
-    },
+    // ── Win badges ────────────────────────────────────────────────────────────
+    { id: "first_win", icon: "⚔️", name: "First blood",  desc: "Win your first duel", unlocked: wins >= 1,   rarity: "common" as const },
+    { id: "wins_10",   icon: "🏅", name: "Warrior",      desc: "Win 10 duels",         unlocked: wins >= 10,  rarity: "common" as const },
+    { id: "wins_50",   icon: "🥇", name: "Veteran",      desc: "Win 50 duels",         unlocked: wins >= 50,  rarity: "rare" as const   },
+    { id: "wins_100",  icon: "👑", name: "Legend",        desc: "Win 100 duels",        unlocked: wins >= 100, rarity: "epic" as const   },
+    // ── Streak badges ─────────────────────────────────────────────────────────
+    { id: "streak_3",  icon: "🔥", name: "On fire",       desc: "3-game win streak",  unlocked: (profile.best_streak ?? 0) >= 3,  rarity: "common" as const    },
+    { id: "streak_7",  icon: "🌋", name: "Unstoppable",   desc: "7-game win streak",  unlocked: (profile.best_streak ?? 0) >= 7,  rarity: "rare" as const      },
+    { id: "streak_15", icon: "☄️", name: "Godlike",       desc: "15-game win streak", unlocked: (profile.best_streak ?? 0) >= 15, rarity: "legendary" as const },
+    // ── Kanji badges ──────────────────────────────────────────────────────────
+    { id: "kanji_100",  icon: "📖", name: "Student", desc: "Study 100 kanji",  unlocked: kanjiStats.length >= 100,  rarity: "common" as const },
+    { id: "kanji_500",  icon: "📚", name: "Scholar", desc: "Study 500 kanji",  unlocked: kanjiStats.length >= 500,  rarity: "rare" as const   },
+    { id: "kanji_1000", icon: "🎓", name: "Master",  desc: "Study 1000 kanji", unlocked: kanjiStats.length >= 1000, rarity: "epic" as const   },
+    // ── Accuracy & games ─────────────────────────────────────────────────────
+    { id: "accuracy_80", icon: "🎯", name: "Sharp mind",  desc: "80%+ overall accuracy",        unlocked: overallAcc >= 0.8 && totalSeen >= 50, rarity: "rare" as const      },
+    { id: "n1_master",   icon: "🗾", name: "N1 master",   desc: "80%+ accuracy on N1",           unlocked: n1Acc >= 0.8 && (n1Stats?.correct ?? 0) + (n1Stats?.wrong ?? 0) >= 20, rarity: "legendary" as const },
+    { id: "winrate_60",  icon: "📈", name: "Consistent",  desc: "60%+ win rate (20+ games)",     unlocked: wr >= 60 && (profile.wins + profile.losses) >= 20,  rarity: "rare" as const   },
+    { id: "games_50",    icon: "🎮", name: "Dedicated",   desc: "Play 50 games",                 unlocked: (profile.wins + profile.losses + profile.draws) >= 50,  rarity: "common" as const },
+    { id: "games_200",   icon: "🕹️", name: "Addicted",   desc: "Play 200 games",                unlocked: (profile.wins + profile.losses + profile.draws) >= 200, rarity: "epic" as const   },
   ];
 }
 
@@ -227,12 +191,6 @@ function EloChart({ matches, profileId, accentColor }: {
 }
 
 // ─── Badge card ───────────────────────────────────────────────────────────────
-const RARITY_COLORS: Record<string, string> = {
-  common: "rgba(255,255,255,0.15)",
-  rare: "#4DB6AC",
-  epic: "#7F77DD",
-  legendary: "#EF9F27",
-};
 
 function BadgeCard({ badge }: { badge: Badge }) {
   const rarityColor = RARITY_COLORS[badge.rarity];
@@ -358,14 +316,17 @@ export default function ProfilePage() {
 
       {/* ── Profile card ── */}
       {(() => {
-        const hasBorder = profile.owned_cosmetics?.includes("pack1") && profile.avatar_border !== false;
+        const effectiveBorderStyle = profile.avatar_border_style
+          ?? (profile.avatar_border !== false ? "rainbow" : null);
+        const borderClass = profile.owned_cosmetics?.includes("pack1")
+          ? getBorderClass(effectiveBorderStyle) : "";
         const hasBanner = !!profile.banner_url;
         const avatarInner = (
           <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold"
             style={{
               background: profile.avatar_url ? "transparent" : accentColor + "33",
               color: accentColor,
-              border: hasBorder ? "none" : `2px solid ${accentColor}55`,
+              border: borderClass ? "none" : `2px solid ${accentColor}55`,
               boxShadow: hasBanner ? "0 0 0 4px #0d0d1a" : "none",
             }}>
             {profile.avatar_url
@@ -385,7 +346,7 @@ export default function ProfilePage() {
             {/* Avatar — absolute over banner/content boundary when banner exists */}
             {hasBanner && (
               <div className="absolute left-6" style={{ top: 118, zIndex: 10 }}>
-                <div className={hasBorder ? "cosmetic-border" : "relative"}>
+                <div className={borderClass || "relative"}>
                   {avatarInner}
                   <span className="absolute bottom-0 right-0"><OnlineDot userId={profile.id} size={12} /></span>
                 </div>
@@ -423,7 +384,7 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-4 mb-4">
-                  <div className={`relative flex-shrink-0 ${hasBorder ? "cosmetic-border" : ""}`}>
+                  <div className={`relative flex-shrink-0 ${borderClass}`}>
                     {avatarInner}
                     <span className="absolute bottom-0 right-0"><OnlineDot userId={profile.id} size={12} /></span>
                   </div>
@@ -502,6 +463,26 @@ export default function ProfilePage() {
                 ))}
               </div>
 
+              {/* Featured badges */}
+              {profile.featured_badges && profile.featured_badges.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <p className="text-xs text-white/30 mb-2">Featured badges</p>
+                  <div className="flex gap-2">
+                    {profile.featured_badges.map(id => {
+                      const b = badges.find(x => x.id === id);
+                      if (!b) return null;
+                      const rc = RARITY_COLORS[b.rarity];
+                      return (
+                        <div key={id} className="flex flex-col items-center gap-1 px-2.5 py-2 rounded-xl"
+                          style={{ background: rc + "18", border: `1px solid ${rc}44` }}>
+                          <span className="text-xl">{b.icon}</span>
+                          <span className="text-xs leading-tight" style={{ color: rc, fontSize: 9 }}>{b.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {/* Quick badge preview */}
               {unlockedCount > 0 && (
                 <div className="mt-3 pt-3 border-t border-white/5">

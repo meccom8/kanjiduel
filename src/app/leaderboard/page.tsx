@@ -4,17 +4,22 @@ import { createClient } from "@/lib/supabase";
 import { getTier, winRate } from "@/lib/elo";
 import Link from "next/link";
 import { OnlineDot } from "@/contexts/PresenceContext";
+import { getBorderClass } from "@/lib/cosmetics";
 
 interface Profile {
   id: string; username: string; elo: number;
   wins: number; losses: number; draws: number;
   avatar_url: string | null; accent_color: string | null;
   avatar_static_url: string | null;
+  avatar_border_style: string | null;
+  owned_cosmetics: string[] | null;
 }
 interface MonthlyEntry {
   id: string; username: string; elo: number;
   avatar_url: string | null; accent_color: string | null;
   avatar_static_url: string | null;
+  avatar_border_style: string | null;
+  owned_cosmetics: string[] | null;
   gained: number; wins: number;
 }
 
@@ -42,7 +47,7 @@ export default function Leaderboard() {
       // All-time
       let query = supabase
         .from("profiles")
-        .select("id, username, elo, wins, losses, draws, avatar_url, accent_color, avatar_static_url")
+        .select("id, username, elo, wins, losses, draws, avatar_url, accent_color, avatar_static_url, avatar_border_style, owned_cosmetics")
         .order("elo", { ascending: false })
         .limit(50);
       if (search.trim()) query = query.ilike("username", `%${search}%`);
@@ -72,7 +77,7 @@ export default function Leaderboard() {
         }
         const ids = Object.keys(gainMap);
         const { data: profiles } = await supabase
-          .from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url").in("id", ids);
+          .from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url,avatar_border_style,owned_cosmetics").in("id", ids);
         const entries: MonthlyEntry[] = (profiles ?? []).map((p: any) => ({
           ...p, gained: gainMap[p.id]?.gained ?? 0, wins: gainMap[p.id]?.wins ?? 0,
         })).sort((a: MonthlyEntry, b: MonthlyEntry) => b.gained - a.gained).slice(0, 50);
@@ -152,6 +157,7 @@ export default function Leaderboard() {
             const total = p.wins + p.losses;
             const isLive = liveIds.has(p.id);
             const roomId = liveRooms[p.id];
+            const borderCls = p.owned_cosmetics?.includes("pack1") ? getBorderClass(p.avatar_border_style) : "";
             return (
               <Link key={p.username} href={`/user/${p.username}`}
                 className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors">
@@ -160,9 +166,11 @@ export default function Leaderboard() {
                   {MEDALS[i] ?? i + 1}
                 </span>
                 <div className="relative flex-shrink-0">
+                  <div className={borderCls || "relative"}>
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
-                    style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: `1.5px solid ${isLive ? "#1D9E75" : (p.accent_color ?? tier.color) + "33"}` }}>
+                    style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: borderCls ? "none" : `1.5px solid ${isLive ? "#1D9E75" : (p.accent_color ?? tier.color) + "33"}` }}>
                     {safeAvatar(p.avatar_url, p.avatar_static_url) ? <img src={safeAvatar(p.avatar_url, p.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                  </div>
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5">
                     <OnlineDot userId={p.id} size={9} />
@@ -199,6 +207,7 @@ export default function Leaderboard() {
             const color = p.accent_color ?? tier.color;
             const isLive = liveIds.has(p.id);
             const roomId = liveRooms[p.id];
+            const borderClsM = p.owned_cosmetics?.includes("pack1") ? getBorderClass(p.avatar_border_style) : "";
             return (
               <Link key={p.id} href={`/user/${p.username}`}
                 className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/4 transition-colors">
@@ -207,9 +216,11 @@ export default function Leaderboard() {
                   {MEDALS[i] ?? i + 1}
                 </span>
                 <div className="relative flex-shrink-0">
+                  <div className={borderClsM || "relative"}>
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
-                    style={{ background: color + "33", color, border: `1.5px solid ${isLive ? "#1D9E75" : color + "33"}` }}>
+                    style={{ background: color + "33", color, border: borderClsM ? "none" : `1.5px solid ${isLive ? "#1D9E75" : color + "33"}` }}>
                     {safeAvatar(p.avatar_url, p.avatar_static_url) ? <img src={safeAvatar(p.avatar_url, p.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                  </div>
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5">
                     <OnlineDot userId={p.id} size={9} />
