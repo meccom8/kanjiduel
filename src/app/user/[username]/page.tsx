@@ -469,14 +469,14 @@ export default function UserProfile() {
           <div className="card-solid overflow-hidden mb-4 slide-up relative" style={{ border: `1px solid ${accentColor}22` }}>
             {/* Banner */}
             {hasBanner && (
-              <div className="w-full overflow-hidden relative" style={{ height: 112 }}>
+              <div className="w-full overflow-hidden relative" style={{ height: 150 }}>
                 <img src={profile.banner_url!} alt="" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to bottom, transparent 40%, rgba(13,13,26,0.55))" }} />
               </div>
             )}
             {/* Avatar — absolute over banner/content boundary */}
             {hasBanner && (
-              <div className="absolute left-6" style={{ top: 80, zIndex: 10 }}>
+              <div className="absolute left-6" style={{ top: 118, zIndex: 10 }}>
                 <div className={hasBorder ? "cosmetic-border" : "relative"}>
                   {avatarInner}
                   <span className="absolute bottom-0 right-0"><OnlineDot userId={profile.id} size={12} /></span>

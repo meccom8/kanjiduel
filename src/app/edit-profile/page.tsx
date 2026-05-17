@@ -175,17 +175,17 @@ export default function EditProfile() {
       <div className="card-solid overflow-hidden mb-4 relative" style={{ border: `1px solid ${color}33` }}>
         {/* Banner preview */}
         {bannerUrl ? (
-          <div className="w-full overflow-hidden relative" style={{ height: 80 }}>
+          <div className="w-full overflow-hidden relative" style={{ height: 105 }}>
             <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
             <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to bottom, transparent 40%, rgba(13,13,26,0.55))" }} />
           </div>
         ) : (
-          <div className="w-full flex items-center justify-center text-white/10 text-xs" style={{ height: 80, background: "rgba(255,255,255,0.02)" }}>
+          <div className="w-full flex items-center justify-center text-white/10 text-xs" style={{ height: 105, background: "rgba(255,255,255,0.02)" }}>
             No banner
           </div>
         )}
         {/* Avatar overlapping banner */}
-        <div className="absolute left-5" style={{ top: 48, zIndex: 10 }}>
+        <div className="absolute left-5" style={{ top: 73, zIndex: 10 }}>
           <div className={hasPack && avatarBorder ? "cosmetic-border" : "relative"}>
           <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-lg font-bold"
             style={{
@@ -287,7 +287,7 @@ export default function EditProfile() {
           <>
             {/* Current banner preview */}
             {bannerUrl && (
-              <div className="w-full rounded-xl overflow-hidden mb-3 relative" style={{ height: 80 }}>
+              <div className="w-full rounded-xl overflow-hidden mb-3 relative" style={{ height: 105 }}>
                 <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
               </div>
             )}
