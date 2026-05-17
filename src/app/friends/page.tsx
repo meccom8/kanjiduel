@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase";
 import { getTier } from "@/lib/elo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { OnlineDot } from "@/contexts/PresenceContext";
 
 interface Profile {
   id: string; username: string; elo: number;
@@ -256,9 +257,12 @@ export default function FriendsPage() {
               const color = p.accent_color ?? tier.color;
               return (
                 <div key={p.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/4">
-                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
-                    style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
-                    {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                  <div className="relative flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
+                      style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
+                      {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={p.id} size={9} /></span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{p.username}</p>
@@ -304,9 +308,12 @@ export default function FriendsPage() {
             const color = f.other.accent_color ?? tier.color;
             return (
               <div key={f.id} className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0">
-                <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
-                  style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
-                  {f.other.avatar_url ? <img src={f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                <div className="relative flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
+                    style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
+                    {f.other.avatar_url ? <img src={f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={9} /></span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{f.other.username}</p>
@@ -346,10 +353,13 @@ export default function FriendsPage() {
             const color = f.other.accent_color ?? tier.color;
             return (
               <div key={f.id} className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0">
-                <Link href={`/user/${f.other.username}`} className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-sm font-bold hover:opacity-80 transition-opacity"
-                  style={{ background: color + "33", color, border: `2px solid ${color}44` }}>
-                  {f.other.avatar_url ? <img src={f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
-                </Link>
+                <div className="relative flex-shrink-0">
+                  <Link href={`/user/${f.other.username}`} className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold hover:opacity-80 transition-opacity block"
+                    style={{ background: color + "33", color, border: `2px solid ${color}44` }}>
+                    {f.other.avatar_url ? <img src={f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                  </Link>
+                  <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={10} /></span>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <Link href={`/user/${f.other.username}`} className="text-sm font-medium hover:opacity-70 transition-opacity">
