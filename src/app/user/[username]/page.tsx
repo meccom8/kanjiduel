@@ -22,6 +22,7 @@ interface Profile {
   is_pro: boolean;
   owned_cosmetics: string[] | null;
   avatar_border: boolean | null;
+  banner_url: string | null;
 }
 interface Match {
   id: string; player1_id: string; player2_id: string;
@@ -232,7 +233,7 @@ export default function UserProfile() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, elo, wins, losses, draws, streak, best_streak, avatar_url, bio, title, accent_color, is_pro, owned_cosmetics, avatar_border")
+        .select("id, username, elo, wins, losses, draws, streak, best_streak, avatar_url, bio, title, accent_color, is_pro, owned_cosmetics, avatar_border, banner_url")
         .eq("username", username)
         .single();
 
@@ -448,174 +449,222 @@ export default function UserProfile() {
       </div>
 
       {/* ── Profile card ── */}
-      <div className="card-solid p-6 mb-4 slide-up" style={{ border: `1px solid ${accentColor}22` }}>
-        <div className="flex items-center gap-4 mb-4">
-          <div className={`flex-shrink-0 relative ${profile.owned_cosmetics?.includes("pack1") && profile.avatar_border !== false ? "cosmetic-border" : ""}`}>
-            <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold"
-              style={{ background: accentColor + "33", color: accentColor, border: profile.owned_cosmetics?.includes("pack1") && profile.avatar_border !== false ? "none" : `2px solid ${accentColor}55` }}>
-              {profile.avatar_url
-                ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                : profile.username.slice(0, 2).toUpperCase()
-              }
-            </div>
-            <span className="absolute bottom-0 right-0">
-              <OnlineDot userId={profile.id} size={12} />
-            </span>
+      {(() => {
+        const hasBorder = profile.owned_cosmetics?.includes("pack1") && profile.avatar_border !== false;
+        const hasBanner = !!profile.banner_url;
+        const avatarInner = (
+          <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold"
+            style={{
+              background: profile.avatar_url ? "transparent" : accentColor + "33",
+              color: accentColor,
+              border: hasBorder ? "none" : `2px solid ${accentColor}55`,
+              boxShadow: hasBanner ? "0 0 0 4px #0d0d1a" : "none",
+            }}>
+            {profile.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+              : profile.username.slice(0, 2).toUpperCase()}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h1 className="text-xl font-semibold">{profile.username}</h1>
-              {profile.is_pro && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "#EF9F2722", color: "#EF9F27", border: "1px solid #EF9F2744" }}>
-                  ✦ Pro
-                </span>
-              )}
-              {profile.title && (
-                <span className="text-xs px-2 py-0.5 rounded-full"
-                  style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}33` }}>
-                  {profile.title}
-                </span>
-              )}
-            </div>
-            <button onClick={() => setShowRanks(true)}
-              className="text-xs px-2.5 py-1 rounded-full font-medium hover:opacity-80 transition-opacity"
-              style={{ background: tier.bg + "33", color: tier.color }}>
-              ⬡ {tier.name}
-            </button>
-          </div>
-          <div className="text-right flex-shrink-0">
-            <p className="font-mono text-2xl font-bold" style={{ color: accentColor }}>{profile.elo}</p>
-            <p className="text-xs text-white/30">ELO</p>
-          </div>
-        </div>
-
-        {profile.bio && (
-          <p className="text-white/50 text-sm mb-4 leading-relaxed">{profile.bio}</p>
-        )}
-
-        {/* ── Friend / Challenge buttons ── */}
-        {meId && meId !== profile.id && (
-          <div className="flex gap-2 mb-4">
-            {/* Challenge / Join button */}
-            {waitingRoom && !myChallengeRoomId ? (
-              <button onClick={joinChallenge} disabled={joiningChallenge}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
-                style={{ background: "linear-gradient(135deg,#1D9E75,#4DB6AC)", color: "#fff" }}>
-                {joiningChallenge ? "Joining…" : `⚡ Join ${profile.username}'s challenge!`}
-              </button>
-            ) : myChallengeRoomId ? (
-              <button onClick={cancelChallenge}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
-                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                ⏳ Waiting for {profile.username}… Cancel
-              </button>
-            ) : (
-              <button
-                onClick={() => { setChallengeCategory("all"); setChallengeBlitz(false); setShowChallengeModal(true); }}
-                disabled={challenging}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
-                style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}44` }}>
-                {challenging ? "…" : "⚡ Challenge"}
-              </button>
-            )}
-
-            {/* Friend button */}
-            {friendStatus === "none" && (
-              <button onClick={sendFriendRequest}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
-                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                + Add friend
-              </button>
-            )}
-            {friendStatus === "pending_sent" && (
-              <div className="flex-1 py-2 rounded-xl text-sm text-center text-white/30 border border-white/8">
-                Request sent
+        );
+        return (
+          <div className="card-solid overflow-hidden mb-4 slide-up relative" style={{ border: `1px solid ${accentColor}22` }}>
+            {/* Banner */}
+            {hasBanner && (
+              <div className="w-full overflow-hidden" style={{ height: 112 }}>
+                <img src={profile.banner_url!} alt="" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 pointer-events-none" style={{ height: 112, background: "linear-gradient(to bottom, transparent 40%, rgba(13,13,26,0.55))" }} />
               </div>
             )}
-            {friendStatus === "pending_received" && (
-              <button onClick={acceptFriendRequest}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
-                style={{ background: "#1D9E7522", color: "#5DCAA5", border: "1px solid #1D9E7544" }}>
-                ✓ Accept request
-              </button>
+            {/* Avatar — absolute over banner/content boundary */}
+            {hasBanner && (
+              <div className={`absolute left-6 ${hasBorder ? "cosmetic-border" : ""}`} style={{ top: 80 }}>
+                {avatarInner}
+                <span className="absolute bottom-0 right-0"><OnlineDot userId={profile.id} size={12} /></span>
+              </div>
             )}
-            {friendStatus === "friend" && (
-              <button onClick={removeFriend}
-                className="flex-1 py-2 rounded-xl text-sm font-medium text-white/30 hover:text-red-400 transition-colors border border-white/8">
-                ✓ Friends
-              </button>
-            )}
-          </div>
-        )}
 
-        {/* Watch live — only when player is in an active match */}
-        {activeRoom && meId !== profile.id && (
-          <Link href={`/duel/${activeRoom.id}`}
-            className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-medium mb-2 transition-all"
-            style={{ background: "rgba(29,158,117,0.15)", color: "#5DCAA5", border: "1px solid rgba(29,158,117,0.3)" }}>
-            <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            Watch live
-          </Link>
-        )}
+            <div className={hasBanner ? "px-6 pb-6 pt-3" : "p-6"}>
+              {/* Header row */}
+              {hasBanner ? (
+                <div className="flex items-start justify-between mb-4" style={{ paddingLeft: 80 }}>
+                  <div className="flex-1 min-w-0 pl-3">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h1 className="text-xl font-semibold">{profile.username}</h1>
+                      {profile.is_pro && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: "#EF9F2722", color: "#EF9F27", border: "1px solid #EF9F2744" }}>✦ Pro</span>
+                      )}
+                      {profile.title && (
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}33` }}>
+                          {profile.title}
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={() => setShowRanks(true)}
+                      className="text-xs px-2.5 py-1 rounded-full font-medium hover:opacity-80 transition-opacity"
+                      style={{ background: tier.bg + "33", color: tier.color }}>⬡ {tier.name}</button>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-mono text-2xl font-bold" style={{ color: accentColor }}>{profile.elo}</p>
+                    <p className="text-xs text-white/30">ELO</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4 mb-4">
+                  <div className={`flex-shrink-0 relative ${hasBorder ? "cosmetic-border" : ""}`}>
+                    {avatarInner}
+                    <span className="absolute bottom-0 right-0"><OnlineDot userId={profile.id} size={12} /></span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h1 className="text-xl font-semibold">{profile.username}</h1>
+                      {profile.is_pro && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: "#EF9F2722", color: "#EF9F27", border: "1px solid #EF9F2744" }}>✦ Pro</span>
+                      )}
+                      {profile.title && (
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}33` }}>
+                          {profile.title}
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={() => setShowRanks(true)}
+                      className="text-xs px-2.5 py-1 rounded-full font-medium hover:opacity-80 transition-opacity"
+                      style={{ background: tier.bg + "33", color: tier.color }}>⬡ {tier.name}</button>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-mono text-2xl font-bold" style={{ color: accentColor }}>{profile.elo}</p>
+                    <p className="text-xs text-white/30">ELO</p>
+                  </div>
+                </div>
+              )}
 
-        {nextTier && (
-          <div className="mb-5">
-            <div className="flex justify-between text-xs text-white/30 mb-1.5">
-              <span>{tier.name}</span><span>{nextTier.name}</span>
-            </div>
-            <div className="h-2 bg-white/8 rounded-full overflow-hidden">
-              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: accentColor }} />
-            </div>
-            <p className="text-xs text-white/30 mt-1 text-right">{profile.elo} / {nextTier.min} ELO</p>
-          </div>
-        )}
+              {profile.bio && (
+                <p className="text-white/50 text-sm mb-4 leading-relaxed">{profile.bio}</p>
+              )}
 
-        <div className="grid grid-cols-4 gap-2 text-center mb-3">
-          {[
-            { label: "Wins", val: profile.wins, color: "#5DCAA5" },
-            { label: "Losses", val: profile.losses, color: "#E24B4A" },
-            { label: "Games", val: totalGames, color: "rgba(255,255,255,0.7)" },
-            { label: "Win rate", val: `${wr}%`, color: accentColor },
-          ].map(s => (
-            <div key={s.label} className="bg-white/4 rounded-xl p-3">
-              <p className="font-mono text-lg font-bold" style={{ color: s.color }}>{s.val}</p>
-              <p className="text-xs text-white/30 mt-0.5">{s.label}</p>
-            </div>
-          ))}
-        </div>
+              {/* ── Friend / Challenge buttons ── */}
+              {meId && meId !== profile.id && (
+                <div className="flex gap-2 mb-4">
+                  {waitingRoom && !myChallengeRoomId ? (
+                    <button onClick={joinChallenge} disabled={joiningChallenge}
+                      className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                      style={{ background: "linear-gradient(135deg,#1D9E75,#4DB6AC)", color: "#fff" }}>
+                      {joiningChallenge ? "Joining…" : `⚡ Join ${profile.username}'s challenge!`}
+                    </button>
+                  ) : myChallengeRoomId ? (
+                    <button onClick={cancelChallenge}
+                      className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      ⏳ Waiting for {profile.username}… Cancel
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setChallengeCategory("all"); setChallengeBlitz(false); setShowChallengeModal(true); }}
+                      disabled={challenging}
+                      className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                      style={{ background: accentColor + "22", color: accentColor, border: `1px solid ${accentColor}44` }}>
+                      {challenging ? "…" : "⚡ Challenge"}
+                    </button>
+                  )}
+                  {friendStatus === "none" && (
+                    <button onClick={sendFriendRequest}
+                      className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      + Add friend
+                    </button>
+                  )}
+                  {friendStatus === "pending_sent" && (
+                    <div className="flex-1 py-2 rounded-xl text-sm text-center text-white/30 border border-white/8">Request sent</div>
+                  )}
+                  {friendStatus === "pending_received" && (
+                    <button onClick={acceptFriendRequest}
+                      className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                      style={{ background: "#1D9E7522", color: "#5DCAA5", border: "1px solid #1D9E7544" }}>
+                      ✓ Accept request
+                    </button>
+                  )}
+                  {friendStatus === "friend" && (
+                    <button onClick={removeFriend}
+                      className="flex-1 py-2 rounded-xl text-sm font-medium text-white/30 hover:text-red-400 transition-colors border border-white/8">
+                      ✓ Friends
+                    </button>
+                  )}
+                </div>
+              )}
 
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { icon: "🔥", val: profile.streak ?? 0, label: "Streak" },
-            { icon: "⚡", val: profile.best_streak ?? 0, label: "Best streak" },
-            { icon: "📖", val: kanjiStats.length, label: "Kanji seen" },
-          ].map(s => (
-            <div key={s.label} className="bg-white/4 rounded-xl p-3 text-center">
-              <p className="text-xl mb-0.5">{s.icon}</p>
-              <p className="font-mono text-xl font-bold text-white">{s.val}</p>
-              <p className="text-xs text-white/30">{s.label}</p>
-            </div>
-          ))}
-        </div>
+              {/* Watch live */}
+              {activeRoom && meId !== profile.id && (
+                <Link href={`/duel/${activeRoom.id}`}
+                  className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-medium mb-4 transition-all"
+                  style={{ background: "rgba(29,158,117,0.15)", color: "#5DCAA5", border: "1px solid rgba(29,158,117,0.3)" }}>
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  Watch live
+                </Link>
+              )}
 
-        {/* Badge preview */}
-        {unlockedCount > 0 && (
-          <div className="mt-3 pt-3 border-t border-white/5">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-white/30">{unlockedCount} badges unlocked</p>
-              <button onClick={() => setTab("badges")} className="text-xs hover:opacity-70 transition-opacity" style={{ color: accentColor }}>
-                View all →
-              </button>
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              {badges.filter(b => b.unlocked).slice(0, 8).map(b => (
-                <span key={b.id} className="text-lg" title={b.name}>{b.icon}</span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+              {/* Rank progress */}
+              {nextTier && (
+                <div className="mb-5">
+                  <div className="flex justify-between text-xs text-white/30 mb-1.5">
+                    <span>{tier.name}</span><span>{nextTier.name}</span>
+                  </div>
+                  <div className="h-2 bg-white/8 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: accentColor }} />
+                  </div>
+                  <p className="text-xs text-white/30 mt-1 text-right">{profile.elo} / {nextTier.min} ELO</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-4 gap-2 text-center mb-3">
+                {[
+                  { label: "Wins", val: profile.wins, color: "#5DCAA5" },
+                  { label: "Losses", val: profile.losses, color: "#E24B4A" },
+                  { label: "Games", val: totalGames, color: "rgba(255,255,255,0.7)" },
+                  { label: "Win rate", val: `${wr}%`, color: accentColor },
+                ].map(s => (
+                  <div key={s.label} className="bg-white/4 rounded-xl p-3">
+                    <p className="font-mono text-lg font-bold" style={{ color: s.color }}>{s.val}</p>
+                    <p className="text-xs text-white/30 mt-0.5">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { icon: "🔥", val: profile.streak ?? 0, label: "Streak" },
+                  { icon: "⚡", val: profile.best_streak ?? 0, label: "Best streak" },
+                  { icon: "📖", val: kanjiStats.length, label: "Kanji seen" },
+                ].map(s => (
+                  <div key={s.label} className="bg-white/4 rounded-xl p-3 text-center">
+                    <p className="text-xl mb-0.5">{s.icon}</p>
+                    <p className="font-mono text-xl font-bold text-white">{s.val}</p>
+                    <p className="text-xs text-white/30">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Badge preview */}
+              {unlockedCount > 0 && (
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-white/30">{unlockedCount} badges unlocked</p>
+                    <button onClick={() => setTab("badges")} className="text-xs hover:opacity-70 transition-opacity" style={{ color: accentColor }}>
+                      View all →
+                    </button>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {badges.filter(b => b.unlocked).slice(0, 8).map(b => (
+                      <span key={b.id} className="text-lg" title={b.name}>{b.icon}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>{/* /content */}
+          </div>{/* /card */}
+        );
+      })()}
 
       {/* ── Challenge config modal ── */}
       {showChallengeModal && (

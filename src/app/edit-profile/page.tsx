@@ -40,6 +40,7 @@ interface Profile {
   owned_cosmetics: string[] | null;
   is_pro: boolean;
   avatar_border: boolean | null;
+  banner_url: string | null;
 }
 
 export default function EditProfile() {
@@ -53,9 +54,12 @@ export default function EditProfile() {
   const [accentColor, setAccentColor] = useState("#534AB7");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [avatarBorder, setAvatarBorder] = useState(true);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const bannerFileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -69,6 +73,7 @@ export default function EditProfile() {
       if (data) {
         setProfile(data); setBio(data.bio ?? ""); setTitle(data.title ?? "");
         setAccentColor(data.accent_color ?? "#534AB7"); setAvatarUrl(data.avatar_url ?? "");
+        setBannerUrl(data.banner_url ?? "");
         setAvatarBorder(data.avatar_border !== false); // null or true → ON
       }
       setLoading(false);
@@ -101,6 +106,27 @@ export default function EditProfile() {
     setUploading(false);
   }
 
+  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+    if (!profile.is_pro) { alert("Profile banners require KanjiDuel Pro ✦"); return; }
+    if (file.size > 8 * 1024 * 1024) { alert("Banner too large — max 8MB"); return; }
+    if (!file.type.startsWith("image/")) { alert("Please upload an image file"); return; }
+    setUploadingBanner(true);
+    const ext = file.name.split(".").pop();
+    const path = `banners/${profile.id}.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (error) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setBannerUrl(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      setBannerUrl(publicUrl);
+    }
+    setUploadingBanner(false);
+  }
+
   async function save() {
     if (!profile) return;
     setSaving(true);
@@ -108,6 +134,7 @@ export default function EditProfile() {
       bio: bio.slice(0, 160), title: title || null,
       accent_color: accentColor, avatar_url: avatarUrl || null,
       avatar_border: avatarBorder,
+      banner_url: bannerUrl || null,
     }).eq("id", profile.id);
     setSaving(false);
     if (!error) {
@@ -145,35 +172,49 @@ export default function EditProfile() {
       <p className="text-sm mb-8" style={{ color: muted }}>Avatar, title, bio &amp; accent color</p>
 
       {/* Preview */}
-      <div className="card-solid p-5 mb-4" style={{ border: `1px solid ${color}33` }}>
-        <p className="text-xs uppercase tracking-widest mb-4" style={{ color: muted }}>Preview</p>
-        <div className="flex items-center gap-4">
-          <div className={`flex-shrink-0 ${hasPack && avatarBorder ? "cosmetic-border" : ""}`}>
-            <div className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-xl font-bold"
-              style={{
-                background: avatarUrl ? "transparent" : color + "33",
-                border: hasPack && avatarBorder ? "none" : `2px solid ${color}55`,
-                color,
-              }}>
-              {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                : profile.username.slice(0, 2).toUpperCase()}
-            </div>
+      <div className="card-solid overflow-hidden mb-4 relative" style={{ border: `1px solid ${color}33` }}>
+        {/* Banner preview */}
+        {bannerUrl ? (
+          <div className="w-full overflow-hidden" style={{ height: 80 }}>
+            <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 pointer-events-none" style={{ height: 80, background: "linear-gradient(to bottom, transparent 40%, rgba(13,13,26,0.55))" }} />
           </div>
-          <div className="flex-1 min-w-0">
+        ) : (
+          <div className="w-full flex items-center justify-center text-white/10 text-xs" style={{ height: 80, background: "rgba(255,255,255,0.02)" }}>
+            No banner
+          </div>
+        )}
+        {/* Avatar overlapping banner */}
+        <div className={`absolute left-5 ${hasPack && avatarBorder ? "cosmetic-border" : ""}`} style={{ top: 48 }}>
+          <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-lg font-bold"
+            style={{
+              background: avatarUrl ? "transparent" : color + "33",
+              border: hasPack && avatarBorder ? "none" : `2px solid ${color}55`,
+              boxShadow: "0 0 0 3px #0d0d1a",
+              color,
+            }}>
+            {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              : profile.username.slice(0, 2).toUpperCase()}
+          </div>
+        </div>
+        <div className="px-5 pb-4 pt-2" style={{ paddingLeft: 80 + 20 }}>
+          <div className="pl-2">
             <div className="flex items-center gap-2 mb-1">
-              <p className="font-semibold">{profile.username}</p>
+              <p className="font-semibold text-sm">{profile.username}</p>
               {profile.is_pro && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
                   style={{ background: "#EF9F2722", color: "#EF9F27", border: "1px solid #EF9F2744" }}>✦ Pro</span>
               )}
-              {title && <span className="text-xs px-2 py-0.5 rounded-full"
+              {title && <span className="text-xs px-1.5 py-0.5 rounded-full"
                 style={{ background: color + "22", color, border: `1px solid ${color}33` }}>{title}</span>}
             </div>
             <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: tier.bg + "22", color: tier.color }}>
-              ⬡ {tier.name} · {profile.elo} ELO
+              ⬡ {tier.name}
             </span>
-            {bio && <p className="text-xs mt-2 line-clamp-2" style={{ color: muted }}>{bio}</p>}
           </div>
+        </div>
+        <div className="px-5 pb-4">
+          <p className="text-xs uppercase tracking-widest" style={{ color: muted }}>Preview</p>
         </div>
       </div>
 
@@ -222,6 +263,55 @@ export default function EditProfile() {
             </div>
             <Link href="/shop"
               className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+              style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
+              Upgrade
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* ── Profile banner ── */}
+      <div className="card-solid p-5 mb-4">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-medium">Profile banner</p>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+            style={{ background: "#EF9F2718", color: "#EF9F27", border: "1px solid #EF9F2733" }}>✦ Pro</span>
+        </div>
+        <p className="text-xs mb-4" style={{ color: muted }}>
+          {profile.is_pro ? "Image or animated GIF · max 8MB — displayed above your avatar" : "Unlock with KanjiDuel Pro"}
+        </p>
+
+        {profile.is_pro ? (
+          <>
+            {/* Current banner preview */}
+            {bannerUrl && (
+              <div className="w-full rounded-xl overflow-hidden mb-3 relative" style={{ height: 80 }}>
+                <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => bannerFileRef.current?.click()} disabled={uploadingBanner}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                style={{ background: "#EF9F2718", color: "#EF9F27", border: "1px solid #EF9F2733" }}>
+                {uploadingBanner ? "Uploading..." : bannerUrl ? "Change banner" : "Upload banner"}
+              </button>
+              {bannerUrl && (
+                <button onClick={() => setBannerUrl("")}
+                  className="px-3 py-2 rounded-lg text-xs hover:text-red-400 transition-colors"
+                  style={{ color: muted }}>Remove</button>
+              )}
+            </div>
+            <input ref={bannerFileRef} type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
+          </>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            {/* Locked preview mockup */}
+            <div className="flex-1 rounded-xl overflow-hidden flex items-center justify-center text-white/15 text-xs"
+              style={{ height: 56, background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.08)" }}>
+              GIF · Image
+            </div>
+            <Link href="/shop"
+              className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg transition-all"
               style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
               Upgrade
             </Link>
