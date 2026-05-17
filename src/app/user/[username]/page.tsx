@@ -26,6 +26,7 @@ interface Profile {
   banner_url: string | null;
   avatar_crop: { tx: number; ty: number; zoom: number } | null;
   banner_crop: { tx: number; ty: number; zoom: number } | null;
+  avatar_static_url: string | null;
 }
 interface Match {
   id: string; player1_id: string; player2_id: string;
@@ -464,7 +465,7 @@ export default function UserProfile() {
               boxShadow: hasBanner ? "0 0 0 4px #0d0d1a" : "none",
             }}>
             {profile.avatar_url
-              ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" style={gifCropStyle(profile.avatar_crop, 64, 64)} />
+              ? <img src={profile.avatar_static_url ?? profile.avatar_url} alt="avatar" className="w-full h-full object-cover" style={gifCropStyle(profile.avatar_crop, 64, 64)} />
               : profile.username.slice(0, 2).toUpperCase()}
           </div>
         );
@@ -473,7 +474,7 @@ export default function UserProfile() {
             {/* Banner */}
             {hasBanner && (
               <div className="w-full overflow-hidden relative" style={{ height: 150 }}>
-                <img src={profile.banner_url!} alt="" className="w-full h-full object-cover" style={gifCropStyle(profile.banner_crop, 400, 150)} />
+                <img src={profile.banner_url!} alt="" className="w-full h-full object-cover" style={gifCropStyle(profile.banner_crop, 400, 150)} loading="eager" />
                 <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to bottom, transparent 40%, rgba(13,13,26,0.55))" }} />
               </div>
             )}
