@@ -55,8 +55,13 @@ export default function CropModal({ file, shape, onConfirm, onCancel }: CropModa
     return () => URL.revokeObjectURL(url);
   }, []);
 
-  const maxTx = (W * (zoom - 1)) / 2;
-  const maxTy = (H * (zoom - 1)) / 2;
+  // Cover-fit rendered dimensions (same logic as canvas export)
+  const ia = imgSize.w / imgSize.h || 1;
+  const ca = W / H;
+  const [dw, dh] = ia > ca ? [H * ia, H] : [W, W / ia];
+  // Max pan = how much the rendered image extends beyond the container, amplified by zoom
+  const maxTx = Math.max(0, (dw * zoom - W) / 2);
+  const maxTy = Math.max(0, (dh * zoom - H) / 2);
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
   // Clamp offsets when zoom changes
