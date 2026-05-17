@@ -175,9 +175,9 @@ export default function EditProfile() {
       <div className="card-solid overflow-hidden mb-4 relative" style={{ border: `1px solid ${color}33` }}>
         {/* Banner preview */}
         {bannerUrl ? (
-          <div className="w-full overflow-hidden" style={{ height: 80 }}>
+          <div className="w-full overflow-hidden relative" style={{ height: 80 }}>
             <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 pointer-events-none" style={{ height: 80, background: "linear-gradient(to bottom, transparent 40%, rgba(13,13,26,0.55))" }} />
+            <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to bottom, transparent 40%, rgba(13,13,26,0.55))" }} />
           </div>
         ) : (
           <div className="w-full flex items-center justify-center text-white/10 text-xs" style={{ height: 80, background: "rgba(255,255,255,0.02)" }}>
@@ -185,7 +185,8 @@ export default function EditProfile() {
           </div>
         )}
         {/* Avatar overlapping banner */}
-        <div className={`absolute left-5 ${hasPack && avatarBorder ? "cosmetic-border" : ""}`} style={{ top: 48 }}>
+        <div className="absolute left-5" style={{ top: 48, zIndex: 10 }}>
+          <div className={hasPack && avatarBorder ? "cosmetic-border" : "relative"}>
           <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-lg font-bold"
             style={{
               background: avatarUrl ? "transparent" : color + "33",
@@ -195,6 +196,7 @@ export default function EditProfile() {
             }}>
             {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
               : profile.username.slice(0, 2).toUpperCase()}
+          </div>
           </div>
         </div>
         <div className="px-5 pb-4 pt-2" style={{ paddingLeft: 80 + 20 }}>
