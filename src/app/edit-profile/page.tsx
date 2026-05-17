@@ -94,10 +94,11 @@ export default function EditProfile() {
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
-    const maxSize = profile.is_pro ? 8 * 1024 * 1024 : 2 * 1024 * 1024;
-    if (file.size > maxSize) { alert(`Image too large — max ${profile.is_pro ? "8MB" : "2MB"}`); return; }
     if (!file.type.startsWith("image/")) { alert("Please upload an image file"); return; }
     if (!profile.is_pro && file.type === "image/gif") { alert("Animated GIF avatars require KanjiDuel Pro ✦"); return; }
+    if (file.type === "image/gif" && file.size > 1000 * 1024) { alert("GIF too large — max 1000 KB"); return; }
+    const maxSize = profile.is_pro ? 8 * 1024 * 1024 : 2 * 1024 * 1024;
+    if (file.size > maxSize) { alert(`Image too large — max ${profile.is_pro ? "8MB" : "2MB"}`); return; }
     // Open crop modal
     setCropFile(file);
     setCropTarget("avatar");
@@ -109,8 +110,9 @@ export default function EditProfile() {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
     if (!profile.is_pro) { alert("Profile banners require KanjiDuel Pro ✦"); return; }
-    if (file.size > 8 * 1024 * 1024) { alert("Banner too large — max 8MB"); return; }
     if (!file.type.startsWith("image/")) { alert("Please upload an image file"); return; }
+    if (file.type === "image/gif" && file.size > 1000 * 1024) { alert("GIF too large — max 1000 KB"); return; }
+    if (file.size > 8 * 1024 * 1024) { alert("Banner too large — max 8MB"); return; }
     setCropFile(file);
     setCropTarget("banner");
     e.target.value = "";
@@ -312,7 +314,7 @@ export default function EditProfile() {
           )}
         </div>
         <p className="text-xs mb-4" style={{ color: muted }}>
-          {profile.is_pro ? "JPG · PNG · GIF · max 8MB — animated GIF supported" : "JPG · PNG · max 2MB"}
+          {profile.is_pro ? "JPG · PNG · max 8MB — GIF animé · max 1000 KB" : "JPG · PNG · max 2MB"}
         </p>
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-lg font-bold flex-shrink-0"
@@ -360,7 +362,7 @@ export default function EditProfile() {
             style={{ background: "#EF9F2718", color: "#EF9F27", border: "1px solid #EF9F2733" }}>✦ Pro</span>
         </div>
         <p className="text-xs mb-4" style={{ color: muted }}>
-          {profile.is_pro ? "Image or animated GIF · max 8MB" : "Unlock with KanjiDuel Pro"}
+          {profile.is_pro ? "Image · max 8MB — GIF animé · max 1000 KB" : "Unlock with KanjiDuel Pro"}
         </p>
         {profile.is_pro ? (
           <>
