@@ -14,6 +14,7 @@ const COSMETICS_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_COSMETICS_PRICE_ID ?? 
 
 const PRO_FEATURES = [
   "✦ Pro gold badge on your profile",
+  "Animated GIF avatar (like Discord Nitro)",
   "ELO history chart on your profile",
   "Unlimited match history",
   "Detailed stats by JLPT category",

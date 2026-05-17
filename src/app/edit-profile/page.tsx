@@ -38,6 +38,8 @@ interface Profile {
   avatar_url: string | null; bio: string | null;
   title: string | null; accent_color: string | null;
   owned_cosmetics: string[] | null;
+  is_pro: boolean;
+  avatar_border: boolean | null;
 }
 
 export default function EditProfile() {
@@ -51,6 +53,7 @@ export default function EditProfile() {
   const [accentColor, setAccentColor] = useState("#534AB7");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [avatarBorder, setAvatarBorder] = useState(true);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -61,11 +64,12 @@ export default function EditProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       const { data } = await supabase.from("profiles")
-        .select("id,username,elo,avatar_url,bio,title,accent_color,owned_cosmetics")
+        .select("id,username,elo,avatar_url,bio,title,accent_color,owned_cosmetics,is_pro,avatar_border")
         .eq("id", user.id).single();
       if (data) {
         setProfile(data); setBio(data.bio ?? ""); setTitle(data.title ?? "");
         setAccentColor(data.accent_color ?? "#534AB7"); setAvatarUrl(data.avatar_url ?? "");
+        setAvatarBorder(data.avatar_border !== false); // null or true → ON
       }
       setLoading(false);
     })();
@@ -74,8 +78,14 @@ export default function EditProfile() {
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
-    if (file.size > 2 * 1024 * 1024) { alert("Image too large — max 2MB"); return; }
+    const maxSize = profile.is_pro ? 8 * 1024 * 1024 : 2 * 1024 * 1024;
+    const maxLabel = profile.is_pro ? "8MB" : "2MB";
+    if (file.size > maxSize) { alert(`Image too large — max ${maxLabel}`); return; }
     if (!file.type.startsWith("image/")) { alert("Please upload an image file"); return; }
+    // Non-Pro can't upload GIFs
+    if (!profile.is_pro && file.type === "image/gif") {
+      alert("Animated GIF avatars require KanjiDuel Pro ✦"); return;
+    }
     setUploading(true);
     const ext = file.name.split(".").pop();
     const path = `avatars/${profile.id}.${ext}`;
@@ -97,6 +107,7 @@ export default function EditProfile() {
     const { error } = await supabase.from("profiles").update({
       bio: bio.slice(0, 160), title: title || null,
       accent_color: accentColor, avatar_url: avatarUrl || null,
+      avatar_border: avatarBorder,
     }).eq("id", profile.id);
     setSaving(false);
     if (!error) {
@@ -118,6 +129,7 @@ export default function EditProfile() {
   const tier = getTier(profile.elo);
   const color = accentColor;
   const muted = "rgba(255,255,255,0.3)";
+  const hasPack = profile.owned_cosmetics?.includes("pack1");
 
   const optBtn = (active: boolean) => ({
     background: active ? color + "22" : "rgba(255,255,255,0.04)",
@@ -136,14 +148,24 @@ export default function EditProfile() {
       <div className="card-solid p-5 mb-4" style={{ border: `1px solid ${color}33` }}>
         <p className="text-xs uppercase tracking-widest mb-4" style={{ color: muted }}>Preview</p>
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-xl font-bold"
-            style={{ background: avatarUrl ? "transparent" : color + "33", border: `2px solid ${color}55`, color }}>
-            {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-              : profile.username.slice(0, 2).toUpperCase()}
+          <div className={`flex-shrink-0 ${hasPack && avatarBorder ? "cosmetic-border" : ""}`}>
+            <div className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-xl font-bold"
+              style={{
+                background: avatarUrl ? "transparent" : color + "33",
+                border: hasPack && avatarBorder ? "none" : `2px solid ${color}55`,
+                color,
+              }}>
+              {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                : profile.username.slice(0, 2).toUpperCase()}
+            </div>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <p className="font-semibold">{profile.username}</p>
+              {profile.is_pro && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "#EF9F2722", color: "#EF9F27", border: "1px solid #EF9F2744" }}>✦ Pro</span>
+              )}
               {title && <span className="text-xs px-2 py-0.5 rounded-full"
                 style={{ background: color + "22", color, border: `1px solid ${color}33` }}>{title}</span>}
             </div>
@@ -157,8 +179,18 @@ export default function EditProfile() {
 
       {/* ── Avatar ── */}
       <div className="card-solid p-5 mb-4">
-        <p className="text-sm font-medium mb-1">Profile picture</p>
-        <p className="text-xs mb-4" style={{ color: muted }}>JPG, PNG or GIF · max 2MB</p>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-medium">Profile picture</p>
+          {profile.is_pro && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: "#EF9F2718", color: "#EF9F27", border: "1px solid #EF9F2733" }}>✦ Pro</span>
+          )}
+        </div>
+        <p className="text-xs mb-4" style={{ color: muted }}>
+          {profile.is_pro
+            ? "JPG · PNG · GIF · max 8MB — animated GIF supported"
+            : "JPG · PNG · max 2MB"}
+        </p>
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-lg font-bold flex-shrink-0"
             style={{ background: avatarUrl ? "transparent" : color + "33", border: `2px solid ${color}44`, color }}>
@@ -175,8 +207,75 @@ export default function EditProfile() {
               className="text-xs hover:text-red-400 transition-colors"
               style={{ color: muted }}>Remove</button>}
           </div>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+          <input ref={fileRef} type="file" accept={profile.is_pro ? "image/*" : "image/png,image/jpeg,image/webp"} className="hidden" onChange={handleAvatarUpload} />
         </div>
+
+        {/* GIF avatar upsell for non-Pro */}
+        {!profile.is_pro && (
+          <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-xs font-bold" style={{ color: "#EF9F27" }}>✦</span>
+                <p className="text-xs font-medium text-white/60">Animated GIF avatar</p>
+              </div>
+              <p className="text-xs" style={{ color: muted }}>Like Discord Nitro — exclusive to Pro</p>
+            </div>
+            <Link href="/shop"
+              className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+              style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
+              Upgrade
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* ── Avatar border ── */}
+      <div className="card-solid p-5 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium mb-0.5">Animated avatar border</p>
+            <p className="text-xs" style={{ color: muted }}>Rainbow spinning border · Cosmetics Pack</p>
+          </div>
+          {hasPack ? (
+            /* Toggle switch */
+            <button
+              onClick={() => setAvatarBorder(v => !v)}
+              className="relative flex-shrink-0 w-12 h-6 rounded-full transition-all duration-200"
+              style={{ background: avatarBorder ? "#534AB7" : "rgba(255,255,255,0.1)" }}>
+              <span
+                className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200"
+                style={{ left: avatarBorder ? "calc(100% - 22px)" : "2px" }}
+              />
+            </button>
+          ) : (
+            <Link href="/shop"
+              className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg"
+              style={{ background: "#EF9F2712", color: "#EF9F27", border: "1px solid #EF9F2733" }}>
+              🔒 Get Pack
+            </Link>
+          )}
+        </div>
+
+        {/* Mini preview when pack is owned */}
+        {hasPack && (
+          <div className="mt-4 flex items-center gap-3">
+            <div className={`flex-shrink-0 ${avatarBorder ? "cosmetic-border" : ""}`}>
+              <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
+                style={{
+                  background: avatarUrl ? "transparent" : color + "33",
+                  color,
+                  border: avatarBorder ? "none" : `2px solid ${color}55`,
+                }}>
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  : profile.username.slice(0, 2).toUpperCase()}
+              </div>
+            </div>
+            <p className="text-xs" style={{ color: muted }}>
+              {avatarBorder ? "Border visible on your profile" : "Border hidden"}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Accent color ── */}
@@ -196,7 +295,7 @@ export default function EditProfile() {
             </button>
           ))}
           {/* Sakura — Cosmetics Pack exclusive */}
-          {profile.owned_cosmetics?.includes("pack1") ? (
+          {hasPack ? (
             <button onClick={() => setAccentColor(SAKURA_COLOR.value)}
               className="flex flex-col items-center gap-1.5 transition-all">
               <div className="w-8 h-8 rounded-full transition-all" style={{
@@ -227,7 +326,7 @@ export default function EditProfile() {
           ))}
         </div>
         {/* Exclusive titles — Cosmetics Pack */}
-        {profile.owned_cosmetics?.includes("pack1") ? (
+        {hasPack ? (
           <div className="mt-3 pt-3 border-t border-white/5">
             <p className="text-xs mb-2" style={{ color: "#FF6B9D" }}>✨ Exclusive titles</p>
             <div className="flex flex-wrap gap-2">
@@ -259,21 +358,31 @@ export default function EditProfile() {
         <p className="text-xs mt-1 text-right" style={{ color: muted }}>{bio.length}/160</p>
       </div>
 
-      {/* ── Premium ── */}
-      <div className="card-solid p-5 mb-6 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5" style={{ background: "linear-gradient(135deg,#FFD700,#FF6B35)" }} />
-        <div className="relative">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-lg">✨</span>
-            <p className="text-sm font-semibold">Premium — coming soon</p>
-            <span className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: "#FFD70022", color: "#FFD700", border: "1px solid #FFD70033" }}>Soon</span>
+      {/* ── Pro features banner ── */}
+      {!profile.is_pro && (
+        <div className="card-solid p-5 mb-6 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-5" style={{ background: "linear-gradient(135deg,#EF9F27,#534AB7)" }} />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-base font-bold" style={{ color: "#EF9F27" }}>✦</span>
+              <p className="text-sm font-semibold">KanjiDuel Pro</p>
+              <span className="text-xs px-2 py-0.5 rounded-full"
+                style={{ background: "#EF9F2720", color: "#EF9F27", border: "1px solid #EF9F2733" }}>€2.99/mo</span>
+            </div>
+            <ul className="flex flex-col gap-1.5 mb-4">
+              {["Animated GIF avatar (like Discord Nitro)","ELO history chart","Unlimited match history","Detailed stats by JLPT level","Pro badge on your profile"].map(f => (
+                <li key={f} className="flex items-center gap-2 text-xs" style={{ color: muted }}>
+                  <span style={{ color: "#7F77DD" }}>✓</span> {f}
+                </li>
+              ))}
+            </ul>
+            <Link href="/shop" className="block w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-all"
+              style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
+              Upgrade to Pro
+            </Link>
           </div>
-          <p className="text-xs leading-relaxed" style={{ color: muted }}>
-            Animated GIF banner · Custom avatar frame · Gradient title · Exclusive badges · Unlimited colors
-          </p>
         </div>
-      </div>
+      )}
 
       <button onClick={save} disabled={saving} className="btn-primary w-full"
         style={saved ? { background: "#1D9E75" } : saveError ? { background: "#E24B4A" } : {}}>
