@@ -9,6 +9,7 @@ import { OnlineDot } from "@/contexts/PresenceContext";
 interface Profile {
   id: string; username: string; elo: number;
   avatar_url: string | null; accent_color: string | null; title: string | null;
+  avatar_static_url: string | null;
 }
 interface Friendship {
   id: string;
@@ -47,7 +48,7 @@ export default function FriendsPage() {
       if (!user) { router.push("/login"); return; }
 
       const { data: profile } = await supabase
-        .from("profiles").select("id, username, elo, avatar_url, accent_color, title")
+        .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url")
         .eq("id", user.id).single();
       setMe(profile);
       meRef.current = profile;
@@ -92,7 +93,7 @@ export default function FriendsPage() {
 
     const othersIds = data.map(f => f.requester_id === uid ? f.addressee_id : f.requester_id);
     const { data: profiles } = await supabase
-      .from("profiles").select("id, username, elo, avatar_url, accent_color, title")
+      .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url")
       .in("id", othersIds);
 
     const profileMap: Record<string, Profile> = {};
@@ -116,7 +117,7 @@ export default function FriendsPage() {
       setSearching(true);
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, elo, avatar_url, accent_color, title")
+        .select("id, username, elo, avatar_url, accent_color, title, avatar_static_url")
         .ilike("username", `%${search}%`)
         .neq("id", me?.id ?? "")
         .limit(8);
@@ -260,7 +261,7 @@ export default function FriendsPage() {
                   <div className="relative flex-shrink-0">
                     <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                       style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
-                      {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                      {p.avatar_url ? <img src={p.avatar_static_url ?? p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                     </div>
                     <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={p.id} size={9} /></span>
                   </div>
@@ -311,7 +312,7 @@ export default function FriendsPage() {
                 <div className="relative flex-shrink-0">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                     style={{ background: color + "33", color, border: `1.5px solid ${color}44` }}>
-                    {f.other.avatar_url ? <img src={f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                    {f.other.avatar_url ? <img src={f.other.avatar_static_url ?? f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={9} /></span>
                 </div>
@@ -356,7 +357,7 @@ export default function FriendsPage() {
                 <div className="relative flex-shrink-0">
                   <Link href={`/user/${f.other.username}`} className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold hover:opacity-80 transition-opacity block"
                     style={{ background: color + "33", color, border: `2px solid ${color}44` }}>
-                    {f.other.avatar_url ? <img src={f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                    {f.other.avatar_url ? <img src={f.other.avatar_static_url ?? f.other.avatar_url} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
                   </Link>
                   <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={10} /></span>
                 </div>

@@ -9,10 +9,12 @@ interface Profile {
   id: string; username: string; elo: number;
   wins: number; losses: number; draws: number;
   avatar_url: string | null; accent_color: string | null;
+  avatar_static_url: string | null;
 }
 interface MonthlyEntry {
   id: string; username: string; elo: number;
   avatar_url: string | null; accent_color: string | null;
+  avatar_static_url: string | null;
   gained: number; wins: number;
 }
 
@@ -33,7 +35,7 @@ export default function Leaderboard() {
       // All-time
       let query = supabase
         .from("profiles")
-        .select("id, username, elo, wins, losses, draws, avatar_url, accent_color")
+        .select("id, username, elo, wins, losses, draws, avatar_url, accent_color, avatar_static_url")
         .order("elo", { ascending: false })
         .limit(50);
       if (search.trim()) query = query.ilike("username", `%${search}%`);
@@ -63,7 +65,7 @@ export default function Leaderboard() {
         }
         const ids = Object.keys(gainMap);
         const { data: profiles } = await supabase
-          .from("profiles").select("id,username,elo,avatar_url,accent_color").in("id", ids);
+          .from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url").in("id", ids);
         const entries: MonthlyEntry[] = (profiles ?? []).map((p: any) => ({
           ...p, gained: gainMap[p.id]?.gained ?? 0, wins: gainMap[p.id]?.wins ?? 0,
         })).sort((a: MonthlyEntry, b: MonthlyEntry) => b.gained - a.gained).slice(0, 50);
@@ -153,7 +155,7 @@ export default function Leaderboard() {
                 <div className="relative flex-shrink-0">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
                     style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: `1.5px solid ${isLive ? "#1D9E75" : (p.accent_color ?? tier.color) + "33"}` }}>
-                    {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                    {p.avatar_url ? <img src={p.avatar_static_url ?? p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5">
                     <OnlineDot userId={p.id} size={9} />
@@ -200,7 +202,7 @@ export default function Leaderboard() {
                 <div className="relative flex-shrink-0">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
                     style={{ background: color + "33", color, border: `1.5px solid ${isLive ? "#1D9E75" : color + "33"}` }}>
-                    {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                    {p.avatar_url ? <img src={p.avatar_static_url ?? p.avatar_url} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5">
                     <OnlineDot userId={p.id} size={9} />

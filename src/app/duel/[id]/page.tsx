@@ -22,6 +22,7 @@ interface Room {
 interface Profile {
   id: string; username: string; elo: number;
   avatar_url?: string | null; accent_color?: string | null;
+  avatar_static_url?: string | null;
 }
 type Phase = "loading"|"waiting"|"playing"|"result"|"finished";
 interface RoundLog { winner: "me"|"opp"|"time"; word: VocabWord; answer: string; }
@@ -162,8 +163,8 @@ export default function DuelPage() {
 
       const oppId = isP1.current?rd.player2_id:rd.player1_id;
       const [mp,op] = await Promise.all([
-        supabase.from("profiles").select("id,username,elo,avatar_url,accent_color").eq("id",user.id).single(),
-        oppId ? supabase.from("profiles").select("id,username,elo,avatar_url,accent_color").eq("id",oppId).single()
+        supabase.from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url").eq("id",user.id).single(),
+        oppId ? supabase.from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url").eq("id",oppId).single()
               : Promise.resolve({data:null}),
       ]);
       setMe(mp.data); if(op.data) setOpp(op.data);
@@ -248,7 +249,7 @@ export default function DuelPage() {
     // opp just joined
     if(r.status==="active" && r.player2_id && !oppR.current){
       const oid = isP1.current?r.player2_id:r.player1_id;
-      supabase.from("profiles").select("id,username,elo,avatar_url,accent_color").eq("id",oid).single()
+      supabase.from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url").eq("id",oid).single()
         .then(({data})=>{ if(data){ setOpp(data); setOppEloStart(data.elo); } });
       if(isP1.current){ setPhase("playing"); nextWord(); }
       else setPhase("playing");
@@ -563,7 +564,7 @@ export default function DuelPage() {
               )}
               <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                 style={{background:myC+"33",color:myC,border:`1.5px solid ${myC}44`}}>
-                {me?.avatar_url?<img src={me.avatar_url} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
+                {me?.avatar_url?<img src={me.avatar_static_url??me.avatar_url} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
               </div>
             </div>
             <div>
@@ -593,7 +594,7 @@ export default function DuelPage() {
               )}
               <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                 style={{background:opC+"33",color:opC,border:`1.5px solid ${opC}44`}}>
-                {opp?.avatar_url?<img src={opp.avatar_url} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
+                {opp?.avatar_url?<img src={opp.avatar_static_url??opp.avatar_url} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
               </div>
             </div>
           </div>
@@ -825,7 +826,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
           <div className="flex flex-col items-center gap-1">
             <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold"
               style={{background:(me?.accent_color??"#534AB7")+"33",color:me?.accent_color??"#7F77DD",border:`2px solid ${me?.accent_color??"#534AB7"}44`}}>
-              {me?.avatar_url?<img src={me.avatar_url} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
+              {me?.avatar_url?<img src={me.avatar_static_url??me.avatar_url} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
             </div>
             <p className="text-xs text-white/50">{me?.username??"You"}</p>
           </div>
@@ -833,7 +834,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
           <a href={`/user/${opp?.username}`} className="flex flex-col items-center gap-1 hover:opacity-80">
             <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold"
               style={{background:(opp?.accent_color??"#D85A30")+"33",color:opp?.accent_color??"#D85A30",border:`2px solid ${opp?.accent_color??"#D85A30"}44`}}>
-              {opp?.avatar_url?<img src={opp.avatar_url} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
+              {opp?.avatar_url?<img src={opp.avatar_static_url??opp.avatar_url} alt="" className="w-full h-full object-cover"/>:(opp?.username??"?").slice(0,2).toUpperCase()}
             </div>
             <p className="text-xs text-white/50">{opp?.username??"?"}</p>
           </a>
