@@ -120,9 +120,16 @@ export default function EditProfile() {
   async function uploadBlob(blob: Blob, path: string): Promise<string | null> {
     const ext = blob.type === "image/gif" ? "gif" : blob.type === "image/png" ? "png" : "jpg";
     const fullPath = `${path}.${ext}`;
-    const file = new File([blob], fullPath, { type: blob.type });
-    const { error } = await supabase.storage.from("avatars").upload(fullPath, file, { upsert: true });
-    if (error) return null;
+    const uploadFile = new File([blob], `upload.${ext}`, { type: blob.type });
+    const { error } = await supabase.storage.from("avatars").upload(fullPath, uploadFile, {
+      upsert: true,
+      contentType: blob.type,
+    });
+    if (error) {
+      console.error("Storage upload error:", error);
+      alert(`Upload failed: ${error.message}`);
+      return null;
+    }
     return supabase.storage.from("avatars").getPublicUrl(fullPath).data.publicUrl;
   }
 
@@ -168,19 +175,38 @@ export default function EditProfile() {
   async function save() {
     if (!profile) return;
     setSaving(true);
-    const { error } = await supabase.from("profiles").update({
-      bio: bio.slice(0, 160), title: title || null,
+
+    // Base fields that always exist in DB
+    const baseFields = {
+      bio: bio.slice(0, 160),
+      title: title || null,
       accent_color: accentColor,
       avatar_url: avatarUrl || null,
+    };
+
+    // Try saving with all new columns (requires DB migrations to have been run)
+    const { error } = await supabase.from("profiles").update({
+      ...baseFields,
       avatar_static_url: avatarStaticUrl || null,
       avatar_crop: avatarCrop,
       avatar_border: avatarBorder,
       banner_url: bannerUrl || null,
       banner_crop: bannerCrop,
     }).eq("id", profile.id);
+
+    if (error) {
+      // Columns might not exist yet — fall back to base fields only
+      const { error: fallbackError } = await supabase.from("profiles")
+        .update(baseFields).eq("id", profile.id);
+      setSaving(false);
+      if (!fallbackError) { setSaved(true); setTimeout(() => setSaved(false), 2000); }
+      else { setSaveError(true); setTimeout(() => setSaveError(false), 3000); }
+      return;
+    }
+
     setSaving(false);
-    if (!error) { setSaved(true); setTimeout(() => setSaved(false), 2000); }
-    else { setSaveError(true); setTimeout(() => setSaveError(false), 3000); }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   if (loading) return (

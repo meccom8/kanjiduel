@@ -131,15 +131,23 @@ export default function CropModal({ file, shape, onConfirm, onCancel }: CropModa
   }
 
   const handleConfirm = async () => {
-    if (isGif) {
-      // Store position/zoom values; also extract static frame
-      const txPct = tx / W;
-      const tyPct = ty / H;
-      const staticBlob = await gifFirstFrame(file);
-      onConfirm({ blob: file, isGif: true, crop: { tx: txPct, ty: tyPct, zoom }, staticBlob });
-    } else {
-      const blob = await drawToCanvas();
-      onConfirm({ blob, isGif: false });
+    try {
+      if (isGif) {
+        const txPct = tx / W;
+        const tyPct = ty / H;
+        const staticBlob = await gifFirstFrame(file);
+        onConfirm({ blob: file, isGif: true, crop: { tx: txPct, ty: tyPct, zoom }, staticBlob });
+      } else {
+        if (!imgRef.current || imgRef.current.naturalWidth === 0) {
+          alert("Image not loaded yet, please wait a moment and try again.");
+          return;
+        }
+        const blob = await drawToCanvas();
+        onConfirm({ blob, isGif: false });
+      }
+    } catch (err) {
+      console.error("CropModal error:", err);
+      alert("Failed to process image. Please try again.");
     }
   };
 
