@@ -233,7 +233,7 @@ export default function UserProfile() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, elo, wins, losses, draws, streak, best_streak, avatar_url, bio, title, accent_color, is_pro, owned_cosmetics, avatar_border, banner_url")
+        .select("*")
         .eq("username", username)
         .single();
 

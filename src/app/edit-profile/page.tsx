@@ -68,7 +68,7 @@ export default function EditProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       const { data } = await supabase.from("profiles")
-        .select("id,username,elo,avatar_url,bio,title,accent_color,owned_cosmetics,is_pro,avatar_border,banner_url")
+        .select("*")
         .eq("id", user.id).single();
       if (data) {
         setProfile(data); setBio(data.bio ?? ""); setTitle(data.title ?? "");
