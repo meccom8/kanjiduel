@@ -7,12 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { OnlineDot } from "@/contexts/PresenceContext";
 import { gifCropStyle } from "@/components/CropModal";
 import { getBorderClass, RANK_BADGE_DEFS, SPECIAL_BADGE_DEFS, RARITY_COLORS } from "@/lib/cosmetics";
-
-function safeAvatar(avatar_url: string | null | undefined, avatar_static_url: string | null | undefined): string | null {
-  if (avatar_static_url) return avatar_static_url;
-  if (avatar_url?.toLowerCase().endsWith(".gif")) return null;
-  return avatar_url ?? null;
-}
+import { resolveAvatar } from "@/lib/avatar";
 
 interface Profile {
   id: string;
@@ -468,7 +463,8 @@ export default function UserProfile() {
           ?? (profile.avatar_border !== false ? "rainbow" : null);
         const borderClass = profile.owned_cosmetics?.includes("pack1")
           ? getBorderClass(effectiveBorderStyle) : "";
-        const hasBanner = !!profile.banner_url;
+        const hasBanner = !!profile.banner_url && !!profile.is_pro;
+        const avatarSrc = resolveAvatar(profile.avatar_url, profile.avatar_static_url, profile.is_pro);
         const avatarInner = (
           <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold"
             style={{
@@ -477,14 +473,14 @@ export default function UserProfile() {
               border: borderClass ? "none" : `2px solid ${accentColor}55`,
               boxShadow: (hasBanner && !borderClass) ? "0 0 0 4px #0d0d1a" : "none",
             }}>
-            {safeAvatar(profile.avatar_url, profile.avatar_static_url)
-              ? <img src={safeAvatar(profile.avatar_url, profile.avatar_static_url)!} alt="avatar" className="w-full h-full object-cover" style={gifCropStyle(profile.avatar_crop, 64, 64)} />
+            {avatarSrc
+              ? <img src={avatarSrc} alt="avatar" className="w-full h-full object-cover" style={avatarSrc === profile.avatar_url ? gifCropStyle(profile.avatar_crop, 64, 64) : undefined} />
               : profile.username.slice(0, 2).toUpperCase()}
           </div>
         );
         return (
           <div className="card-solid overflow-hidden mb-4 slide-up relative" style={{ border: `1px solid ${accentColor}22` }}>
-            {/* Banner */}
+            {/* Banner — only shown for Pro users */}
             {hasBanner && (
               <div className="w-full overflow-hidden relative" style={{ height: 150 }}>
                 <img src={profile.banner_url!} alt="" className="w-full h-full object-cover" style={gifCropStyle(profile.banner_crop, 400, 150)} loading="eager" />

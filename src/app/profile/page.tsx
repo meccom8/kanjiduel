@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { OnlineDot } from "@/contexts/PresenceContext";
 import { gifCropStyle } from "@/components/CropModal";
 import { getBorderClass, RANK_BADGE_DEFS, SPECIAL_BADGE_DEFS, RARITY_COLORS } from "@/lib/cosmetics";
+import { resolveAvatar } from "@/lib/avatar";
 
 interface Profile {
   id: string; username: string; elo: number;
@@ -321,7 +322,7 @@ export default function ProfilePage() {
           ?? (profile.avatar_border !== false ? "rainbow" : null);
         const borderClass = profile.owned_cosmetics?.includes("pack1")
           ? getBorderClass(effectiveBorderStyle) : "";
-        const hasBanner = !!profile.banner_url;
+        const hasBanner = !!profile.banner_url && !!profile.is_pro;
         const avatarInner = (
           <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold"
             style={{
@@ -331,9 +332,7 @@ export default function ProfilePage() {
               boxShadow: (hasBanner && !borderClass) ? "0 0 0 4px #0d0d1a" : "none",
             }}>
             {(() => {
-              const src = profile.is_pro
-                ? profile.avatar_url
-                : profile.avatar_static_url ?? (profile.avatar_url?.toLowerCase().endsWith(".gif") ? null : profile.avatar_url);
+              const src = resolveAvatar(profile.avatar_url, profile.avatar_static_url, profile.is_pro);
               return src
                 ? <img src={src} alt="avatar" className="w-full h-full object-cover" style={src === profile.avatar_url ? gifCropStyle(profile.avatar_crop, 64, 64) : undefined} />
                 : profile.username.slice(0, 2).toUpperCase();

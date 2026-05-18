@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase";
 import { getTier, winRate } from "@/lib/elo";
 import Link from "next/link";
 import { getBorderClass } from "@/lib/cosmetics";
+import { resolveAvatar } from "@/lib/avatar";
 
 interface Profile {
   id: string;
@@ -100,9 +101,7 @@ export default function Home() {
                     <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold transition-opacity group-hover:opacity-75 cursor-pointer"
                       style={{ background: (profile.accent_color ?? tier.bg) + "33", color: profile.accent_color ?? tier.color, border: borderCls ? "none" : `1.5px solid ${profile.accent_color ?? tier.color}44` }}>
                       {(() => {
-                        const src = profile.is_pro
-                          ? profile.avatar_url
-                          : profile.avatar_static_url ?? (profile.avatar_url?.toLowerCase().endsWith(".gif") ? null : profile.avatar_url);
+                        const src = resolveAvatar(profile.avatar_url, profile.avatar_static_url, profile.is_pro);
                         return src
                           ? <img src={src} alt="avatar" className="w-full h-full object-cover" />
                           : profile.username.slice(0, 2).toUpperCase();

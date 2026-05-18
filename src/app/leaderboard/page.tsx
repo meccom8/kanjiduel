@@ -5,6 +5,7 @@ import { getTier, winRate } from "@/lib/elo";
 import Link from "next/link";
 import { OnlineDot } from "@/contexts/PresenceContext";
 import { getBorderClass } from "@/lib/cosmetics";
+import { resolveAvatar } from "@/lib/avatar";
 
 interface Profile {
   id: string; username: string; elo: number;
@@ -13,6 +14,7 @@ interface Profile {
   avatar_static_url: string | null;
   avatar_border_style: string | null;
   owned_cosmetics: string[] | null;
+  is_pro: boolean | null;
 }
 interface MonthlyEntry {
   id: string; username: string; elo: number;
@@ -20,17 +22,11 @@ interface MonthlyEntry {
   avatar_static_url: string | null;
   avatar_border_style: string | null;
   owned_cosmetics: string[] | null;
+  is_pro: boolean | null;
   gained: number; wins: number;
 }
 
 const MEDALS = ["🥇", "🥈", "🥉"];
-
-/** Returns a non-animated avatar URL, or null if the only option is a GIF without a static fallback */
-function safeAvatar(avatar_url: string | null | undefined, avatar_static_url: string | null | undefined): string | null {
-  if (avatar_static_url) return avatar_static_url;
-  if (avatar_url?.toLowerCase().endsWith(".gif")) return null;
-  return avatar_url ?? null;
-}
 
 export default function Leaderboard() {
   const [players, setPlayers] = useState<Profile[]>([]);
@@ -47,7 +43,7 @@ export default function Leaderboard() {
       // All-time
       let query = supabase
         .from("profiles")
-        .select("id, username, elo, wins, losses, draws, avatar_url, accent_color, avatar_static_url, avatar_border_style, owned_cosmetics")
+        .select("id, username, elo, wins, losses, draws, avatar_url, accent_color, avatar_static_url, avatar_border_style, owned_cosmetics, is_pro")
         .order("elo", { ascending: false })
         .limit(50);
       if (search.trim()) query = query.ilike("username", `%${search}%`);
@@ -77,7 +73,7 @@ export default function Leaderboard() {
         }
         const ids = Object.keys(gainMap);
         const { data: profiles } = await supabase
-          .from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url,avatar_border_style,owned_cosmetics").in("id", ids);
+          .from("profiles").select("id,username,elo,avatar_url,accent_color,avatar_static_url,avatar_border_style,owned_cosmetics,is_pro").in("id", ids);
         const entries: MonthlyEntry[] = (profiles ?? []).map((p: any) => ({
           ...p, gained: gainMap[p.id]?.gained ?? 0, wins: gainMap[p.id]?.wins ?? 0,
         })).sort((a: MonthlyEntry, b: MonthlyEntry) => b.gained - a.gained).slice(0, 50);
@@ -169,7 +165,7 @@ export default function Leaderboard() {
                   <div className={borderCls || "relative"}>
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
                     style={{ background: (p.accent_color ?? tier.bg) + "33", color: p.accent_color ?? tier.color, border: borderCls ? "none" : `1.5px solid ${isLive ? "#1D9E75" : (p.accent_color ?? tier.color) + "33"}` }}>
-                    {safeAvatar(p.avatar_url, p.avatar_static_url) ? <img src={safeAvatar(p.avatar_url, p.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                    {resolveAvatar(p.avatar_url, p.avatar_static_url, p.is_pro) ? <img src={resolveAvatar(p.avatar_url, p.avatar_static_url, p.is_pro)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                   </div>
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5">
@@ -219,7 +215,7 @@ export default function Leaderboard() {
                   <div className={borderClsM || "relative"}>
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-semibold"
                     style={{ background: color + "33", color, border: borderClsM ? "none" : `1.5px solid ${isLive ? "#1D9E75" : color + "33"}` }}>
-                    {safeAvatar(p.avatar_url, p.avatar_static_url) ? <img src={safeAvatar(p.avatar_url, p.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                    {resolveAvatar(p.avatar_url, p.avatar_static_url, p.is_pro) ? <img src={resolveAvatar(p.avatar_url, p.avatar_static_url, p.is_pro)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                   </div>
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5">

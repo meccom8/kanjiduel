@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { OnlineDot } from "@/contexts/PresenceContext";
 import { getBorderClass } from "@/lib/cosmetics";
+import { resolveAvatar } from "@/lib/avatar";
 
 interface Profile {
   id: string; username: string; elo: number;
@@ -13,18 +14,13 @@ interface Profile {
   avatar_static_url: string | null;
   avatar_border_style: string | null;
   owned_cosmetics: string[] | null;
+  is_pro: boolean | null;
 }
 interface Friendship {
   id: string;
   requester_id: string; addressee_id: string;
   status: string; created_at: string;
   other: Profile;
-}
-
-function safeAvatar(avatar_url: string | null | undefined, avatar_static_url: string | null | undefined): string | null {
-  if (avatar_static_url) return avatar_static_url;
-  if (avatar_url?.toLowerCase().endsWith(".gif")) return null;
-  return avatar_url ?? null;
 }
 
 export default function FriendsPage() {
@@ -57,7 +53,7 @@ export default function FriendsPage() {
       if (!user) { router.push("/login"); return; }
 
       const { data: profile } = await supabase
-        .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url, avatar_border_style, owned_cosmetics")
+        .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url, avatar_border_style, owned_cosmetics, is_pro")
         .eq("id", user.id).single();
       setMe(profile);
       meRef.current = profile;
@@ -102,7 +98,7 @@ export default function FriendsPage() {
 
     const othersIds = data.map(f => f.requester_id === uid ? f.addressee_id : f.requester_id);
     const { data: profiles } = await supabase
-      .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url, avatar_border_style, owned_cosmetics")
+      .from("profiles").select("id, username, elo, avatar_url, accent_color, title, avatar_static_url, avatar_border_style, owned_cosmetics, is_pro")
       .in("id", othersIds);
 
     const profileMap: Record<string, Profile> = {};
@@ -126,7 +122,7 @@ export default function FriendsPage() {
       setSearching(true);
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, elo, avatar_url, accent_color, title, avatar_static_url, avatar_border_style, owned_cosmetics")
+        .select("id, username, elo, avatar_url, accent_color, title, avatar_static_url, avatar_border_style, owned_cosmetics, is_pro")
         .ilike("username", `%${search}%`)
         .neq("id", me?.id ?? "")
         .limit(8);
@@ -283,7 +279,7 @@ export default function FriendsPage() {
                     <div className={searchBorderCls || "relative"}>
                     <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                       style={{ background: color + "33", color, border: searchBorderCls ? "none" : `1.5px solid ${color}44` }}>
-                      {safeAvatar(p.avatar_url, p.avatar_static_url) ? <img src={safeAvatar(p.avatar_url, p.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
+                      {resolveAvatar(p.avatar_url, p.avatar_static_url, p.is_pro) ? <img src={resolveAvatar(p.avatar_url, p.avatar_static_url, p.is_pro)!} alt="" className="w-full h-full object-cover" /> : p.username.slice(0, 2).toUpperCase()}
                     </div>
                     </div>
                     <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={p.id} size={9} /></span>
@@ -337,7 +333,7 @@ export default function FriendsPage() {
                   <div className={pendingBorderCls || "relative"}>
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold"
                     style={{ background: color + "33", color, border: pendingBorderCls ? "none" : `1.5px solid ${color}44` }}>
-                    {safeAvatar(f.other.avatar_url, f.other.avatar_static_url) ? <img src={safeAvatar(f.other.avatar_url, f.other.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                    {resolveAvatar(f.other.avatar_url, f.other.avatar_static_url, f.other.is_pro) ? <img src={resolveAvatar(f.other.avatar_url, f.other.avatar_static_url, f.other.is_pro)!} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
                   </div>
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={9} /></span>
@@ -385,7 +381,7 @@ export default function FriendsPage() {
                   <div className={friendBorderCls || "relative"}>
                   <Link href={`/user/${f.other.username}`} className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold hover:opacity-80 transition-opacity block"
                     style={{ background: color + "33", color, border: friendBorderCls ? "none" : `2px solid ${color}44` }}>
-                    {safeAvatar(f.other.avatar_url, f.other.avatar_static_url) ? <img src={safeAvatar(f.other.avatar_url, f.other.avatar_static_url)!} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
+                    {resolveAvatar(f.other.avatar_url, f.other.avatar_static_url, f.other.is_pro) ? <img src={resolveAvatar(f.other.avatar_url, f.other.avatar_static_url, f.other.is_pro)!} alt="" className="w-full h-full object-cover" /> : f.other.username.slice(0, 2).toUpperCase()}
                   </Link>
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5"><OnlineDot userId={f.other.id} size={10} /></span>
