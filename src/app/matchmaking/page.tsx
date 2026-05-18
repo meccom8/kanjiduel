@@ -3,58 +3,38 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
-const ELO_RANGE_START = 200;
-const ELO_RANGE_EXPAND = 100;
-const MAX_ELO_RANGE = 1000;
-
 export default function Matchmaking() {
   const [dots, setDots] = useState(".");
   const [userId, setUserId] = useState<string | null>(null);
-  const [myElo, setMyElo] = useState<number>(500);
+  const [myElo, setMyElo] = useState<number | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [searchTime, setSearchTime] = useState(0);
 
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const searchRef = useRef<NodeJS.Timeout | null>(null);
-  const searchedRef = useRef(false);
   const matchFoundRef = useRef(false);
   const roomIdRef = useRef<string | null>(null);
-  const userIdRef = useRef<string | null>(null);
   const channelRef = useRef<any>(null);
-  const cleaningUpRef = useRef(false);
+  const tokenRef = useRef<string>("");
 
   const router = useRouter();
   const supabase = createClient();
 
-  // ── Cleanup — supprime la room waiting directement ────────────────────────
+  // ── Cleanup: delete our waiting room ──────────────────────────────────────
   async function cleanupRoom() {
     if (matchFoundRef.current) return;
-    if (cleaningUpRef.current) return;
-    cleaningUpRef.current = true;
-
-    const uid = userIdRef.current;
+    const uid = userId;
     const rid = roomIdRef.current;
-
-    try {
-      if (rid) {
-        await supabase.from("rooms")
-          .delete()
-          .eq("id", rid)
-          .eq("status", "waiting");
-      }
-      if (uid) {
-        await supabase.from("rooms")
-          .delete()
-          .eq("player1_id", uid)
-          .eq("status", "waiting");
-      }
-    } catch {}
-
     if (channelRef.current) {
       try { channelRef.current.unsubscribe(); } catch {}
       channelRef.current = null;
     }
-    cleaningUpRef.current = false;
+    if (!uid && !rid) return;
+    try {
+      await fetch("/api/cleanup-room?" + new URLSearchParams({
+        roomId: rid ?? "", userId: uid ?? "",
+      }), { method: "POST" });
+    } catch {}
   }
 
   // ── Unmount cleanup ────────────────────────────────────────────────────────
@@ -66,80 +46,74 @@ export default function Matchmaking() {
     };
   }, []);
 
-  // ── Visibility change: cleanup when tab hidden/closed ─────────────────────
-  // More reliable than beforeunload on mobile and modern browsers
+  // ── Visibility change ─────────────────────────────────────────────────────
   useEffect(() => {
-    function handleVisibility() {
+    function handle() {
       if (document.visibilityState === "hidden" && !matchFoundRef.current) {
         cleanupRoom();
       }
     }
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    document.addEventListener("visibilitychange", handle);
+    return () => document.removeEventListener("visibilitychange", handle);
   }, []);
 
-  // ── beforeunload: last resort cleanup ─────────────────────────────────────
+  // ── beforeunload ──────────────────────────────────────────────────────────
   useEffect(() => {
-    function handleUnload() {
+    function handle() {
       if (matchFoundRef.current) return;
       const rid = roomIdRef.current;
-      const uid = userIdRef.current;
-      // sendBeacon as last resort (may not work on all platforms)
+      const uid = userId;
       if (rid || uid) {
         const url = `/api/cleanup-room?roomId=${rid ?? ""}&userId=${uid ?? ""}`;
         try { navigator.sendBeacon(url); } catch {}
       }
     }
-    window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
-  }, []);
+    window.addEventListener("beforeunload", handle);
+    return () => window.removeEventListener("beforeunload", handle);
+  }, [userId]);
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-      setUserId(user.id);
-      userIdRef.current = user.id;
 
-      // Cleanup our own stale rooms immediately on load
+      const { data: { session } } = await supabase.auth.getSession();
+      tokenRef.current = session?.access_token ?? "";
+
+      // Delete any stale own rooms from previous sessions
       await supabase.from("rooms")
-        .delete()
-        .eq("player1_id", user.id)
-        .eq("status", "waiting");
-
-      // Also trigger server-side cleanup of ALL stale rooms (via RPC if available)
-      try {
-        await supabase.rpc("cleanup_stale_rooms");
-      } catch {}
+        .delete().eq("player1_id", user.id).eq("status", "waiting");
 
       const { data: profile } = await supabase
         .from("profiles").select("elo").eq("id", user.id).single();
+
+      setUserId(user.id);
       setMyElo(profile?.elo ?? 500);
     })();
   }, []);
 
-  // ── Start search once userId + myElo ready ─────────────────────────────────
+  // ── Start search once userId + myElo ready ────────────────────────────────
   useEffect(() => {
-    if (userId && myElo && !searchedRef.current) {
-      searchedRef.current = true;
+    if (userId && myElo !== null) {
       startSearch(userId, myElo, 0);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, myElo]);
 
-  // ── Dots animation ─────────────────────────────────────────────────────────
+  // ── Dots animation ────────────────────────────────────────────────────────
   useEffect(() => {
     const i = setInterval(() => setDots(d => d.length >= 3 ? "." : d + "."), 500);
     return () => clearInterval(i);
   }, []);
 
-  // ── Search timer ───────────────────────────────────────────────────────────
+  // ── Search timer ──────────────────────────────────────────────────────────
   useEffect(() => {
     const t = setInterval(() => setSearchTime(s => s + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // ── Poll for room activation ───────────────────────────────────────────────
+  // ── Poll for room activation (backup, in case realtime misses) ─────────────
   useEffect(() => {
     if (!roomId) return;
     pollRef.current = setInterval(async () => {
@@ -155,138 +129,62 @@ export default function Matchmaking() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [roomId]);
 
-  // ── Core search ────────────────────────────────────────────────────────────
+  // ── Subscribe to realtime updates on our waiting room ────────────────────
+  function setupRealtime(rid: string) {
+    if (channelRef.current) return; // already subscribed
+    const ch = supabase
+      .channel(`room-wait-${rid}`)
+      .on("postgres_changes", {
+        event: "UPDATE", schema: "public", table: "rooms",
+        filter: `id=eq.${rid}`,
+      }, (payload) => {
+        if (payload.new.status === "active") {
+          matchFoundRef.current = true;
+          ch.unsubscribe();
+          if (pollRef.current) clearInterval(pollRef.current);
+          router.push(`/duel/${rid}`);
+        }
+      }).subscribe();
+    channelRef.current = ch;
+  }
+
+  // ── Core search — delegates all DB writes to the server-side API ──────────
   async function startSearch(uid: string, elo: number, elapsed: number) {
     if (matchFoundRef.current) return;
 
-    const currentRange = Math.min(
-      MAX_ELO_RANGE,
-      ELO_RANGE_START + Math.floor(elapsed / 10) * ELO_RANGE_EXPAND,
-    );
-    const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
+    try {
+      const res = await fetch("/api/matchmake", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${tokenRef.current}`,
+        },
+        body: JSON.stringify({ userId: uid, elo, elapsed }),
+      });
 
-    // Clean stale rooms older than 60s
-    await supabase.from("rooms")
-      .delete()
-      .eq("status", "waiting")
-      .lt("created_at", sixtySecondsAgo)
-      .is("player2_id", null);
+      if (res.ok) {
+        const data = await res.json();
 
-    // Look for waiting rooms created in the last 60s
-    const { data: waitingRooms } = await supabase
-      .from("rooms")
-      .select("id, player1_id")
-      .eq("status", "waiting")
-      .neq("player1_id", uid)
-      .gt("created_at", sixtySecondsAgo)
-      .is("player2_id", null)
-      .order("created_at", { ascending: true })
-      .limit(20);
-
-    // Find best ELO match
-    let bestRoom: any = null;
-    let bestDiff = currentRange + 1;
-    for (const room of waitingRooms ?? []) {
-      const { data: oppProfile } = await supabase
-        .from("profiles").select("elo").eq("id", room.player1_id).single();
-      const oppElo = oppProfile?.elo ?? 500;
-      const diff = Math.abs(oppElo - elo);
-      if (diff <= currentRange && diff < bestDiff) {
-        bestDiff = diff; bestRoom = room;
-      }
-    }
-
-    if (bestRoom) {
-      // Tiebreaker: prevent the simultaneous-join race where both players find
-      // each other's rooms and both try to join at the same time, landing in
-      // two separate active rooms that never start.
-      //
-      // Rule: if BOTH players have waiting rooms, only the player with the
-      // lexicographically-LOWER uid joins. The other waits for their room to
-      // be filled. If only one player has a room, the other always joins.
-      //
-      // IMPORTANT: we join FIRST, then clean up our own room afterwards.
-      // Deleting before joining caused a deadlock (if join fails → no room →
-      // higher-UUID player keeps skipping the recreated room forever).
-      const iHaveRoom = !!roomIdRef.current;
-      const shouldJoin = !iHaveRoom || uid < bestRoom.player1_id;
-
-      if (shouldJoin) {
-        const { error } = await supabase.from("rooms")
-          .update({ player2_id: uid, status: "active" })
-          .eq("id", bestRoom.id)
-          .eq("status", "waiting");
-
-        if (!error) {
-          // Successfully joined — clean up own waiting room then navigate
+        if (data.action === "joined") {
+          // We joined someone else's room — navigate immediately
           matchFoundRef.current = true;
-          if (roomIdRef.current) {
-            await supabase.from("rooms")
-              .delete().eq("id", roomIdRef.current).eq("status", "waiting");
-            if (channelRef.current) {
-              try { channelRef.current.unsubscribe(); } catch {}
-              channelRef.current = null;
-            }
-            roomIdRef.current = null;
-            setRoomId(null);
-          }
-          router.push(`/duel/${bestRoom.id}`);
+          if (searchRef.current) clearTimeout(searchRef.current);
+          router.push(`/duel/${data.roomId}`);
           return;
         }
-        // error → room was taken or deleted, keep own room and retry
-      }
-      // shouldJoin=false → wait, the lower-UUID opponent will join our room
-    }
 
-    // No match — create our waiting room if we don't have one yet
-    if (!roomIdRef.current) {
-      // Check first to avoid unique constraint error in console
-      const { data: existing } = await supabase
-        .from("rooms")
-        .select("id")
-        .eq("player1_id", uid)
-        .eq("status", "waiting")
-        .is("player2_id", null)
-        .maybeSingle();
-
-      if (existing) {
-        // Room already exists (e.g. from a previous session) — reuse it
-        roomIdRef.current = existing.id;
-        setRoomId(existing.id);
-      } else {
-        const { data: newRoom } = await supabase
-          .from("rooms")
-          .insert({ player1_id: uid, status: "waiting", category: "all", rounds: 11 })
-          .select().single();
-        if (newRoom) {
-          roomIdRef.current = newRoom.id;
-          setRoomId(newRoom.id);
+        if (data.action === "waiting" && data.roomId) {
+          if (!roomIdRef.current) {
+            // First time we have a room — set up realtime + poll
+            roomIdRef.current = data.roomId;
+            setRoomId(data.roomId);
+            setupRealtime(data.roomId);
+          }
+          // (else: heartbeat was done server-side, nothing to do)
         }
       }
-
-      const rid = roomIdRef.current;
-      if (rid && !channelRef.current) {
-        const channel = supabase
-          .channel(`room-wait-${rid}`)
-          .on("postgres_changes", {
-            event: "UPDATE", schema: "public", table: "rooms",
-            filter: `id=eq.${rid}`,
-          }, (payload) => {
-            if (payload.new.status === "active") {
-              matchFoundRef.current = true;
-              channel.unsubscribe();
-              if (pollRef.current) clearInterval(pollRef.current);
-              router.push(`/duel/${rid}`);
-            }
-          }).subscribe();
-        channelRef.current = channel;
-      }
-    } else {
-      // Heartbeat: refresh created_at so we're not deleted as stale
-      await supabase.from("rooms")
-        .update({ created_at: new Date().toISOString() })
-        .eq("id", roomIdRef.current)
-        .eq("status", "waiting");
+    } catch {
+      // Network error — retry normally
     }
 
     // Retry in 3s
@@ -313,7 +211,7 @@ export default function Matchmaking() {
       <div className="card-solid w-full max-w-sm p-8 slide-up text-center">
         <div className="font-jp text-5xl mb-6 animate-pulse text-accent2">漢</div>
         <p className="text-lg font-medium mb-2">Finding a match{dots}</p>
-        <p className="text-white/40 text-sm mb-1">Searching near {myElo} ELO</p>
+        <p className="text-white/40 text-sm mb-1">Searching near {myElo ?? "..."} ELO</p>
         <p className="text-white/20 text-xs mb-6">
           ±{currentRange} ELO range{searchTime >= 15 ? " (expanding...)" : ""}
         </p>
@@ -329,3 +227,7 @@ export default function Matchmaking() {
     </main>
   );
 }
+
+const ELO_RANGE_START = 200;
+const ELO_RANGE_EXPAND = 100;
+const MAX_ELO_RANGE = 1000;
