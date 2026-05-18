@@ -14,18 +14,18 @@ const COSMETICS_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_COSMETICS_PRICE_ID ?? 
 
 const PRO_FEATURES = [
   "✦ Pro gold badge on your profile",
-  "Animated GIF avatar (like Discord Nitro)",
+  "Animated GIF avatar & profile banner",
   "ELO history chart on your profile",
-  "Unlimited match history",
   "Detailed stats by JLPT category",
+  "Full match history",
   "Early access to new features",
 ];
 
 const COSMETICS_FEATURES = [
   "Animated border on your avatar",
-  "4 exclusive reaction effects ✨",
-  "5 rare profile titles",
-  "\"Sakura\" color theme",
+  "4 exclusive duel reactions 💀 🤯 ✨ 🫡",
+  "Exclusive profile titles",
+  "Pack badge on your profile",
 ];
 
 export default function ShopPage() {
@@ -138,7 +138,7 @@ function ShopInner() {
               {profile?.is_pro ? (
                 <div className="w-full py-3 rounded-xl text-center text-sm font-semibold"
                   style={{ background: "#5DCAA522", color: "#5DCAA5", border: "1px solid #5DCAA544" }}>
-                  ✦ Pro actif
+                  ✦ Active
                 </div>
               ) : (
                 <button

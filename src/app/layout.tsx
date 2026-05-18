@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ServiceWorker from "@/components/ServiceWorker";
 import { PresenceProvider } from "@/contexts/PresenceContext";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
 
 export const metadata: Metadata = {
   title: "KanjiDuel — Real-time Kanji Battle",
@@ -46,7 +47,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body style={{ position: "relative", zIndex: 1 }}>
         <PresenceProvider>
-          {children}
+          <NotificationsProvider>
+            {children}
+          </NotificationsProvider>
         </PresenceProvider>
         <ServiceWorker />
       </body>

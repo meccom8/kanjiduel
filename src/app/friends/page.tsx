@@ -175,6 +175,12 @@ export default function FriendsPage() {
       rounds: 11, is_private: true, invite_code: code,
     }).select().single();
     if (room) {
+      // Notify the target user in real-time (they'll see a popup wherever they are)
+      const avatarSrc = me.avatar_static_url ?? (me.avatar_url?.toLowerCase().endsWith(".gif") ? null : me.avatar_url);
+      await supabase.channel(`user-notifs:${modalTarget.id}`)
+        .send({ type: "broadcast", event: "challenge", payload: {
+          username: me.username, avatarSrc, roomCode: code, roomId: room.id,
+        }});
       const link = `${window.location.origin}/play/${code}`;
       try { await navigator.clipboard.writeText(link); } catch {}
       router.push(`/duel/${room.id}`);
