@@ -652,6 +652,9 @@ export default function DuelPage() {
             <p className="text-xs text-white/40 font-mono">round {(room?.current_round??0)+1}</p>
             <p className="text-white/20 text-xs">first to {WIN}</p>
             {cd!==null&&cd>0&&<p className="font-mono font-bold text-3xl mt-1" style={{color:"#EF9F27",textShadow:"0 0 20px #EF9F2799"}}>{cd}</p>}
+            <p className="text-xs mt-1" style={{color:room?.is_private?"rgba(255,255,255,0.18)":"rgba(127,119,221,0.7)"}}>
+              {room?.is_private?"🎮 Fun":"⚔️ Ranked"}
+            </p>
           </div>
           {(() => {
             const oppBorderCls = opp?.owned_cosmetics?.includes("pack1") ? getBorderClass(opp?.avatar_border_style) : "";
@@ -997,11 +1000,19 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
         </div>
         {room.is_private?(
           <p className="text-xs text-white/25 mb-4">🎮 Fun match · ELO not counted</p>
-        ):myEloChange!==null&&(
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl mb-4"
-            style={{background:myEloChange>=0?"rgba(29,158,117,0.15)":"rgba(226,75,74,0.15)",border:myEloChange>=0?"1px solid #1D9E7544":"1px solid #E24B4A44"}}>
-            <span className="font-mono text-lg font-bold" style={{color:myEloChange>=0?"#5DCAA5":"#E24B4A"}}>{myEloChange>=0?"+":""}{myEloChange}</span>
-            <span className="text-xs text-white/40">ELO</span>
+        ):(
+          <div className="flex flex-col items-center gap-2 mb-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
+              style={{background:"rgba(83,74,183,0.15)",border:"1px solid rgba(127,119,221,0.25)",color:"#7F77DD"}}>
+              ⚔️ Compétition · ELO en jeu
+            </span>
+            {myEloChange!==null&&(
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl"
+                style={{background:myEloChange>=0?"rgba(29,158,117,0.15)":"rgba(226,75,74,0.15)",border:myEloChange>=0?"1px solid #1D9E7544":"1px solid #E24B4A44"}}>
+                <span className="font-mono text-lg font-bold" style={{color:myEloChange>=0?"#5DCAA5":"#E24B4A"}}>{myEloChange>=0?"+":""}{myEloChange}</span>
+                <span className="text-xs text-white/40">ELO</span>
+              </div>
+            )}
           </div>
         )}
         {/* Rematch */}
