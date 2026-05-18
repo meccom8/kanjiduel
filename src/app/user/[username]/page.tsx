@@ -475,7 +475,7 @@ export default function UserProfile() {
               background: profile.avatar_url ? "transparent" : accentColor + "33",
               color: accentColor,
               border: borderClass ? "none" : `2px solid ${accentColor}55`,
-              boxShadow: hasBanner ? "0 0 0 4px #0d0d1a" : "none",
+              boxShadow: (hasBanner && !borderClass) ? "0 0 0 4px #0d0d1a" : "none",
             }}>
             {safeAvatar(profile.avatar_url, profile.avatar_static_url)
               ? <img src={safeAvatar(profile.avatar_url, profile.avatar_static_url)!} alt="avatar" className="w-full h-full object-cover" style={gifCropStyle(profile.avatar_crop, 64, 64)} />

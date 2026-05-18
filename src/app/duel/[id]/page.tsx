@@ -111,6 +111,8 @@ export default function DuelPage() {
   const tokenR = useRef<string>('');               // user access token for beacon auth
   const inactivityR = useRef<ReturnType<typeof setTimeout>|null>(null); // AFK forfeit timer
   const afkWarningR = useRef<ReturnType<typeof setInterval>|null>(null); // countdown interval
+  const gameStartedR = useRef(false); // true after first round starts (prevents repeated resets)
+  const phaseR = useRef<Phase>("loading");        // always-fresh phase for AFK closure
   const channelR = useRef<any>(null);              // realtime broadcast channel for reactions
   const reactCooldownR = useRef(false);            // prevent reaction spam
   const roundTimeR = useRef(12);                   // 12s normal / 5s blitz
@@ -131,6 +133,7 @@ export default function DuelPage() {
     } catch {}
   },[]);
   useEffect(()=>{ sfxR.current=sfx; },[sfx]);
+  useEffect(()=>{ phaseR.current=phase; },[phase]);
   useEffect(()=>{ meR.current=me; },[me]);
   useEffect(()=>{ oppR.current=opp; },[opp]);
 
@@ -316,6 +319,8 @@ export default function DuelPage() {
   }
 
   // ── inactivity forfeit — fires 20s after last keypress (5s visible warning) ─
+  // Only called from actual user input (onChange/onKeyDown) and game start.
+  // NOT called on automatic round transitions — that was the bug.
   function resetInactivity(){
     if(inactivityR.current) clearTimeout(inactivityR.current);
     if(afkWarningR.current) clearInterval(afkWarningR.current);
@@ -323,9 +328,10 @@ export default function DuelPage() {
     if(done.current) return;
     const totalMs = roundTimeR.current <= 5 ? 10000 : 20000;
     const warnAfter = totalMs - 5000; // show warning 5s before forfeit
-    // Warning countdown
     inactivityR.current = setTimeout(()=>{
       if(done.current) return;
+      // Don't forfeit between rounds — only during an active question
+      if(phaseR.current !== "playing") return;
       let cd = 5;
       setAfkCountdown(cd);
       afkWarningR.current = setInterval(()=>{
@@ -375,7 +381,10 @@ export default function DuelPage() {
   // ── round timer ───────────────────────────────────────────────────────────
   function startRound(at:string|null){
     if(timerR.current) clearInterval(timerR.current);
-    resetInactivity();
+    // Start inactivity timer only on the FIRST round (game just started).
+    // Subsequent rounds advance automatically — resetting here was the bug
+    // that prevented the timer from ever firing.
+    if(!gameStartedR.current){ gameStartedR.current=true; resetInactivity(); }
     const t0 = at ? new Date(at).getTime() : Date.now();
     timerR.current = setInterval(()=>{
       const left = Math.max(0,roundTimeR.current-(Date.now()-t0)/1000);

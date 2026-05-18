@@ -25,6 +25,7 @@ const KANJI_SIZES = [
 interface Profile {
   id: string; username: string; elo: number;
   avatar_url: string | null; accent_color: string | null;
+  is_pro: boolean | null;
 }
 
 function Toggle({ enabled, onToggle, color }: { enabled: boolean; onToggle: () => void; color: string }) {
@@ -54,6 +55,7 @@ function applyTheme(theme: string, grid: string, kanjiSize: string, hc: boolean)
 export default function Settings() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [accentColor, setAccentColor] = useState("#534AB7");
 
@@ -107,7 +109,7 @@ export default function Settings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       const { data } = await supabase.from("profiles")
-        .select("id,username,elo,avatar_url,accent_color")
+        .select("id,username,elo,avatar_url,accent_color,is_pro")
         .eq("id", user.id).single();
       if (data) {
         setProfile(data);
@@ -116,6 +118,24 @@ export default function Settings() {
       setLoading(false);
     })();
   }, []);
+
+  async function openPortal() {
+    setPortalLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session?.access_token}` },
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else alert("Could not open billing portal. Please contact support.");
+    } catch {
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setPortalLoading(false);
+    }
+  }
 
   const handleTheme = (v: string) => { setTheme(v); applyTheme(v, gridIntensity, kanjiSize, highContrast); };
   const handleGrid  = (v: string) => { setGridIntensity(v); applyTheme(theme, v, kanjiSize, highContrast); };
@@ -241,6 +261,23 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* ── Subscription ── */}
+      {profile.is_pro && (
+        <div className="card-solid p-5 mb-4">
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-sm font-medium">KanjiDuel Pro</p>
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+              style={{ background: "#EF9F2722", color: "#EF9F27", border: "1px solid #EF9F2744" }}>✦ Active</span>
+          </div>
+          <p className="text-xs mb-4" style={{ color: muted }}>Manage your subscription, update payment, or cancel</p>
+          <button onClick={openPortal} disabled={portalLoading}
+            className="w-full py-2.5 rounded-xl text-sm font-medium transition-all"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: portalLoading ? muted : "white", opacity: portalLoading ? 0.6 : 1 }}>
+            {portalLoading ? "Opening portal…" : "Manage subscription →"}
+          </button>
+        </div>
+      )}
 
       <p className="text-center text-xs mt-2" style={{ color: muted }}>
         All settings are saved automatically
