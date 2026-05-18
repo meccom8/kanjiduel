@@ -311,7 +311,10 @@ export default function DailyChallenge() {
             disabled={phase === "feedback"}
             autoComplete="off" autoCorrect="off" spellCheck={false}
             onChange={ime.onChange}
-            onKeyDown={(e) => { if (e.key === "Enter") submitAnswer(ime.value); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitAnswer(ime.value);
+              if (e.key === "Tab") { e.preventDefault(); if (phase === "playing" && current) handleResult(current, false, "(skipped)"); }
+            }}
           />
           {hiraganaMode && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>あ</div>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier, winRate } from "@/lib/elo";
 import Link from "next/link";
+import { getBorderClass } from "@/lib/cosmetics";
 
 interface Profile {
   id: string;
@@ -15,6 +16,8 @@ interface Profile {
   best_streak: number;
   avatar_url: string | null;
   accent_color: string | null;
+  avatar_border_style: string | null;
+  owned_cosmetics: string[] | null;
 }
 
 const NAV_ITEMS = [
@@ -87,19 +90,26 @@ export default function Home() {
         <div className="p-5 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
           <div className="flex items-center gap-3">
             {/* Avatar — click to go to profile */}
-            <Link href="/profile" className="relative flex-shrink-0 group">
-              <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold transition-opacity group-hover:opacity-75 cursor-pointer"
-                style={{ background: (profile.accent_color ?? tier.bg) + "33", color: profile.accent_color ?? tier.color, border: `1.5px solid ${profile.accent_color ?? tier.color}44` }}>
-                {profile.avatar_url
-                  ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                  : profile.username.slice(0, 2).toUpperCase()
-                }
-              </div>
-              {profile.streak > 0 && (
-                <div className="absolute -top-1 -right-1 text-xs bg-orange-500 rounded-full w-4 h-4 flex items-center justify-center"
-                  style={{ fontSize: "9px" }}>🔥</div>
-              )}
-            </Link>
+            {(() => {
+              const borderCls = profile.owned_cosmetics?.includes("pack1") ? getBorderClass(profile.avatar_border_style) : "";
+              return (
+                <Link href="/profile" className="relative flex-shrink-0 group">
+                  <div className={borderCls || "relative"}>
+                    <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold transition-opacity group-hover:opacity-75 cursor-pointer"
+                      style={{ background: (profile.accent_color ?? tier.bg) + "33", color: profile.accent_color ?? tier.color, border: borderCls ? "none" : `1.5px solid ${profile.accent_color ?? tier.color}44` }}>
+                      {profile.avatar_url
+                        ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                        : profile.username.slice(0, 2).toUpperCase()
+                      }
+                    </div>
+                  </div>
+                  {profile.streak > 0 && (
+                    <div className="absolute -top-1 -right-1 text-xs bg-orange-500 rounded-full w-4 h-4 flex items-center justify-center"
+                      style={{ fontSize: "9px" }}>🔥</div>
+                  )}
+                </Link>
+              );
+            })()}
 
             {/* Name + tier */}
             <div className="flex-1 min-w-0">

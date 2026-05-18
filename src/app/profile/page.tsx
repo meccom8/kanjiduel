@@ -327,7 +327,7 @@ export default function ProfilePage() {
               background: profile.avatar_url ? "transparent" : accentColor + "33",
               color: accentColor,
               border: borderClass ? "none" : `2px solid ${accentColor}55`,
-              boxShadow: hasBanner ? "0 0 0 4px #0d0d1a" : "none",
+              boxShadow: (hasBanner && !borderClass) ? "0 0 0 4px #0d0d1a" : "none",
             }}>
             {profile.avatar_url
               ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" style={gifCropStyle(profile.avatar_crop, 64, 64)} />

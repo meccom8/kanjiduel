@@ -329,6 +329,23 @@ export default function DuelPage() {
     setTimeout(()=>{ reactCooldownR.current=false; setMyReactionSent(null); },3000);
   }
 
+  // ── keyboard shortcuts for reactions ─────────────────────────────────────
+  useEffect(()=>{
+    const BASE_REACTIONS = ["👍","😂","😤","🔥"];
+    const PACK_REACTIONS = ["💀","🤯","✨","🫡"];
+    function onKey(e:KeyboardEvent){
+      // Don't fire when typing in the answer input
+      if(document.activeElement?.tagName==="INPUT") return;
+      const hasPack = me?.owned_cosmetics?.includes("pack1");
+      const allReactions = hasPack ? [...BASE_REACTIONS, ...PACK_REACTIONS] : BASE_REACTIONS;
+      const idx = parseInt(e.key) - 1;
+      if(idx >= 0 && idx < allReactions.length) sendReaction(allReactions[idx]);
+    }
+    window.addEventListener("keydown", onKey);
+    return ()=>{ window.removeEventListener("keydown", onKey); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[me]);
+
   // ── round timer ───────────────────────────────────────────────────────────
   function startRound(at:string|null){
     if(timerR.current) clearInterval(timerR.current);
@@ -709,19 +726,35 @@ export default function DuelPage() {
         </p>
 
         {/* Quick reactions */}
-        <div className="flex justify-center gap-2 mb-3">
-          {["👍","😂","😤","🔥"].map(e=>(
+        {(()=>{
+          const BASE_REACTIONS = ["👍","😂","😤","🔥"];
+          const PACK_REACTIONS = ["💀","🤯","✨","🫡"];
+          const hasPack = me?.owned_cosmetics?.includes("pack1");
+          const ReactionBtn = ({e, keyHint}:{e:string; keyHint:number})=>(
             <button key={e} onClick={()=>sendReaction(e)}
-              className="text-lg w-11 h-11 rounded-xl transition-all hover:scale-110 active:scale-95"
+              className="relative text-lg w-11 h-11 rounded-xl transition-all hover:scale-110 active:scale-95"
               style={{
                 background: myReactionSent===e ? "rgba(127,119,221,0.25)" : "rgba(255,255,255,0.05)",
                 border: myReactionSent===e ? "1px solid rgba(127,119,221,0.4)" : "1px solid rgba(255,255,255,0.08)",
                 opacity: reactCooldownR.current&&myReactionSent!==e ? 0.4 : 1,
               }}>
               {e}
+              <span className="absolute bottom-0.5 right-1 text-white/20" style={{fontSize:8}}>{keyHint}</span>
             </button>
-          ))}
-        </div>
+          );
+          return (
+            <div className="flex flex-col items-center gap-1 mb-3">
+              <div className="flex justify-center gap-2">
+                {BASE_REACTIONS.map((e,i)=><ReactionBtn key={e} e={e} keyHint={i+1}/>)}
+              </div>
+              {hasPack&&(
+                <div className="flex justify-center gap-2">
+                  {PACK_REACTIONS.map((e,i)=><ReactionBtn key={e} e={e} keyHint={i+5}/>)}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <button onClick={concede}
           className="w-full text-xs text-white/15 hover:text-red-400/60 transition-colors py-2 border border-white/5 rounded-xl hover:border-red-400/20">
