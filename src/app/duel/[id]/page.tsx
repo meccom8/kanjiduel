@@ -1004,7 +1004,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
           <div className="flex flex-col items-center gap-2 mb-4">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
               style={{background:"rgba(83,74,183,0.15)",border:"1px solid rgba(127,119,221,0.25)",color:"#7F77DD"}}>
-              ⚔️ Compétition · ELO en jeu
+              ⚔️ Ranked · ELO at stake
             </span>
             {myEloChange!==null&&(
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl"
