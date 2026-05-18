@@ -843,12 +843,36 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
   const [startingRematch,setStartingRematch] = useState(false);
   const [joiningRematch,setJoiningRematch] = useState(false);
   const rematchDoneRef = useRef(false);
+  const channelRef = useRef<any>(null);
 
   // keep ref in sync so async callbacks always see latest value
   useEffect(()=>{ rematchRoomIdRef.current = rematchRoomId; },[rematchRoomId]);
 
-  // Poll for opponent's rematch room every 2s
-  // If both clicked Rematch at the same time → tiebreaker: lower UUID joins
+  // Realtime broadcast channel — instant rematch signaling (no polling delay)
+  useEffect(()=>{
+    if(!myId2) return;
+    const ch = supabase.channel(`rematch:${room.id}`)
+      .on('broadcast',{event:'rematch_offered'},({payload}:any)=>{
+        if(payload.fromId!==myId2) setOppRematchId(payload.roomId);
+      })
+      .on('broadcast',{event:'rematch_cancelled'},({payload}:any)=>{
+        if(payload.fromId!==myId2) setOppRematchId(null);
+      })
+      .subscribe();
+    channelRef.current = ch;
+    return ()=>{
+      // On unmount: cancel any pending rematch room we created
+      const rid = rematchRoomIdRef.current;
+      if(rid && !rematchDoneRef.current){
+        ch.send({type:'broadcast',event:'rematch_cancelled',payload:{fromId:myId2}});
+        supabase.from("rooms").delete().eq("id",rid).eq("status","waiting").then(()=>{});
+      }
+      ch.unsubscribe();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
+  // Poll every 2s as fallback (handles "opponent left" cleanup + simultaneous-click tiebreaker)
   useEffect(()=>{
     if(!oppId||!myId2) return;
     const t=setInterval(async()=>{
@@ -902,12 +926,18 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
       player1_id:myId2, status:"waiting", category:room.category??"all",
       rounds:11, is_private:true, invite_code:code,
     }).select().single();
-    if(data){ rematchRoomIdRef.current=data.id; setRematchRoomId(data.id); }
+    if(data){
+      rematchRoomIdRef.current=data.id; setRematchRoomId(data.id);
+      // Broadcast immediately so opponent sees the button without waiting for their poll
+      channelRef.current?.send({type:'broadcast',event:'rematch_offered',payload:{fromId:myId2,roomId:data.id}});
+    }
     setStartingRematch(false);
   }
 
   async function cancelRematch(){
     if(!rematchRoomId) return;
+    // Broadcast immediately so opponent's button disappears without waiting for their poll
+    channelRef.current?.send({type:'broadcast',event:'rematch_cancelled',payload:{fromId:myId2}});
     await supabase.from("rooms").delete().eq("id",rematchRoomId).eq("status","waiting");
     rematchRoomIdRef.current=null;
     setRematchRoomId(null);

@@ -190,6 +190,17 @@ export default function FriendsPage() {
     router.push(`/play/${code.toUpperCase()}`);
   }
 
+  // Direct join by roomId — no confirmation page, instant navigation
+  async function joinRoomDirect(roomId: string) {
+    if (!me) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
+    const { error } = await supabase.from("rooms")
+      .update({ player2_id: user.id, status: "active" })
+      .eq("id", roomId).eq("status", "waiting");
+    if (!error) router.push(`/duel/${roomId}`);
+  }
+
   function getFriendshipStatus(profileId: string): "friend" | "pending_sent" | "pending_received" | "none" {
     if (friends.some(f => f.other.id === profileId)) return "friend";
     if (sent.some(f => f.other.id === profileId)) return "pending_sent";
@@ -397,7 +408,7 @@ export default function FriendsPage() {
                 <div className="flex gap-2">
                   {privateRooms[f.other.id] ? (
                     <button
-                      onClick={() => joinRoom(privateRooms[f.other.id].code)}
+                      onClick={() => joinRoomDirect(privateRooms[f.other.id].roomId)}
                       className="text-xs px-3 py-1.5 rounded-lg transition-all font-medium animate-pulse"
                       style={{ background: "#1D9E7522", color: "#5DCAA5", border: "1px solid #1D9E7544" }}>
                       ⚡ Join!
