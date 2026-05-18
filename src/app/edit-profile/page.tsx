@@ -323,7 +323,7 @@ export default function EditProfile() {
               style={{
                 background: avatarUrl ? "transparent" : color + "33",
                 border: borderClass ? "none" : `2px solid ${color}55`,
-                boxShadow: "0 0 0 3px #0d0d1a",
+                boxShadow: borderClass ? "none" : "0 0 0 3px #0d0d1a",
                 color,
               }}>
               {avatarUrl

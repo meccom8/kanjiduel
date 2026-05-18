@@ -321,9 +321,17 @@ export default function DailyChallenge() {
           )}
         </div>
 
-        <p className="text-center text-xs text-white/20 mb-3">
+        <p className="text-center text-xs text-white/20 mb-2">
           {hiraganaMode ? "Romaji auto-converts to hiragana" : "Hiragana or romaji accepted"}
         </p>
+
+        {phase === "playing" && (
+          <button onClick={() => { if (current) handleResult(current, false, "(skipped)"); }}
+            className="w-full text-xs text-white/15 hover:text-white/40 transition-colors py-1.5 flex items-center justify-center gap-2 mb-1">
+            Skip →
+            <span className="px-1.5 py-0.5 rounded font-mono text-white/20 border border-white/10" style={{ fontSize: 10 }}>Tab</span>
+          </button>
+        )}
 
         <div className="flex justify-between items-center text-xs mt-1">
           <span style={{ color: "#5DCAA5" }}>✓ {score}</span>

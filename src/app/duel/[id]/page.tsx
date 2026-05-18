@@ -85,6 +85,7 @@ export default function DuelPage() {
   const [myEloStart, setMyEloStart] = useState<number|null>(null);
   const [oppEloStart, setOppEloStart] = useState<number|null>(null);
   const [conceded, setConceded] = useState(false);
+  const [afkCountdown, setAfkCountdown] = useState<number|null>(null); // null=no warning, 5→0=warning
   const [room, setRoom] = useState<Room|null>(null);
   const [oppReaction, setOppReaction] = useState<string|null>(null);
   const [myReactionSent, setMyReactionSent] = useState<string|null>(null);
@@ -109,6 +110,7 @@ export default function DuelPage() {
   const wordR = useRef<VocabWord|null>(null);      // always-fresh copy of current word (tick closure is stale)
   const tokenR = useRef<string>('');               // user access token for beacon auth
   const inactivityR = useRef<ReturnType<typeof setTimeout>|null>(null); // AFK forfeit timer
+  const afkWarningR = useRef<ReturnType<typeof setInterval>|null>(null); // countdown interval
   const channelR = useRef<any>(null);              // realtime broadcast channel for reactions
   const reactCooldownR = useRef(false);            // prevent reaction spam
   const roundTimeR = useRef(12);                   // 12s normal / 5s blitz
@@ -202,6 +204,7 @@ export default function DuelPage() {
     return ()=>{
       [timerR,pollR,cdR].forEach(r=>{ if(r.current) clearInterval(r.current); });
       if(inactivityR.current) clearTimeout(inactivityR.current);
+      if(afkWarningR.current) clearInterval(afkWarningR.current);
       channelR.current?.unsubscribe();
     };
   },[]);
@@ -312,12 +315,30 @@ export default function DuelPage() {
     }
   }
 
-  // ── inactivity forfeit — fires 20s after last keypress ───────────────────
+  // ── inactivity forfeit — fires 20s after last keypress (5s visible warning) ─
   function resetInactivity(){
     if(inactivityR.current) clearTimeout(inactivityR.current);
+    if(afkWarningR.current) clearInterval(afkWarningR.current);
+    setAfkCountdown(null);
     if(done.current) return;
-    const afkMs = roundTimeR.current <= 5 ? 10000 : 20000;
-    inactivityR.current = setTimeout(()=>{ if(!done.current) concede(); }, afkMs);
+    const totalMs = roundTimeR.current <= 5 ? 10000 : 20000;
+    const warnAfter = totalMs - 5000; // show warning 5s before forfeit
+    // Warning countdown
+    inactivityR.current = setTimeout(()=>{
+      if(done.current) return;
+      let cd = 5;
+      setAfkCountdown(cd);
+      afkWarningR.current = setInterval(()=>{
+        cd--;
+        if(cd <= 0){
+          clearInterval(afkWarningR.current!);
+          setAfkCountdown(null);
+          if(!done.current) concede();
+        } else {
+          setAfkCountdown(cd);
+        }
+      }, 1000);
+    }, warnAfter);
   }
 
   // ── send a reaction (broadcast, no DB) ───────────────────────────────────
@@ -329,17 +350,22 @@ export default function DuelPage() {
     setTimeout(()=>{ reactCooldownR.current=false; setMyReactionSent(null); },3000);
   }
 
-  // ── keyboard shortcuts for reactions ─────────────────────────────────────
+  // ── keyboard shortcuts for reactions (layout-independent via e.code) ────────
   useEffect(()=>{
     const BASE_REACTIONS = ["👍","😂","😤","🔥"];
     const PACK_REACTIONS = ["💀","🤯","✨","🫡"];
+    // Digit1–Digit8 map by physical key position, works on QWERTY, AZERTY, etc.
+    const CODE_MAP: Record<string,number> = {
+      Digit1:0, Digit2:1, Digit3:2, Digit4:3,
+      Digit5:4, Digit6:5, Digit7:6, Digit8:7,
+    };
     function onKey(e:KeyboardEvent){
-      // Don't fire when typing in the answer input
       if(document.activeElement?.tagName==="INPUT") return;
+      const idx = CODE_MAP[e.code];
+      if(idx === undefined) return;
       const hasPack = me?.owned_cosmetics?.includes("pack1");
       const allReactions = hasPack ? [...BASE_REACTIONS, ...PACK_REACTIONS] : BASE_REACTIONS;
-      const idx = parseInt(e.key) - 1;
-      if(idx >= 0 && idx < allReactions.length) sendReaction(allReactions[idx]);
+      if(idx < allReactions.length) sendReaction(allReactions[idx]);
     }
     window.addEventListener("keydown", onKey);
     return ()=>{ window.removeEventListener("keydown", onKey); };
@@ -505,6 +531,8 @@ export default function DuelPage() {
     done.current=true;
     [timerR,pollR,cdR].forEach(x=>{ if(x.current) clearInterval(x.current); });
     if(inactivityR.current) clearTimeout(inactivityR.current);
+    if(afkWarningR.current) clearInterval(afkWarningR.current);
+    setAfkCountdown(null);
     const wid=isP1.current?r.player2_id:r.player1_id;
     const p1=isP1.current?0:WIN, p2=isP1.current?WIN:0;
     try {
@@ -755,6 +783,13 @@ export default function DuelPage() {
             </div>
           );
         })()}
+
+        {afkCountdown !== null && (
+          <div className="mb-2 px-3 py-2 rounded-xl text-center text-xs font-medium"
+            style={{ background: "rgba(226,75,74,0.12)", border: "1px solid rgba(226,75,74,0.3)", color: "#E24B4A" }}>
+            ⚠️ Still there? Forfeit in {afkCountdown}s
+          </div>
+        )}
 
         <button onClick={concede}
           className="w-full text-xs text-white/15 hover:text-red-400/60 transition-colors py-2 border border-white/5 rounded-xl hover:border-red-400/20">
