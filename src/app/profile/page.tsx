@@ -14,6 +14,7 @@ interface Profile {
   streak: number; best_streak: number;
   last_played_at: string | null; created_at: string;
   avatar_url: string | null;
+  avatar_static_url: string | null;
   bio: string | null;
   title: string | null;
   accent_color: string | null;
@@ -329,9 +330,14 @@ export default function ProfilePage() {
               border: borderClass ? "none" : `2px solid ${accentColor}55`,
               boxShadow: (hasBanner && !borderClass) ? "0 0 0 4px #0d0d1a" : "none",
             }}>
-            {profile.avatar_url
-              ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" style={gifCropStyle(profile.avatar_crop, 64, 64)} />
-              : profile.username.slice(0, 2).toUpperCase()}
+            {(() => {
+              const src = profile.is_pro
+                ? profile.avatar_url
+                : profile.avatar_static_url ?? (profile.avatar_url?.toLowerCase().endsWith(".gif") ? null : profile.avatar_url);
+              return src
+                ? <img src={src} alt="avatar" className="w-full h-full object-cover" style={src === profile.avatar_url ? gifCropStyle(profile.avatar_crop, 64, 64) : undefined} />
+                : profile.username.slice(0, 2).toUpperCase();
+            })()}
           </div>
         );
         return (

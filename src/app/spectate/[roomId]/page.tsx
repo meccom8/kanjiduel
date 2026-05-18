@@ -13,7 +13,7 @@ interface Room {
   round_started_at: string | null; winner_id: string | null;
   is_private: boolean;
 }
-interface Profile { id: string; username: string; elo: number; avatar_url: string | null; accent_color: string | null; }
+interface Profile { id: string; username: string; elo: number; avatar_url: string | null; avatar_static_url: string | null; accent_color: string | null; is_pro: boolean | null; }
 
 const WIN = 10;
 
@@ -41,7 +41,7 @@ export default function SpectatePage() {
       // Load both profiles
       const ids = [rd.player1_id, rd.player2_id].filter(Boolean);
       const { data: profiles } = await supabase.from("profiles")
-        .select("id,username,elo,avatar_url,accent_color").in("id", ids);
+        .select("id,username,elo,avatar_url,avatar_static_url,accent_color,is_pro").in("id", ids);
       profiles?.forEach((p: Profile) => {
         if (p.id === rd.player1_id) setP1(p);
         else setP2(p);
@@ -114,7 +114,7 @@ export default function SpectatePage() {
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
               style={{ background: c1 + "33", color: c1, border: `1.5px solid ${c1}44` }}>
-              {p1?.avatar_url ? <img src={p1.avatar_url} alt="" className="w-full h-full object-cover" /> : (p1?.username ?? "?").slice(0, 2).toUpperCase()}
+              {(() => { const s = p1?.is_pro ? p1.avatar_url : p1?.avatar_static_url ?? (p1?.avatar_url?.toLowerCase().endsWith(".gif") ? null : p1?.avatar_url); return s ? <img src={s} alt="" className="w-full h-full object-cover" /> : (p1?.username ?? "?").slice(0, 2).toUpperCase(); })()}
             </div>
             <div>
               <p className="text-xs text-white/40 truncate max-w-20">{p1?.username ?? "Player 1"}</p>
@@ -137,7 +137,7 @@ export default function SpectatePage() {
             </div>
             <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
               style={{ background: c2 + "33", color: c2, border: `1.5px solid ${c2}44` }}>
-              {p2?.avatar_url ? <img src={p2.avatar_url} alt="" className="w-full h-full object-cover" /> : (p2?.username ?? "?").slice(0, 2).toUpperCase()}
+              {(() => { const s = p2?.is_pro ? p2.avatar_url : p2?.avatar_static_url ?? (p2?.avatar_url?.toLowerCase().endsWith(".gif") ? null : p2?.avatar_url); return s ? <img src={s} alt="" className="w-full h-full object-cover" /> : (p2?.username ?? "?").slice(0, 2).toUpperCase(); })()}
             </div>
           </div>
         </div>

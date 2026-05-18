@@ -15,9 +15,11 @@ interface Profile {
   streak: number;
   best_streak: number;
   avatar_url: string | null;
+  avatar_static_url: string | null;
   accent_color: string | null;
   avatar_border_style: string | null;
   owned_cosmetics: string[] | null;
+  is_pro: boolean | null;
 }
 
 const NAV_ITEMS = [
@@ -97,10 +99,14 @@ export default function Home() {
                   <div className={borderCls || "relative"}>
                     <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold transition-opacity group-hover:opacity-75 cursor-pointer"
                       style={{ background: (profile.accent_color ?? tier.bg) + "33", color: profile.accent_color ?? tier.color, border: borderCls ? "none" : `1.5px solid ${profile.accent_color ?? tier.color}44` }}>
-                      {profile.avatar_url
-                        ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                        : profile.username.slice(0, 2).toUpperCase()
-                      }
+                      {(() => {
+                        const src = profile.is_pro
+                          ? profile.avatar_url
+                          : profile.avatar_static_url ?? (profile.avatar_url?.toLowerCase().endsWith(".gif") ? null : profile.avatar_url);
+                        return src
+                          ? <img src={src} alt="avatar" className="w-full h-full object-cover" />
+                          : profile.username.slice(0, 2).toUpperCase();
+                      })()}
                     </div>
                   </div>
                   {profile.streak > 0 && (
