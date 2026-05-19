@@ -6,6 +6,7 @@ import { useImeInput } from "@/hooks/useImeInput";
 import { useRouter, useParams } from "next/navigation";
 import { getBorderClass, getBadgeIcon } from "@/lib/cosmetics";
 import { resolveAvatar } from "@/lib/avatar";
+import { updateStreak } from "@/lib/stats";
 
 interface Room {
   id: string;
@@ -254,6 +255,7 @@ export default function DuelPage() {
       // Delay to let the match record commit before querying it
       setTimeout(async()=>{
         await loadElo(myId.current,r);
+        if(myId.current) updateStreak(myId.current);
         setPhase("finished");
       },500);
       return;
@@ -561,6 +563,7 @@ export default function DuelPage() {
       done.current=false;
       return;
     }
+    if(myId.current) updateStreak(myId.current);
     setConceded(true); setPhase("finished");
   }
 

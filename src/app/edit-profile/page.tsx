@@ -265,9 +265,15 @@ export default function EditProfile() {
     { id: "wins_10",   icon: "🏅", name: "Warrior",      desc: "Win 10 duels",          rarity: "common"  as Rarity, unlocked: (profile.wins ?? 0) >= 10  },
     { id: "wins_50",   icon: "🥇", name: "Veteran",      desc: "Win 50 duels",          rarity: "rare"    as Rarity, unlocked: (profile.wins ?? 0) >= 50  },
     { id: "wins_100",  icon: "👑", name: "Legend",        desc: "Win 100 duels",         rarity: "epic"    as Rarity, unlocked: (profile.wins ?? 0) >= 100 },
-    { id: "streak_3",  icon: "🔥", name: "On fire",       desc: "3-game win streak",     rarity: "common"  as Rarity, unlocked: (profile.best_streak ?? 0) >= 3  },
-    { id: "streak_7",  icon: "🌋", name: "Unstoppable",   desc: "7-game win streak",     rarity: "rare"    as Rarity, unlocked: (profile.best_streak ?? 0) >= 7  },
+    { id: "streak_3",  icon: "🔥", name: "On fire",       desc: "3-game win streak",     rarity: "common"    as Rarity, unlocked: (profile.best_streak ?? 0) >= 3  },
+    { id: "streak_7",  icon: "🌋", name: "Unstoppable",   desc: "7-game win streak",     rarity: "rare"      as Rarity, unlocked: (profile.best_streak ?? 0) >= 7  },
     { id: "streak_15", icon: "☄️", name: "Godlike",       desc: "15-game win streak",    rarity: "legendary" as Rarity, unlocked: (profile.best_streak ?? 0) >= 15 },
+    { id: "games_50",  icon: "🎮", name: "Dedicated",     desc: "Play 50 games",         rarity: "common"    as Rarity, unlocked: (profile.wins + profile.losses + profile.draws) >= 50  },
+    { id: "games_100", icon: "🕹️", name: "Hooked",        desc: "Play 100 games",        rarity: "rare"      as Rarity, unlocked: (profile.wins + profile.losses + profile.draws) >= 100 },
+    { id: "games_200", icon: "🎰", name: "Addicted",       desc: "Play 200 games",        rarity: "epic"      as Rarity, unlocked: (profile.wins + profile.losses + profile.draws) >= 200 },
+    { id: "daily_30",  icon: "📅", name: "Monthly",        desc: "30-day activity streak", rarity: "rare"     as Rarity, unlocked: (profile.best_streak ?? 0) >= 30  },
+    { id: "daily_100", icon: "🗓️", name: "Century",       desc: "100-day activity streak", rarity: "epic"    as Rarity, unlocked: (profile.best_streak ?? 0) >= 100 },
+    { id: "daily_200", icon: "🏆", name: "Immortal",       desc: "200-day activity streak", rarity: "legendary" as Rarity, unlocked: (profile.best_streak ?? 0) >= 200 },
   ];
 
   const toggleFeaturedBadge = (id: string) => {

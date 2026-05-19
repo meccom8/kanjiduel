@@ -91,7 +91,12 @@ function computeBadges(
     { id: "n1_master",   icon: "🗾", name: "N1 master",  desc: "80%+ accuracy on N1",       unlocked: n1Acc >= 0.8 && (n1Stats?.correct ?? 0) + (n1Stats?.wrong ?? 0) >= 20, rarity: "legendary" as const },
     { id: "winrate_60",  icon: "📈", name: "Consistent", desc: "60%+ win rate (20+ games)", unlocked: wr >= 60 && (profile.wins + profile.losses) >= 20, rarity: "rare" as const },
     { id: "games_50",    icon: "🎮", name: "Dedicated",  desc: "Play 50 games",             unlocked: (profile.wins + profile.losses + profile.draws) >= 50,  rarity: "common" as const },
-    { id: "games_200",   icon: "🕹️", name: "Addicted",  desc: "Play 200 games",            unlocked: (profile.wins + profile.losses + profile.draws) >= 200, rarity: "epic"   as const },
+    { id: "games_100",   icon: "🕹️", name: "Hooked",    desc: "Play 100 games",            unlocked: (profile.wins + profile.losses + profile.draws) >= 100, rarity: "rare"   as const },
+    { id: "games_200",   icon: "🎰", name: "Addicted",   desc: "Play 200 games",            unlocked: (profile.wins + profile.losses + profile.draws) >= 200, rarity: "epic"   as const },
+    // ── Daily streak badges ───────────────────────────────────────────────────
+    { id: "daily_30",    icon: "📅", name: "Monthly",    desc: "30-day activity streak",    unlocked: (profile.best_streak ?? 0) >= 30,  rarity: "rare"      as const },
+    { id: "daily_100",   icon: "🗓️", name: "Century",   desc: "100-day activity streak",   unlocked: (profile.best_streak ?? 0) >= 100, rarity: "epic"      as const },
+    { id: "daily_200",   icon: "🏆", name: "Immortal",   desc: "200-day activity streak",   unlocked: (profile.best_streak ?? 0) >= 200, rarity: "legendary" as const },
   ];
 }
 
