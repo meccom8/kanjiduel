@@ -325,7 +325,7 @@ export default function DuelPage() {
     if(afkWarningR.current) clearInterval(afkWarningR.current);
     setAfkCountdown(null);
     if(done.current) return;
-    const totalMs = roundTimeR.current <= 5 ? 10000 : 20000;
+    const totalMs = roundTimeR.current <= 5 ? 10000 : 30000;
     const warnAfter = totalMs - 5000; // show warning 5s before forfeit
     inactivityR.current = setTimeout(()=>{
       if(done.current) return;
