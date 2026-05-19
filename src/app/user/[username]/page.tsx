@@ -37,6 +37,7 @@ interface Match {
   winner_id: string | null; p1_score: number; p2_score: number;
   p1_elo_change: number; p2_elo_change: number;
   rounds: number; played_at: string;
+  is_forfeit?: boolean;
   opponent_username?: string;
   opponent_id?: string;
 }
@@ -839,7 +840,9 @@ export default function UserProfile() {
                       ) : (
                         <p className="text-sm font-medium">vs {m.opponent_username}</p>
                       )}
-                      <p className="text-xs text-white/30 mt-0.5">{date} · {m.p1_score + m.p2_score} rounds</p>
+                      <p className="text-xs text-white/30 mt-0.5">
+                        {date} · {m.is_forfeit ? <span style={{color:"#EF9F27"}}>FF</span> : `${m.p1_score + m.p2_score} rounds`}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="font-mono text-sm font-bold">

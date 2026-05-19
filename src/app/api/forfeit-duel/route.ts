@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     }).eq("id", roomId);
   } else {
     await supabase.rpc("finish_match", {
-      p_room_id: roomId, p_winner_id: winnerId, p_p1_score: p1, p_p2_score: p2,
+      p_room_id: roomId, p_winner_id: winnerId, p_p1_score: p1, p_p2_score: p2, p_is_forfeit: true,
     });
   }
 

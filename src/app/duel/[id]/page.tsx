@@ -549,7 +549,7 @@ export default function DuelPage() {
           status:"finished", winner_id:wid, p1_score:p1, p2_score:p2,
         }).eq("id",roomId);
       } else {
-        await supabase.rpc("finish_match",{p_room_id:roomId,p_winner_id:wid,p_p1_score:p1,p_p2_score:p2});
+        await supabase.rpc("finish_match",{p_room_id:roomId,p_winner_id:wid,p_p1_score:p1,p_p2_score:p2,p_is_forfeit:true});
       }
       // Re-fetch room so result screen has correct winner_id and scores
       const {data:fresh} = await supabase.from("rooms").select("*").eq("id",roomId).single();
