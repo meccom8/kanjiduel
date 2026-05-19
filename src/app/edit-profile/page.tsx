@@ -257,7 +257,7 @@ export default function EditProfile() {
       ...b,
       unlocked:
         b.id === "cosmetics_pack" ? !!hasPack :
-        b.id === "KanjiDual_pro"  ? !!profile.is_pro :
+        b.id === "kanjidual_pro"  ? !!profile.is_pro :
         false,
     })),
     // Win count badges (from profile.wins)

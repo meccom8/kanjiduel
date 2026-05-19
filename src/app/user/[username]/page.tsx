@@ -72,7 +72,7 @@ function computeBadges(
     })),
     // ── Special badges ─────────────────────────────────────────────────────────
     { id: "cosmetics_pack", icon: "✨", name: "Cosmetics Pack", desc: "Own the Cosmetics Pack",   unlocked: !!profile.owned_cosmetics?.includes("pack1"), rarity: "epic"      as const },
-    { id: "kanjiduel_pro",  icon: "✦",  name: "KanjiDual Pro",  desc: "KanjiDual Pro subscriber", unlocked: !!profile.is_pro,                               rarity: "legendary" as const },
+    { id: "kanjidual_pro",  icon: "✦",  name: "KanjiDual Pro",  desc: "KanjiDual Pro subscriber", unlocked: !!profile.is_pro,                               rarity: "legendary" as const },
     // ── Win badges ─────────────────────────────────────────────────────────────
     { id: "first_win", icon: "⚔️", name: "First blood",  desc: "Win your first duel", unlocked: wins >= 1,   rarity: "common" as const },
     { id: "wins_10",   icon: "🏅", name: "Warrior",      desc: "Win 10 duels",         unlocked: wins >= 10,  rarity: "common" as const },

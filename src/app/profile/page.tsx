@@ -73,7 +73,7 @@ function computeBadges(
       unlocked: !!profile.owned_cosmetics?.includes("pack1"), rarity: "epic" as const,
     },
     {
-      id: "KanjiDual_pro", icon: "✦", name: "KanjiDual Pro", desc: "KanjiDual Pro subscriber",
+      id: "kanjidual_pro", icon: "✦", name: "KanjiDual Pro", desc: "KanjiDual Pro subscriber",
       unlocked: !!profile.is_pro, rarity: "legendary" as const,
     },
     // ── Win badges ────────────────────────────────────────────────────────────
