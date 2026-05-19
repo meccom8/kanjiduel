@@ -44,8 +44,9 @@ export async function POST(req: NextRequest) {
   }
 
   const winnerId = room.player1_id === userId ? room.player2_id : room.player1_id;
-  const p1 = room.player1_id === userId ? 0 : WIN;
-  const p2 = room.player2_id === userId ? 0 : WIN;
+  // Keep actual scores — ELO formula doesn't use them
+  const p1 = room.p1_score ?? 0;
+  const p2 = room.p2_score ?? 0;
 
   if (room.is_private) {
     await supabase.from("rooms").update({

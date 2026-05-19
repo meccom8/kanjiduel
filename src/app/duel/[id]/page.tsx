@@ -542,7 +542,8 @@ export default function DuelPage() {
     if(afkWarningR.current) clearInterval(afkWarningR.current);
     setAfkCountdown(null);
     const wid=isP1.current?r.player2_id:r.player1_id;
-    const p1=isP1.current?0:WIN, p2=isP1.current?WIN:0;
+    // Keep actual scores — ELO formula doesn't use them, only winner/loser ELOs
+    const p1=r.p1_score??0, p2=r.p2_score??0;
     try {
       if(r.is_private){
         await supabase.from("rooms").update({
