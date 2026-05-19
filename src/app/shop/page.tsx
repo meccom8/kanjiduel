@@ -17,7 +17,7 @@ const PRO_FEATURES = [
   "Animated GIF avatar & profile banner",
   "ELO history chart on your profile",
   "Detailed stats by JLPT category",
-  "Full match history",
+  "Match history up to 50 games (vs 10 for free)",
   "Early access to new features",
 ];
 
