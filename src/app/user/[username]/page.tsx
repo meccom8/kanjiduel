@@ -839,7 +839,7 @@ export default function UserProfile() {
                       ) : (
                         <p className="text-sm font-medium">vs {m.opponent_username}</p>
                       )}
-                      <p className="text-xs text-white/30 mt-0.5">{date} · {m.rounds} rounds</p>
+                      <p className="text-xs text-white/30 mt-0.5">{date} · {m.p1_score + m.p2_score} rounds</p>
                     </div>
                     <div className="text-right">
                       <p className="font-mono text-sm font-bold">
