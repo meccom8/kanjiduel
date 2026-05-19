@@ -30,7 +30,7 @@ export function calcELO(
 ): { winnerDelta: number; loserDelta: number } {
   const expected = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
   const winnerDelta = Math.round(K * (1 - expected));
-  const loserDelta = Math.round(K * (0 - expected));
+  const loserDelta = -winnerDelta; // zero-sum: loser loses exactly what winner gains
   return { winnerDelta, loserDelta };
 }
 
