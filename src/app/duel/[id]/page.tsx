@@ -712,8 +712,8 @@ export default function DuelPage() {
               <div className="font-jp text-6xl mb-2 text-white">{word.word}</div>
               <p className="text-white/35 text-sm italic mb-2">{word.meaning}</p>
               <span className="inline-block text-xs px-2 py-0.5 rounded-full" style={{
-                background:word.jlpt==="N5"?"#1D9E7522":word.jlpt==="N4"?"#4DB6AC22":word.jlpt==="N3"?"#B8860B22":word.jlpt==="N2"?"#D85A3022":"#C6282822",
-                color:word.jlpt==="N5"?"#1D9E75":word.jlpt==="N4"?"#4DB6AC":word.jlpt==="N3"?"#B8860B":word.jlpt==="N2"?"#D85A30":"#C62828",
+                background:word.jlpt==="N5"?"#1D9E7522":word.jlpt==="N4"?"#4DB6AC22":word.jlpt==="N3"?"#B8860B22":word.jlpt==="N2"?"#D85A3022":word.jlpt==="X"?"#9C27B022":"#C6282822",
+                color:word.jlpt==="N5"?"#1D9E75":word.jlpt==="N4"?"#4DB6AC":word.jlpt==="N3"?"#B8860B":word.jlpt==="N2"?"#D85A30":word.jlpt==="X"?"#CE93D8":"#C62828",
               }}>{word.jlpt}</span>
               {phase==="playing"&&<p className="text-white/20 text-xs mt-2">{hiraMode?"Type romaji — auto-converts to hiragana":"Type the reading in hiragana or romaji"}</p>}
             </>

@@ -14,10 +14,10 @@ interface Word {
 }
 
 const JLPT_COLORS: Record<string, string> = {
-  N5: "#1D9E75", N4: "#4DB6AC", N3: "#B8860B", N2: "#D85A30", N1: "#C62828",
+  N5: "#1D9E75", N4: "#4DB6AC", N3: "#B8860B", N2: "#D85A30", N1: "#C62828", X: "#9C27B0",
 };
 
-const LEVELS = ["all", "N5", "N4", "N3", "N2", "N1"] as const;
+const LEVELS = ["all", "N5", "N4", "N3", "N2", "N1", "X"] as const;
 type Level = typeof LEVELS[number];
 
 const PAGE_SIZE = 50;
@@ -71,7 +71,7 @@ export default function Dictionary() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold">Dictionary</h1>
-          <p className="text-white/40 text-sm">{total.toLocaleString()} words · JLPT N5–N1</p>
+          <p className="text-white/40 text-sm">{total.toLocaleString()} words · JLPT N5–N1 + Beyond</p>
         </div>
         <Link href="/practice">
           <button className="btn-primary" style={{ width: "auto", padding: "10px 20px", fontSize: 14 }}>

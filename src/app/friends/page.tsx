@@ -448,14 +448,14 @@ export default function FriendsPage() {
             {/* Category */}
             <p className="text-xs text-white/40 mb-2 uppercase tracking-widest">Category</p>
             <div className="flex flex-wrap gap-2 mb-4">
-              {["all","N5","N4","N3","N2","N1"].map(c=>(
+              {["all","N5","N4","N3","N2","N1","X"].map(c=>(
                 <button key={c} onClick={()=>setChallengeCategory(c)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
                     background: challengeCategory===c ? "rgba(127,119,221,0.3)" : "rgba(255,255,255,0.05)",
                     border: challengeCategory===c ? "1px solid #7F77DD" : "1px solid rgba(255,255,255,0.08)",
                     color: challengeCategory===c ? "#7F77DD" : "rgba(255,255,255,0.5)",
-                  }}>{c==="all"?"All levels":c}</button>
+                  }}>{c==="all"?"All levels":c==="X"?"Beyond N1":c}</button>
               ))}
             </div>
             {/* Mode */}

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type Phase = "loading" | "setup" | "playing" | "feedback" | "finished";
-type Filter = "all" | "N5" | "N4" | "N3" | "N2" | "N1";
+type Filter = "all" | "N5" | "N4" | "N3" | "N2" | "N1" | "X";
 
 interface RoundStat {
   word: VocabWord;
@@ -22,6 +22,7 @@ const FILTER_OPTIONS = [
   { value: "N3" as Filter, label: "JLPT N3",    color: "#B8860B" },
   { value: "N2" as Filter, label: "JLPT N2",    color: "#D85A30" },
   { value: "N1" as Filter, label: "JLPT N1",    color: "#C62828" },
+  { value: "X"  as Filter, label: "Beyond N1",  color: "#9C27B0" },
 ];
 
 const ROUND_TIME = 15;
@@ -93,7 +94,7 @@ export default function Practice() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      const levels = ["N5", "N4", "N3", "N2", "N1"];
+      const levels = ["N5", "N4", "N3", "N2", "N1", "X"];
       const counts: Record<string, VocabWord[]> = {};
       const { count: totalCount } = await supabase.from("vocabulary").select("*", { count: "exact", head: true });
       counts["all"] = Array(totalCount ?? 0).fill(null) as any;

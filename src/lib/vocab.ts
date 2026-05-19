@@ -7,7 +7,7 @@ export interface VocabWord {
   reading: string;
   romaji: string;
   meaning: string;
-  jlpt: "N5" | "N4" | "N3" | "N2" | "N1";
+  jlpt: "N5" | "N4" | "N3" | "N2" | "N1" | "X";
   level: number;
 }
 
@@ -139,12 +139,13 @@ export function getDailyWords(allWords: VocabWord[], date: string, count = 10): 
 
 // ─── Approximate word counts per JLPT level ───────────────────────────────────
 const JLPT_COUNTS: Record<string, number> = {
-  all: 7238,
+  all: 12238,
   N5: 800,
   N4: 1500,
   N3: 1500,
   N2: 1700,
   N1: 1738,
+  X: 5000,
 };
 
 /**
