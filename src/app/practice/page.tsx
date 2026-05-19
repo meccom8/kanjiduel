@@ -116,7 +116,8 @@ export default function Practice() {
 
   async function startSession() {
     setPhase("loading");
-    const words = await fetchRandomWords(supabase, TOTAL_ROUNDS, filter === "all" ? undefined : filter);
+    const totalForFilter = (allWords[filter] ?? []).length || undefined;
+    const words = await fetchRandomWords(supabase, TOTAL_ROUNDS, filter === "all" ? undefined : filter, totalForFilter);
     if (!words.length) { setPhase("setup"); return; }
     setQueue(words);
     setStats([]);
@@ -270,7 +271,7 @@ export default function Practice() {
               <div className="w-1.5 h-8 rounded-full flex-shrink-0" style={{ background: s.correct ? "#1D9E75" : "#E24B4A" }} />
               <div className="font-jp text-xl w-12 text-center flex-shrink-0">{s.word.word}</div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-white/30">{s.word.jlpt} · {s.word.meaning}</p>
+                <p className="text-xs text-white/30">{s.word.jlpt === "X" ? "No JLPT" : s.word.jlpt} · {s.word.meaning}</p>
                 <p className="text-sm font-mono">{s.word.reading}</p>
                 {showRomaji && <p className="text-xs font-mono text-white/25">{s.word.romaji}</p>}
               </div>
@@ -318,7 +319,9 @@ export default function Practice() {
             <div className="font-jp text-6xl mb-3 text-white pop-in">{current.word}</div>
             <p className="text-white/35 text-sm italic mb-2">{current.meaning}</p>
             <span className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: filterInfo.color + "22", color: filterInfo.color }}>{current.jlpt}</span>
+              style={{ background: filterInfo.color + "22", color: filterInfo.color }}>
+              {current.jlpt === "X" ? "No JLPT" : current.jlpt}
+            </span>
             {phase === "feedback" && (
               <div className="mt-4 pop-in">
                 {isCorrect ? (

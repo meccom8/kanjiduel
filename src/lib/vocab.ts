@@ -139,15 +139,16 @@ export function getDailyWords(allWords: VocabWord[], date: string, count = 10): 
   return shuffled.slice(0, count);
 }
 
-// ─── Approximate word counts per JLPT level ───────────────────────────────────
+// ─── Fallback word counts (used when actual DB count isn't passed in) ─────────
+// Update these if the vocabulary table changes significantly.
 const JLPT_COUNTS: Record<string, number> = {
-  all: 12238,
+  all: 17500,
   N5: 800,
   N4: 1500,
   N3: 1500,
   N2: 1700,
   N1: 1738,
-  X: 5000,
+  X: 10000,
 };
 
 /**
@@ -164,9 +165,17 @@ const JLPT_COUNTS: Record<string, number> = {
 export async function fetchRandomWords(
   supabase: ReturnType<typeof createClient>,
   count: number = 20,
-  jlpt?: string
+  jlpt?: string,
+  totalOverride?: number
 ): Promise<VocabWord[]> {
-  const total = jlpt ? (JLPT_COUNTS[jlpt] ?? 1000) : JLPT_COUNTS.all;
+  // Use provided total, or fetch it from DB to cover the full table accurately
+  let total = totalOverride;
+  if (!total) {
+    let q = supabase.from("vocabulary").select("*", { count: "exact", head: true });
+    if (jlpt) q = (q as any).eq("jlpt", jlpt);
+    const { count: dbCount } = await q;
+    total = dbCount ?? (jlpt ? (JLPT_COUNTS[jlpt] ?? 1000) : JLPT_COUNTS.all);
+  }
   const batchSize = Math.max(count, 10);
 
   // Pick 3 non-overlapping random offsets
