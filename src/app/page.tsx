@@ -39,21 +39,23 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showRanks, setShowRanks] = useState(false);
   const [pendingFriends, setPendingFriends] = useState(0);
+  const [wordCount, setWordCount] = useState<string>("…");
   const supabase = createClient();
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      const [profileRes, friendRes, vocabRes] = await Promise.all([
+        user ? supabase.from("profiles").select("*").eq("id", user.id).single() : Promise.resolve({ data: null }),
+        user ? supabase.from("friendships").select("id", { count: "exact", head: true }).eq("addressee_id", user.id).eq("status", "pending") : Promise.resolve({ count: 0 }),
+        supabase.from("vocabulary").select("id", { count: "exact", head: true }),
+      ]);
       if (user) {
-        const [{ data }, { count }] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", user.id).single(),
-          supabase.from("friendships")
-            .select("id", { count: "exact", head: true })
-            .eq("addressee_id", user.id).eq("status", "pending"),
-        ]);
-        setProfile(data);
-        setPendingFriends(count ?? 0);
+        setProfile(profileRes.data);
+        setPendingFriends((friendRes as any).count ?? 0);
       }
+      const total = (vocabRes as any).count ?? 0;
+      setWordCount(total >= 1000 ? `${(total / 1000).toFixed(0)},000+` : String(total));
       setLoading(false);
     })();
   }, []);
@@ -253,7 +255,7 @@ export default function Home() {
       {/* Stats strip */}
       <div className="mt-8 flex gap-10 text-center slide-up">
         {[
-          { label: "Words", val: "12,000+" },
+          { label: "Words", val: wordCount },
           { label: "Ranks", val: "11" },
           { label: "JLPT levels", val: "5+1" },
         ].map(s => (

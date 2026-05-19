@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase";
 
 const KANJI_PAIRS = [
   { word: "勝者", reading: "しょうしゃ", meaning: "winner" },
@@ -34,6 +35,17 @@ export default function Landing() {
   const [activeKanji, setActiveKanji] = useState(0);
   const [typed, setTyped] = useState("");
   const [revealed, setRevealed] = useState(false);
+  const [wordCount, setWordCount] = useState<string>("12,000+");
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.from("vocabulary").select("id", { count: "exact", head: true }).then(({ count }) => {
+      if (count && count > 0) {
+        setWordCount(`${Math.floor(count / 1000).toLocaleString()},000+`);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -200,7 +212,7 @@ export default function Landing() {
       {/* JLPT */}
       <section className="px-4 py-24 relative z-10 max-w-4xl mx-auto">
         <div className="card-solid p-8 text-center" style={{ border: "1px solid rgba(83,74,183,0.3)" }}>
-          <h2 className="text-3xl font-bold text-white mb-3">12,000+ words. N5 to No JLPT.</h2>
+          <h2 className="text-3xl font-bold text-white mb-3">{wordCount} words. N5 to No JLPT.</h2>
           <p className="text-white/40 mb-8 max-w-sm mx-auto">
             From total beginner to beyond N1. Your rank unlocks harder vocabulary as you improve.
           </p>

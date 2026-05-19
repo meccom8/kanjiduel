@@ -103,7 +103,7 @@ export default function Dictionary() {
                   ? l === "all" ? "#7F77DD" : JLPT_COLORS[l]
                   : "rgba(255,255,255,0.4)",
               }}>
-              {l === "all" ? "All" : l}
+              {l === "all" ? "All" : l === "X" ? "No JLPT" : l}
             </button>
           ))}
         </div>
