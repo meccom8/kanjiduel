@@ -38,6 +38,7 @@ interface Match {
   p1_elo_change: number; p2_elo_change: number;
   rounds: number; played_at: string;
   opponent_username?: string;
+  opponent_id?: string;
 }
 interface KanjiStat { kanji: string; jlpt: string; correct: number; wrong: number; }
 
@@ -303,7 +304,7 @@ export default function UserProfile() {
         }
         setMatches(matchData.map((m: any) => {
           const oppId = m.player1_id === data.id ? m.player2_id : m.player1_id;
-          return { ...m, opponent_username: oppId ? (oppMap[oppId] ?? "Deleted user") : "Unknown" };
+          return { ...m, opponent_id: oppId ?? undefined, opponent_username: oppId ? (oppMap[oppId] ?? "Deleted user") : "Unknown" };
         }));
       }
 
@@ -807,38 +808,54 @@ export default function UserProfile() {
         <div className="card-solid overflow-hidden">
           {matches.length === 0
             ? <div className="p-8 text-center text-white/30 text-sm">No matches yet</div>
-            : matches.slice(0, 20).map(m => {
-              const isP1 = m.player1_id === profile.id;
-              const myScore = isP1 ? m.p1_score : m.p2_score;
-              const oppScore = isP1 ? m.p2_score : m.p1_score;
-              const eloChange = isP1 ? m.p1_elo_change : m.p2_elo_change;
-              const won = m.winner_id === profile.id ? true : m.winner_id === null ? null : false;
-              const date = new Date(m.played_at).toLocaleDateString("en", { month: "short", day: "numeric" });
-              return (
-                <div key={m.id} className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0">
-                  <div className="w-1.5 h-8 rounded-full flex-shrink-0"
-                    style={{ background: won === true ? "#1D9E75" : won === false ? "#E24B4A" : "rgba(255,255,255,0.15)" }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">vs {m.opponent_username}</p>
-                    <p className="text-xs text-white/30 mt-0.5">{date} · {m.rounds} rounds</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono text-sm font-bold">
-                      <span style={{ color: "#7F77DD" }}>{myScore}</span>
-                      <span className="text-white/20 mx-1">-</span>
-                      <span style={{ color: "#D85A30" }}>{oppScore}</span>
-                    </p>
-                    {viewerIsPro ? (
-                      <p className="text-xs font-mono mt-0.5" style={{ color: eloChange >= 0 ? "#5DCAA5" : "#E24B4A" }}>
-                        {eloChange >= 0 ? "+" : ""}{eloChange} ELO
+            : <>
+              {matches.slice(0, profile.is_pro ? 50 : 10).map(m => {
+                const isP1 = m.player1_id === profile.id;
+                const myScore = isP1 ? m.p1_score : m.p2_score;
+                const oppScore = isP1 ? m.p2_score : m.p1_score;
+                const eloChange = isP1 ? m.p1_elo_change : m.p2_elo_change;
+                const won = m.winner_id === profile.id ? true : m.winner_id === null ? null : false;
+                const date = new Date(m.played_at).toLocaleDateString("en", { month: "short", day: "numeric" });
+                return (
+                  <div key={m.id} className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0">
+                    <div className="w-1.5 h-8 rounded-full flex-shrink-0"
+                      style={{ background: won === true ? "#1D9E75" : won === false ? "#E24B4A" : "rgba(255,255,255,0.15)" }} />
+                    <div className="flex-1 min-w-0">
+                      {m.opponent_id ? (
+                        <Link href={`/user/${m.opponent_username}`}>
+                          <p className="text-sm font-medium hover:text-accent transition-colors cursor-pointer">
+                            vs <span className="underline underline-offset-2 decoration-white/20">{m.opponent_username}</span>
+                          </p>
+                        </Link>
+                      ) : (
+                        <p className="text-sm font-medium">vs {m.opponent_username}</p>
+                      )}
+                      <p className="text-xs text-white/30 mt-0.5">{date} · {m.rounds} rounds</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm font-bold">
+                        <span style={{ color: "#7F77DD" }}>{myScore}</span>
+                        <span className="text-white/20 mx-1">-</span>
+                        <span style={{ color: "#D85A30" }}>{oppScore}</span>
                       </p>
-                    ) : (
-                      <p className="text-xs font-mono mt-0.5 text-white/20">?? ELO</p>
-                    )}
+                      {viewerIsPro ? (
+                        <p className="text-xs font-mono mt-0.5" style={{ color: eloChange >= 0 ? "#5DCAA5" : "#E24B4A" }}>
+                          {eloChange >= 0 ? "+" : ""}{eloChange} ELO
+                        </p>
+                      ) : (
+                        <p className="text-xs font-mono mt-0.5 text-white/20">?? ELO</p>
+                      )}
+                    </div>
                   </div>
+                );
+              })}
+              {!profile.is_pro && matches.length > 10 && (
+                <div className="px-5 py-3 text-center text-xs text-white/30 border-t border-white/5">
+                  Only showing 10 matches — this player hasn&apos;t unlocked Pro history
                 </div>
-              );
-            })}
+              )}
+            </>
+          }
         </div>
       )}
 
