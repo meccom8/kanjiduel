@@ -36,6 +36,15 @@ export const PACK_ACCENT_COLORS = [
   { name: "🔥 Fire",   value: "#FF5722" },
 ];
 
+/** Exclusive titles unlocked with the Cosmetics Pack (match the 5 accent colors) */
+export const PACK_EXCLUSIVE_TITLES = [
+  "✨ Sakura Warrior",
+  "🍒 Cherry Ronin",
+  "⚡ Neon Samurai",
+  "❄️ Ice Scholar",
+  "🔥 Fire Sensei",
+];
+
 // ─── Badge definitions ───────────────────────────────────────────────────────
 export interface BadgeDef {
   id: string;

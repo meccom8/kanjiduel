@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CropModal, { type CropResult, gifCropStyle } from "@/components/CropModal";
 import {
-  BORDER_STYLES, PACK_ACCENT_COLORS, RANK_BADGE_DEFS, SPECIAL_BADGE_DEFS,
+  BORDER_STYLES, PACK_ACCENT_COLORS, PACK_EXCLUSIVE_TITLES,
+  RANK_BADGE_DEFS, SPECIAL_BADGE_DEFS,
   getBorderClass, RARITY_COLORS, type Rarity,
 } from "@/lib/cosmetics";
 
@@ -25,10 +26,7 @@ const TITLES = [
   "N5 Grinder","N4 Rising","N3 Challenger","N2 Expert","N1 Legend",
   "Daily Player","Streak Lord","Grand Champion",
 ];
-const EXCLUSIVE_TITLES = [
-  "✨ Sakura Swordsman","✨ Ink Master","✨ Shadow Kanji",
-  "✨ Celestial Scribe","✨ Phantom Sensei",
-];
+// Exclusive titles now come from cosmetics.ts (PACK_EXCLUSIVE_TITLES)
 
 interface AvatarCrop { tx: number; ty: number; zoom: number; }
 
@@ -74,6 +72,8 @@ export default function EditProfile() {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const bannerFileRef = useRef<HTMLInputElement>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const profileLoadedRef = useRef(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -99,10 +99,26 @@ export default function EditProfile() {
             : data.avatar_border !== false ? "rainbow" : null
         );
         setFeaturedBadges(data.featured_badges ?? []);
+        setTimeout(() => { profileLoadedRef.current = true; }, 100);
       }
       setLoading(false);
     })();
   }, []);
+
+  /* ── Auto-save when color or title changes ── */
+  useEffect(() => {
+    if (!profileLoadedRef.current || !profile) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setSaving(true);
+      const { error } = await supabase.from("profiles").update({
+        title: title || null,
+        accent_color: accentColor,
+      }).eq("id", profile.id);
+      setSaving(false);
+      if (!error) { setSaved(true); setTimeout(() => setSaved(false), 1500); }
+    }, 400);
+  }, [accentColor, title]);
 
   /* ── Avatar: pick file → show crop modal ── */
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -645,7 +661,7 @@ export default function EditProfile() {
           <div className="mt-3 pt-3 border-t border-white/5">
             <p className="text-xs mb-2" style={{ color: "#FF6B9D" }}>✨ Exclusive titles</p>
             <div className="flex flex-wrap gap-2">
-              {EXCLUSIVE_TITLES.map(t => (
+              {PACK_EXCLUSIVE_TITLES.map(t => (
                 <button key={t} onClick={() => setTitle(t)}
                   className="px-3 py-1.5 rounded-lg text-xs transition-all"
                   style={{

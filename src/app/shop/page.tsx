@@ -23,8 +23,9 @@ const PRO_FEATURES = [
 
 const COSMETICS_FEATURES = [
   "Animated border on your avatar",
+  "5 exclusive accent colors 🍒 ⚡ ❄️ 🔥 ✨",
+  "5 exclusive profile titles matching each color",
   "4 exclusive duel reactions 💀 🤯 ✨ 🫡",
-  "Exclusive profile titles",
   "Pack badge on your profile",
 ];
 
