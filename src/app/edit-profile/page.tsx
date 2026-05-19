@@ -15,9 +15,6 @@ const ACCENT_COLORS = [
   { name: "Violet", value: "#534AB7" },
   { name: "Teal",   value: "#1D9E75" },
   { name: "Gold",   value: "#B8860B" },
-  { name: "Coral",  value: "#D85A30" },
-  { name: "Rose",   value: "#C2185B" },
-  { name: "Sky",    value: "#0288D1" },
 ];
 
 const TITLES = [

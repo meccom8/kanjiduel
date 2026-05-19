@@ -34,6 +34,9 @@ export const PACK_ACCENT_COLORS = [
   { name: "⚡ Neon",   value: "#39FF14" },
   { name: "❄️ Ice",    value: "#00BCD4" },
   { name: "🔥 Fire",   value: "#FF5722" },
+  { name: "🪸 Coral",  value: "#D85A30" },
+  { name: "🌸 Rose",   value: "#C2185B" },
+  { name: "🌊 Sky",    value: "#0288D1" },
 ];
 
 /** Exclusive titles unlocked with the Cosmetics Pack (match the 5 accent colors) */

@@ -17,13 +17,13 @@ const PRO_FEATURES = [
   "Animated GIF avatar & profile banner",
   "ELO history chart on your profile",
   "Detailed stats by JLPT category",
-  "Match history up to 50 games (vs 10 for free)",
+  "Match history up to 50 games",
   "Early access to new features",
 ];
 
 const COSMETICS_FEATURES = [
   "Animated border on your avatar",
-  "5 exclusive accent colors 🍒 ⚡ ❄️ 🔥 ✨",
+  "8 exclusive accent colors 🍒 ⚡ ❄️ 🔥 ✨ 🪸 🌸 🌊",
   "5 exclusive profile titles matching each color",
   "4 exclusive duel reactions 💀 🤯 ✨ 🫡",
   "Pack badge on your profile",
