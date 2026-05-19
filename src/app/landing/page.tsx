@@ -35,15 +35,23 @@ export default function Landing() {
   const [activeKanji, setActiveKanji] = useState(0);
   const [typed, setTyped] = useState("");
   const [revealed, setRevealed] = useState(false);
-  const [wordCount, setWordCount] = useState<string>("12,000+");
+  const [wordCount, setWordCount] = useState<string>("…");
+  const [levelCounts, setLevelCounts] = useState<Record<string, number>>({});
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.from("vocabulary").select("id", { count: "exact", head: true }).then(({ count }) => {
-      if (count && count > 0) {
-        setWordCount(`${Math.floor(count / 1000).toLocaleString()},000+`);
-      }
-    });
+    (async () => {
+      const levels = ["N5", "N4", "N3", "N2", "N1", "X"];
+      const [totalRes, ...levelRes] = await Promise.all([
+        supabase.from("vocabulary").select("id", { count: "exact", head: true }),
+        ...levels.map(l => supabase.from("vocabulary").select("id", { count: "exact", head: true }).eq("jlpt", l)),
+      ]);
+      const total = (totalRes as any).count ?? 0;
+      setWordCount(total >= 1000 ? `${Math.floor(total / 1000).toLocaleString()},000+` : String(total));
+      const counts: Record<string, number> = {};
+      levels.forEach((l, i) => { counts[l] = (levelRes[i] as any).count ?? 0; });
+      setLevelCounts(counts);
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -218,19 +226,23 @@ export default function Landing() {
           </p>
           <div className="flex justify-center gap-3 flex-wrap">
             {[
-              { level: "N5", color: "#1D9E75", words: "~800" },
-              { level: "N4", color: "#4DB6AC", words: "~1,500" },
-              { level: "N3", color: "#B8860B", words: "~1,500" },
-              { level: "N2", color: "#D85A30", words: "~1,700" },
-              { level: "N1", color: "#C62828", words: "~1,700" },
-              { level: "No JLPT", color: "#9C27B0", words: "5,000+" },
-            ].map(l => (
-              <div key={l.level} className="px-5 py-3 rounded-xl text-center"
-                style={{ background: l.color + "15", border: `1px solid ${l.color}33` }}>
-                <p className="font-mono font-bold text-sm" style={{ color: l.color }}>{l.level}</p>
-                <p className="text-xs text-white/30 mt-0.5">{l.words} words</p>
-              </div>
-            ))}
+              { level: "N5",      key: "N5", color: "#1D9E75" },
+              { level: "N4",      key: "N4", color: "#4DB6AC" },
+              { level: "N3",      key: "N3", color: "#B8860B" },
+              { level: "N2",      key: "N2", color: "#D85A30" },
+              { level: "N1",      key: "N1", color: "#C62828" },
+              { level: "No JLPT", key: "X",  color: "#9C27B0" },
+            ].map(l => {
+              const c = levelCounts[l.key];
+              const label = c ? (c >= 1000 ? `${(c / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(c)) : "…";
+              return (
+                <div key={l.level} className="px-5 py-3 rounded-xl text-center"
+                  style={{ background: l.color + "15", border: `1px solid ${l.color}33` }}>
+                  <p className="font-mono font-bold text-sm" style={{ color: l.color }}>{l.level}</p>
+                  <p className="text-xs text-white/30 mt-0.5">{label} words</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
