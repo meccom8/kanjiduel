@@ -818,7 +818,7 @@ export default function UserProfile() {
           {matches.length === 0
             ? <div className="p-8 text-center text-white/30 text-sm">No matches yet</div>
             : <>
-              {matches.slice(0, profile.is_pro ? 50 : 10).map(m => {
+              {matches.slice(0, viewerIsPro ? 50 : 10).map(m => {
                 const isP1 = m.player1_id === profile.id;
                 const myScore = isP1 ? m.p1_score : m.p2_score;
                 const oppScore = isP1 ? m.p2_score : m.p1_score;
@@ -858,9 +858,10 @@ export default function UserProfile() {
                   </div>
                 );
               })}
-              {!profile.is_pro && matches.length > 10 && (
+              {!viewerIsPro && matches.length > 10 && (
                 <div className="px-5 py-3 text-center text-xs text-white/30 border-t border-white/5">
-                  Only showing 10 matches — this player hasn&apos;t unlocked Pro history
+                  <Link href="/shop" className="text-accent hover:text-white transition-colors">✦ Upgrade to Pro</Link>
+                  {" "}to see full match history (50 matches)
                 </div>
               )}
             </>
