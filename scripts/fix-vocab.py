@@ -83,6 +83,74 @@ def fetch_all_vocab(url_base, key):
         offset += PAGE
     return all_rows
 
+# ── Hiragana / Romaji helpers (mirrors vocab.ts logic) ────────────────────────
+
+KATA_START = 0x30A1
+HIRA_START = 0x3041
+
+def kata_to_hira(s):
+    result = []
+    for c in s:
+        cp = ord(c)
+        if KATA_START <= cp <= KATA_START + 96:
+            result.append(chr(cp - KATA_START + HIRA_START))
+        else:
+            result.append(c)
+    return "".join(result)
+
+HIRA_ROMA = {
+    "あ":"a","い":"i","う":"u","え":"e","お":"o",
+    "か":"ka","き":"ki","く":"ku","け":"ke","こ":"ko",
+    "さ":"sa","し":"shi","す":"su","せ":"se","そ":"so",
+    "た":"ta","ち":"chi","つ":"tsu","て":"te","と":"to",
+    "な":"na","に":"ni","ぬ":"nu","ね":"ne","の":"no",
+    "は":"ha","ひ":"hi","ふ":"fu","へ":"he","ほ":"ho",
+    "ま":"ma","み":"mi","む":"mu","め":"me","も":"mo",
+    "や":"ya","ゆ":"yu","よ":"yo",
+    "ら":"ra","り":"ri","る":"ru","れ":"re","ろ":"ro",
+    "わ":"wa","を":"wo","ん":"n",
+    "が":"ga","ぎ":"gi","ぐ":"gu","げ":"ge","ご":"go",
+    "ざ":"za","じ":"ji","ず":"zu","ぜ":"ze","ぞ":"zo",
+    "だ":"da","ぢ":"di","づ":"du","で":"de","ど":"do",
+    "ば":"ba","び":"bi","ぶ":"bu","べ":"be","ぼ":"bo",
+    "ぱ":"pa","ぴ":"pi","ぷ":"pu","ぺ":"pe","ぽ":"po",
+    "きゃ":"kya","きゅ":"kyu","きょ":"kyo",
+    "しゃ":"sha","しゅ":"shu","しょ":"sho",
+    "ちゃ":"cha","ちゅ":"chu","ちょ":"cho",
+    "にゃ":"nya","にゅ":"nyu","にょ":"nyo",
+    "ひゃ":"hya","ひゅ":"hyu","ひょ":"hyo",
+    "みゃ":"mya","みゅ":"myu","みょ":"myo",
+    "りゃ":"rya","りゅ":"ryu","りょ":"ryo",
+    "ぎゃ":"gya","ぎゅ":"gyu","ぎょ":"gyo",
+    "じゃ":"ja","じゅ":"ju","じょ":"jo",
+    "びゃ":"bya","びゅ":"byu","びょ":"byo",
+    "ぴゃ":"pya","ぴゅ":"pyu","ぴょ":"pyo",
+    "っ":"tt","ー":"-",
+}
+
+def hira_to_roma(s):
+    result = ""
+    i = 0
+    while i < len(s):
+        two = s[i:i+2]
+        if two in HIRA_ROMA:
+            result += HIRA_ROMA[two]
+            i += 2
+            continue
+        result += HIRA_ROMA.get(s[i], s[i])
+        i += 1
+    return result
+
+def reading_to_romaji(reading):
+    """Convert a reading string (possibly /‑separated + katakana) to romaji."""
+    parts = [p.strip() for p in reading.split("/") if p.strip()]
+    roma_parts = []
+    for part in parts:
+        hira = kata_to_hira(part)
+        roma = hira_to_roma(hira)
+        roma_parts.append(roma)
+    return "/".join(roma_parts)
+
 def is_kanji(ch):
     cp = ord(ch)
     return (0x4E00 <= cp <= 0x9FFF or   # CJK Unified Ideographs
@@ -270,12 +338,12 @@ def main():
     print(f"Supabase: {url_base}")
 
     # ── Step 1: Fetch vocabulary ────────────────────────────────────────────────
-    print("\n[1/4] Fetching vocabulary from Supabase...")
+    print("\n[1/5] Fetching vocabulary from Supabase...")
     vocab = fetch_all_vocab(url_base, key)
     print(f"  {len(vocab):,} words fetched")
 
     # ── Step 2: Remove hiragana-only words ──────────────────────────────────────
-    print("\n[2/4] Finding hiragana-only words...")
+    print("\n[2/5] Finding hiragana-only words...")
     to_delete = [w for w in vocab if is_hiragana_only(w["word"])]
     print(f"  {len(to_delete)} hiragana-only words found")
     if to_delete:
@@ -298,7 +366,7 @@ def main():
             print("  Skipped.")
 
     # ── Step 3: Load JMdict and fix readings ────────────────────────────────────
-    print("\n[3/4] Loading JMdict for alternative readings...")
+    print("\n[3/5] Loading JMdict for alternative readings...")
     jmdict = load_jmdict()
     kanji_to_readings, common_words = build_lookup(jmdict)
     print(f"  {len(kanji_to_readings):,} kanji entries in JMdict")
@@ -349,7 +417,7 @@ def main():
             print("  Skipped.")
 
     # ── Step 4: Add beyond-JLPT words ──────────────────────────────────────────
-    print("\n[4/4] Adding beyond-JLPT common words...")
+    print("\n[4/5] Adding beyond-JLPT common words...")
     # Filter: must have kanji, not already in vocab, not hiragana-only
     new_words = [
         w for w in common_words
@@ -374,7 +442,7 @@ def main():
                 {
                     "word": w["word"],
                     "reading": w["reading"],
-                    "romaji": "",   # can be generated later
+                    "romaji": reading_to_romaji(w["reading"]),
                     "meaning": w["meaning"],
                     "jlpt": "X",
                     "level": 0,
@@ -392,6 +460,38 @@ def main():
                 print(f"\r  Inserted {inserted}/{len(rows)}...", end="", flush=True)
                 time.sleep(0.1)
             print(f"\n  ✓ Inserted {inserted} beyond-JLPT words")
+        else:
+            print("  Skipped.")
+
+    # ── Step 5: Fix romaji for all words ───────────────────────────────────────
+    print("\n[5/5] Fixing romaji for all words...")
+    # Re-fetch vocab (may include newly inserted X words)
+    all_vocab = fetch_all_vocab(url_base, key)
+    romaji_updates = []
+    for w in all_vocab:
+        expected = reading_to_romaji(w["reading"])
+        # Update if romaji is empty OR doesn't cover all readings
+        current_parts = len([p for p in (w.get("romaji") or "").split("/") if p.strip()])
+        expected_parts = len([p for p in expected.split("/") if p.strip()])
+        if not w.get("romaji") or current_parts < expected_parts:
+            romaji_updates.append({"id": w["id"], "romaji": expected})
+
+    print(f"  {len(romaji_updates):,} words need romaji update")
+    if romaji_updates:
+        confirm = input(f"\n  Update romaji for {len(romaji_updates)} words? (y/N): ").strip().lower()
+        if confirm == "y":
+            BATCH = 50
+            done = 0
+            for i in range(0, len(romaji_updates), BATCH):
+                batch = romaji_updates[i:i+BATCH]
+                for item in batch:
+                    supabase_request(url_base, key, "PATCH", "vocabulary",
+                                     body={"romaji": item["romaji"]},
+                                     params={"id": f"eq.{item['id']}"})
+                done += len(batch)
+                print(f"\r  Updated {done}/{len(romaji_updates)}...", end="", flush=True)
+                time.sleep(0.05)
+            print(f"\n  ✓ Updated romaji for {done} words")
         else:
             print("  Skipped.")
 

@@ -94,10 +94,12 @@ export function checkVocabAnswer(input: string, word: VocabWord): boolean {
   const inputAsHira = kataToHira(clean).toLowerCase();
   const inputRoma = normalizeLongVowels(hiraToRoma(clean));
 
-  const hiraReadings = splitReadings(word.reading.toLowerCase());
-  const romaReadings = splitReadings(
-    normalizeLongVowels(word.romaji || hiraToRoma(word.reading))
-  );
+  // Normalise each reading: katakana → hiragana so ウー-style readings work
+  const hiraReadings = splitReadings(word.reading).map(r => kataToHira(r).toLowerCase());
+  // Romaji: use stored romaji if present, otherwise generate from all readings
+  const romaReadings = word.romaji
+    ? splitReadings(normalizeLongVowels(word.romaji))
+    : [];
   const hiraToRomaReadings = hiraReadings.map(h => normalizeLongVowels(hiraToRoma(h)));
   const allRoma = [...new Set([...romaReadings, ...hiraToRomaReadings])];
 
