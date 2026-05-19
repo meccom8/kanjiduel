@@ -22,7 +22,7 @@ const FILTER_OPTIONS = [
   { value: "N3" as Filter, label: "JLPT N3",    color: "#B8860B" },
   { value: "N2" as Filter, label: "JLPT N2",    color: "#D85A30" },
   { value: "N1" as Filter, label: "JLPT N1",    color: "#C62828" },
-  { value: "X"  as Filter, label: "Beyond N1",  color: "#9C27B0" },
+  { value: "X"  as Filter, label: "No JLPT",    color: "#9C27B0" },
 ];
 
 const ROUND_TIME = 15;

@@ -200,21 +200,22 @@ export default function Landing() {
       {/* JLPT */}
       <section className="px-4 py-24 relative z-10 max-w-4xl mx-auto">
         <div className="card-solid p-8 text-center" style={{ border: "1px solid rgba(83,74,183,0.3)" }}>
-          <h2 className="text-3xl font-bold text-white mb-3">7,238 words. 5 JLPT levels.</h2>
+          <h2 className="text-3xl font-bold text-white mb-3">12,000+ words. N5 to No JLPT.</h2>
           <p className="text-white/40 mb-8 max-w-sm mx-auto">
-            From total beginner to advanced. Your rank unlocks harder vocabulary as you improve.
+            From total beginner to beyond N1. Your rank unlocks harder vocabulary as you improve.
           </p>
           <div className="flex justify-center gap-3 flex-wrap">
             {[
-              { level: "N5", color: "#1D9E75", words: "499" },
-              { level: "N4", color: "#4DB6AC", words: "491" },
-              { level: "N3", color: "#B8860B", words: "1,567" },
-              { level: "N2", color: "#D85A30", words: "1,498" },
-              { level: "N1", color: "#C62828", words: "3,183" },
+              { level: "N5", color: "#1D9E75", words: "~800" },
+              { level: "N4", color: "#4DB6AC", words: "~1,500" },
+              { level: "N3", color: "#B8860B", words: "~1,500" },
+              { level: "N2", color: "#D85A30", words: "~1,700" },
+              { level: "N1", color: "#C62828", words: "~1,700" },
+              { level: "No JLPT", color: "#9C27B0", words: "5,000+" },
             ].map(l => (
               <div key={l.level} className="px-5 py-3 rounded-xl text-center"
                 style={{ background: l.color + "15", border: `1px solid ${l.color}33` }}>
-                <p className="font-mono font-bold" style={{ color: l.color }}>{l.level}</p>
+                <p className="font-mono font-bold text-sm" style={{ color: l.color }}>{l.level}</p>
                 <p className="text-xs text-white/30 mt-0.5">{l.words} words</p>
               </div>
             ))}

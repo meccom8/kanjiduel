@@ -71,7 +71,7 @@ export default function Dictionary() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold">Dictionary</h1>
-          <p className="text-white/40 text-sm">{total.toLocaleString()} words · JLPT N5–N1 + Beyond</p>
+          <p className="text-white/40 text-sm">{total.toLocaleString()} words · N5 → N1 + No JLPT</p>
         </div>
         <Link href="/practice">
           <button className="btn-primary" style={{ width: "auto", padding: "10px 20px", fontSize: 14 }}>

@@ -151,11 +151,11 @@ const JLPT_COUNTS: Record<string, number> = {
 };
 
 /**
- * Fetch truly random words from the full 7238-word vocabulary table.
+ * Fetch truly random words from the full vocabulary table (~12 000 words).
  *
  * Instead of .limit(500) which always returns the same first 500 rows,
  * this picks 3 random offsets spread across the table and merges results.
- * This ensures all 7238 words can appear over time.
+ * This ensures all words can appear over time.
  *
  * @param supabase  - Supabase browser client
  * @param count     - how many words you need (e.g. 20 for practice, 1 for duel)

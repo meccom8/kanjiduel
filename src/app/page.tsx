@@ -253,9 +253,9 @@ export default function Home() {
       {/* Stats strip */}
       <div className="mt-8 flex gap-10 text-center slide-up">
         {[
-          { label: "Words", val: "7,238" },
+          { label: "Words", val: "12,000+" },
           { label: "Ranks", val: "11" },
-          { label: "JLPT levels", val: "5" },
+          { label: "JLPT levels", val: "5+1" },
         ].map(s => (
           <div key={s.label}>
             <p className="font-mono text-lg font-bold" style={{ color: "#7F77DD" }}>{s.val}</p>

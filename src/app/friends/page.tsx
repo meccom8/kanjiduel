@@ -455,7 +455,7 @@ export default function FriendsPage() {
                     background: challengeCategory===c ? "rgba(127,119,221,0.3)" : "rgba(255,255,255,0.05)",
                     border: challengeCategory===c ? "1px solid #7F77DD" : "1px solid rgba(255,255,255,0.08)",
                     color: challengeCategory===c ? "#7F77DD" : "rgba(255,255,255,0.5)",
-                  }}>{c==="all"?"All levels":c==="X"?"Beyond N1":c}</button>
+                  }}>{c==="all"?"All levels":c==="X"?"No JLPT":c}</button>
               ))}
             </div>
             {/* Mode */}
