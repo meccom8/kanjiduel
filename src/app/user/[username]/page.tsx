@@ -43,7 +43,7 @@ interface Match {
 interface KanjiStat { kanji: string; jlpt: string; correct: number; wrong: number; }
 
 const JLPT_COLORS: Record<string, string> = {
-  N5: "#1D9E75", N4: "#4DB6AC", N3: "#B8860B", N2: "#D85A30", N1: "#C62828",
+  N5: "#1D9E75", N4: "#4DB6AC", N3: "#B8860B", N2: "#D85A30", N1: "#C62828", X: "#9C27B0",
 };
 
 // ─── Badge definitions (same as profile page) ─────────────────────────────────
@@ -212,7 +212,7 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [showRanks, setShowRanks] = useState(false);
-  const [tab, setTab] = useState<"matches" | "elo" | "badges" | "jlpt">("matches");
+  const [tab, setTab] = useState<"matches" | "elo" | "badges" | "stats">("matches");
 
   // Friend / challenge state
   const [meId, setMeId] = useState<string | null>(null);
@@ -446,6 +446,10 @@ export default function UserProfile() {
   const pct = nextTier ? Math.round(((profile.elo - tier.min) / (nextTier.min - tier.min)) * 100) : 100;
   const totalSeen = kanjiStats.reduce((a, s) => a + s.correct + s.wrong, 0);
   const totalCorrect = kanjiStats.reduce((a, s) => a + s.correct, 0);
+  const hardestWords = [...kanjiStats]
+    .filter(s => s.correct + s.wrong >= 3)
+    .sort((a, b) => (a.correct / (a.correct + a.wrong)) - (b.correct / (b.correct + b.wrong)))
+    .slice(0, 10);
 
   const badges = computeBadges(profile, kanjiStats, jlptStats);
   const unlockedCount = badges.filter(b => b.unlocked).length;
@@ -454,7 +458,7 @@ export default function UserProfile() {
     { key: "matches", label: "Matches" },
     { key: "elo", label: "ELO curve" },
     { key: "badges", label: `Badges ${unlockedCount}/${badges.length}` },
-    { key: "jlpt", label: "JLPT" },
+    { key: "stats", label: "Stats" },
   ] as const;
 
   return (
@@ -940,63 +944,103 @@ export default function UserProfile() {
         </div>
       )}
 
-      {/* ── Tab: JLPT ── */}
-      {tab === "jlpt" && (
-        <div className="card-solid overflow-hidden">
-          {Object.keys(jlptStats).length === 0
-            ? <div className="p-8 text-center text-white/30 text-sm">No practice data available</div>
-            : (
-              <>
-                {totalSeen > 0 && (
-                  <div className="px-5 py-4 border-b border-white/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs text-white/40 uppercase tracking-widest">Overall accuracy</p>
-                      <p className="font-mono text-xl font-bold"
-                        style={{ color: totalCorrect / totalSeen >= 0.7 ? "#5DCAA5" : totalCorrect / totalSeen >= 0.4 ? "#EF9F27" : "#E24B4A" }}>
-                        {Math.round(totalCorrect / totalSeen * 100)}%
-                      </p>
-                    </div>
-                    <div className="h-2 bg-white/8 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full"
-                        style={{
-                          width: `${Math.round(totalCorrect / totalSeen * 100)}%`,
-                          background: totalCorrect / totalSeen >= 0.7 ? "#1D9E75" : totalCorrect / totalSeen >= 0.4 ? "#EF9F27" : "#E24B4A",
-                        }} />
-                    </div>
-                    <p className="text-xs text-white/30 mt-1">{totalSeen} total answers</p>
+      {/* ── Tab: Stats ── */}
+      {tab === "stats" && (
+        <div className="flex flex-col gap-4">
+          {totalSeen === 0 ? (
+            <div className="card-solid p-8 text-center text-white/30 text-sm">
+              No practice data available for this player
+            </div>
+          ) : (
+            <>
+              {/* Overview row */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "Words seen", val: kanjiStats.length.toLocaleString() },
+                  { label: "Total answers", val: totalSeen.toLocaleString() },
+                  { label: "Overall acc.", val: `${Math.round(totalCorrect / totalSeen * 100)}%`,
+                    color: totalCorrect / totalSeen >= 0.7 ? "#5DCAA5" : totalCorrect / totalSeen >= 0.4 ? "#EF9F27" : "#E24B4A" },
+                ].map(s => (
+                  <div key={s.label} className="card-solid p-3 text-center">
+                    <p className="font-mono text-lg font-bold" style={{ color: (s as any).color ?? "rgba(255,255,255,0.9)" }}>{s.val}</p>
+                    <p className="text-xs text-white/30 mt-0.5 leading-tight">{s.label}</p>
                   </div>
-                )}
-                {["N5", "N4", "N3", "N2", "N1"].filter(l => jlptStats[l]).map(level => {
+                ))}
+              </div>
+
+              {/* Per-JLPT breakdown */}
+              <div className="card-solid overflow-hidden">
+                <div className="px-5 py-3 border-b border-white/5">
+                  <p className="text-xs text-white/40 uppercase tracking-widest">Accuracy by level</p>
+                </div>
+                {["N5", "N4", "N3", "N2", "N1", "X"].filter(l => jlptStats[l]).map(level => {
                   const s = jlptStats[level];
                   const total = s.correct + s.wrong;
                   const acc = Math.round(s.correct / total * 100);
-                  const color = JLPT_COLORS[level];
+                  const jlptColor = JLPT_COLORS[level] ?? "#9C27B0";
                   const accColor = acc >= 70 ? "#5DCAA5" : acc >= 40 ? "#EF9F27" : "#E24B4A";
+                  const label = level === "X" ? "No JLPT" : level;
                   return (
-                    <div key={level} className="px-5 py-4 border-b border-white/5 last:border-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-semibold px-2.5 py-0.5 rounded-lg"
-                            style={{ background: color + "22", color }}>{level}</span>
-                          <span className="text-xs text-white/30">{total} answers</span>
+                    <div key={level} className="px-5 py-3 border-b border-white/5 last:border-0">
+                      <div className="flex items-center gap-3 mb-1.5">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md w-16 text-center flex-shrink-0"
+                          style={{ background: jlptColor + "22", color: jlptColor }}>{label}</span>
+                        <div className="flex-1 h-2 bg-white/8 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all"
+                            style={{ width: `${acc}%`, background: accColor }} />
                         </div>
-                        <span className="font-mono text-xl font-bold" style={{ color: accColor }}>{acc}%</span>
+                        <span className="font-mono text-sm font-bold w-10 text-right flex-shrink-0"
+                          style={{ color: accColor }}>{acc}%</span>
                       </div>
-                      <div className="h-2 bg-white/8 rounded-full overflow-hidden mb-2">
-                        <div className="h-full rounded-full" style={{ width: `${acc}%`, background: accColor }} />
-                      </div>
-                      <div className="flex gap-3 text-xs">
-                        <span style={{ color: "#5DCAA5" }}>✓ {s.correct} correct</span>
-                        <span style={{ color: "#E24B4A" }}>✗ {s.wrong} wrong</span>
-                        <span className="text-white/25 ml-auto">
-                          {acc >= 70 ? "🟢 Strong" : acc >= 40 ? "🟡 Needs work" : "🔴 Focus here"}
-                        </span>
+                      <div className="flex gap-3 text-xs pl-20">
+                        <span className="text-white/30">{total} answers</span>
+                        <span style={{ color: "#5DCAA5" }}>✓ {s.correct}</span>
+                        <span style={{ color: "#E24B4A" }}>✗ {s.wrong}</span>
                       </div>
                     </div>
                   );
                 })}
-              </>
-            )}
+              </div>
+
+              {/* Hardest words */}
+              {hardestWords.length > 0 && (
+                <div className="card-solid overflow-hidden">
+                  <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                    <p className="text-xs text-white/40 uppercase tracking-widest">Hardest words</p>
+                    <p className="text-xs text-white/20">min. 3 attempts</p>
+                  </div>
+                  {hardestWords.map(s => {
+                    const total = s.correct + s.wrong;
+                    const acc = Math.round(s.correct / total * 100);
+                    const jlptColor = JLPT_COLORS[s.jlpt] ?? "#9C27B0";
+                    const accColor = acc >= 70 ? "#5DCAA5" : acc >= 40 ? "#EF9F27" : "#E24B4A";
+                    return (
+                      <div key={s.kanji} className="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
+                        <div className="font-jp text-2xl w-9 text-center flex-shrink-0">{s.kanji}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs px-1.5 py-0.5 rounded"
+                              style={{ background: jlptColor + "22", color: jlptColor }}>
+                              {s.jlpt === "X" ? "No JLPT" : s.jlpt}
+                            </span>
+                            <span className="text-xs text-white/25">{total} tries</span>
+                          </div>
+                          <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full"
+                              style={{ width: `${acc}%`, background: accColor }} />
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 w-10">
+                          <p className="font-mono text-sm font-bold" style={{ color: accColor }}>{acc}%</p>
+                          <p className="text-xs text-white/25">{s.wrong} ✗</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </main>
