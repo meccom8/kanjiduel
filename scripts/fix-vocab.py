@@ -212,22 +212,24 @@ def build_lookup(jmdict_data):
                         kanji_to_readings[kf].append(kr)
 
         # Check for common-word markers (beyond-JLPT candidates)
-        all_tags = set()
+        # Format 3.6+: "common": true/false on each kanji/kana element
+        # Format 3.5-: "priority": ["ichi1", "news1", ...] on each element
+        is_common = False
         for k in entry.get("kanji", []):
-            all_tags.update(k.get("tags", []))
-        for k in entry.get("kana", []):
-            all_tags.update(k.get("tags", []))
-        for s in entry.get("sense", []):
-            all_tags.update(s.get("misc", []))
-
-        # Also check priority markers (ichi1, news1 etc. in "priority" field)
-        priority = set()
-        for k in entry.get("kanji", []):
-            priority.update(k.get("priority", []))
-        for k in entry.get("kana", []):
-            priority.update(k.get("priority", []))
-
-        is_common = bool(COMMON_MARKERS & priority)
+            if k.get("common") is True:
+                is_common = True
+                break
+            if COMMON_MARKERS & set(k.get("priority", [])):
+                is_common = True
+                break
+        if not is_common:
+            for k in entry.get("kana", []):
+                if k.get("common") is True:
+                    is_common = True
+                    break
+                if COMMON_MARKERS & set(k.get("priority", [])):
+                    is_common = True
+                    break
 
         if is_common and kanji_forms and BEYOND_REQUIRE_KANJI:
             # Get best English meaning
