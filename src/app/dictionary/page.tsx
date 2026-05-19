@@ -156,7 +156,7 @@ export default function Dictionary() {
               <div className="col-span-1">
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                   style={{ background: JLPT_COLORS[w.jlpt] + "22", color: JLPT_COLORS[w.jlpt] }}>
-                  {w.jlpt}
+                  {w.jlpt === "X" ? "No JLPT" : w.jlpt}
                 </span>
               </div>
 

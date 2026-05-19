@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
@@ -84,7 +84,7 @@ export default function Landing() {
         style={{ background: "rgba(10,10,20,0.85)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
         <div className="flex items-center gap-2">
           <span className="font-jp text-xl text-accent2">漢</span>
-          <span className="font-mono text-sm text-white font-bold tracking-widest">KANJIDUEL</span>
+          <span className="font-mono text-sm text-white font-bold tracking-widest">KanjiDual</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login">
@@ -270,7 +270,7 @@ export default function Landing() {
       <footer className="px-4 py-8 text-center relative z-10" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <div className="flex items-center justify-center gap-2 mb-2">
           <span className="font-jp text-lg text-accent2">漢</span>
-          <span className="font-mono text-sm text-white/30 tracking-widest">KANJIDUEL</span>
+          <span className="font-mono text-sm text-white/30 tracking-widest">KanjiDual</span>
         </div>
         <p className="text-white/20 text-xs">Built for Japanese learners who want to compete.</p>
       </footer>

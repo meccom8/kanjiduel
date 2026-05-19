@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier } from "@/lib/elo";
@@ -109,7 +109,7 @@ export default function EditProfile() {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
     if (!file.type.startsWith("image/")) { alert("Please upload an image file"); return; }
-    if (!profile.is_pro && file.type === "image/gif") { alert("Animated GIF avatars require KanjiDuel Pro ✦"); return; }
+    if (!profile.is_pro && file.type === "image/gif") { alert("Animated GIF avatars require KanjiDual Pro ✦"); return; }
     if (file.type === "image/gif" && file.size > 1000 * 1024) { alert("GIF too large — max 1000 KB"); return; }
     const maxSize = profile.is_pro ? 8 * 1024 * 1024 : 2 * 1024 * 1024;
     if (file.size > maxSize) { alert(`Image too large — max ${profile.is_pro ? "8MB" : "2MB"}`); return; }
@@ -123,7 +123,7 @@ export default function EditProfile() {
   async function handleBannerPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
-    if (!profile.is_pro) { alert("Profile banners require KanjiDuel Pro ✦"); return; }
+    if (!profile.is_pro) { alert("Profile banners require KanjiDual Pro ✦"); return; }
     if (!file.type.startsWith("image/")) { alert("Please upload an image file"); return; }
     if (file.type === "image/gif" && file.size > 1000 * 1024) { alert("GIF too large — max 1000 KB"); return; }
     if (file.size > 8 * 1024 * 1024) { alert("Banner too large — max 8MB"); return; }
@@ -257,7 +257,7 @@ export default function EditProfile() {
       ...b,
       unlocked:
         b.id === "cosmetics_pack" ? !!hasPack :
-        b.id === "kanjiduel_pro"  ? !!profile.is_pro :
+        b.id === "KanjiDual_pro"  ? !!profile.is_pro :
         false,
     })),
     // Win count badges (from profile.wins)
@@ -412,7 +412,7 @@ export default function EditProfile() {
             style={{ background: "#EF9F2718", color: "#EF9F27", border: "1px solid #EF9F2733" }}>✦ Pro</span>
         </div>
         <p className="text-xs mb-4" style={{ color: muted }}>
-          {profile.is_pro ? "Image · max 8MB — GIF animé · max 1000 KB" : "Unlock with KanjiDuel Pro"}
+          {profile.is_pro ? "Image · max 8MB — GIF animé · max 1000 KB" : "Unlock with KanjiDual Pro"}
         </p>
         {profile.is_pro ? (
           <>
@@ -673,7 +673,7 @@ export default function EditProfile() {
           <div className="relative">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-base font-bold" style={{ color: "#EF9F27" }}>✦</span>
-              <p className="text-sm font-semibold">KanjiDuel Pro</p>
+              <p className="text-sm font-semibold">KanjiDual Pro</p>
               <span className="text-xs px-2 py-0.5 rounded-full"
                 style={{ background: "#EF9F2720", color: "#EF9F27", border: "1px solid #EF9F2733" }}>€2.99/mo</span>
             </div>

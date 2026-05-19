@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase-server";
 
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No subscription found" }, { status: 404 });
   }
 
-  const origin = req.headers.get("origin") ?? "https://kanjiduel-eta.vercel.app";
+  const origin = req.headers.get("origin") ?? "https://KanjiDual-eta.vercel.app";
 
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: customers.data[0].id,

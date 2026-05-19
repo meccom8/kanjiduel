@@ -1,6 +1,6 @@
 {
-  "name": "KanjiDuel",
-  "short_name": "KanjiDuel",
+  "name": "KanjiDual",
+  "short_name": "KanjiDual",
   "description": "Challenge players worldwide to real-time kanji duels",
   "start_url": "/",
   "display": "standalone",

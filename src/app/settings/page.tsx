@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import Link from "next/link";
@@ -266,7 +266,7 @@ export default function Settings() {
       {profile.is_pro && (
         <div className="card-solid p-5 mb-4">
           <div className="flex items-center gap-2 mb-1">
-            <p className="text-sm font-medium">KanjiDuel Pro</p>
+            <p className="text-sm font-medium">KanjiDual Pro</p>
             <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
               style={{ background: "#EF9F2722", color: "#EF9F27", border: "1px solid #EF9F2744" }}>✦ Active</span>
           </div>

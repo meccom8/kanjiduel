@@ -1,6 +1,6 @@
-// KanjiDuel Service Worker
+// KanjiDual Service Worker
 // Auto-invalidated on each deploy because Next.js hashes all JS/CSS filenames.
-const CACHE = "kanjiduel-v1";
+const CACHE = "kanjidual-v1";
 
 // Assets to precache on install (shell only — Next.js JS is already hashed)
 const PRECACHE = ["/", "/offline.html"];

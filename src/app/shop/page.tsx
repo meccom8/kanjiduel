@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState, Suspense } from "react";
 import { createClient } from "@/lib/supabase";
 import Link from "next/link";
@@ -117,7 +117,7 @@ function ShopInner() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-lg font-bold" style={{ color: "#EF9F27" }}>✦</span>
-                    <h2 className="text-lg font-bold">KanjiDuel Pro</h2>
+                    <h2 className="text-lg font-bold">KanjiDual Pro</h2>
                   </div>
                   <p className="text-white/40 text-sm">Monthly subscription</p>
                 </div>

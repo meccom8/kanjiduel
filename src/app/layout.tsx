@@ -1,18 +1,18 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ServiceWorker from "@/components/ServiceWorker";
 import { PresenceProvider } from "@/contexts/PresenceContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 
 export const metadata: Metadata = {
-  title: "KanjiDuel — Real-time Kanji Battle",
+  title: "KanjiDual — Real-time Kanji Battle",
   description:
     "Challenge players worldwide to kanji duels. Type the correct meaning or reading first to win the round. Climb the ranked ladder.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "KanjiDuel",
+    title: "KanjiDual",
   },
 };
 

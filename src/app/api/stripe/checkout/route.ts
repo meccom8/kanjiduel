@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase-server";
 
@@ -21,13 +21,21 @@ export async function POST(req: NextRequest) {
     .eq("id", user.id)
     .single();
 
-  const customer = await stripe.customers.create({
-    email: user.email ?? undefined,
-    name: profile?.username ?? undefined,
-    metadata: { supabase_id: user.id },
+  // Reuse existing Stripe customer if one already exists for this user
+  // (prevents duplicate customers accumulating with every checkout attempt)
+  const existing = await stripe.customers.search({
+    query: `metadata['supabase_id']:'${user.id}'`,
+    limit: 1,
   });
+  const customer = existing.data.length > 0
+    ? existing.data[0]
+    : await stripe.customers.create({
+        email: user.email ?? undefined,
+        name: profile?.username ?? undefined,
+        metadata: { supabase_id: user.id },
+      });
 
-  const origin = req.headers.get("origin") ?? "https://kanjiduel-eta.vercel.app";
+  const origin = req.headers.get("origin") ?? "https://KanjiDual-eta.vercel.app";
 
   const session = await stripe.checkout.sessions.create({
     customer: customer.id,

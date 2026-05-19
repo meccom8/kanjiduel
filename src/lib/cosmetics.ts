@@ -1,4 +1,4 @@
-export type Rarity = "common" | "rare" | "epic" | "legendary";
+﻿export type Rarity = "common" | "rare" | "epic" | "legendary";
 
 // ─── Avatar border styles ────────────────────────────────────────────────────
 export interface BorderStyle {
@@ -63,7 +63,7 @@ export const RANK_BADGE_DEFS: (BadgeDef & { minElo: number })[] = [
 /** Special badges — unlocked by owning items */
 export const SPECIAL_BADGE_DEFS: BadgeDef[] = [
   { id: "cosmetics_pack", icon: "✨", name: "Cosmetics Pack", desc: "Own the Cosmetics Pack",   rarity: "epic"      },
-  { id: "kanjiduel_pro",  icon: "✦",  name: "KanjiDuel Pro",  desc: "KanjiDuel Pro subscriber", rarity: "legendary" },
+  { id: "KanjiDual_pro",  icon: "✦",  name: "KanjiDual Pro",  desc: "KanjiDual Pro subscriber", rarity: "legendary" },
 ];
 
 /** Return the icon emoji for any badge ID (used in duel/match display) */
@@ -76,7 +76,7 @@ export function getBadgeIcon(id: string): string {
     rank_plat1: "💠",   rank_plat2: "💠",
     rank_diamond: "💎", rank_champion: "👑", rank_gc: "🏆",
     // Special
-    cosmetics_pack: "✨", kanjiduel_pro: "✦",
+    cosmetics_pack: "✨", KanjiDual_pro: "✦",
     // Core achievements
     first_win: "⚔️",  wins_10: "🏅",   wins_50: "🥇",  wins_100: "👑",
     streak_3: "🔥",   streak_7: "🌋",  streak_15: "☄️",

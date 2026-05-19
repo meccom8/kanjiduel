@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier, winRate } from "@/lib/elo";
@@ -80,7 +80,7 @@ export default function Home() {
           backgroundClip: "text",
           filter: "drop-shadow(0 0 30px rgba(127,119,221,0.4))"
         }}>漢</div>
-        <h1 className="font-mono text-sm tracking-[0.3em] text-white/30 uppercase">KanjiDuel</h1>
+        <h1 className="font-mono text-sm tracking-[0.3em] text-white/30 uppercase">KanjiDual</h1>
       </div>
 
       {/* Main card */}

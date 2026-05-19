@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier, TIERS, winRate } from "@/lib/elo";
@@ -73,7 +73,7 @@ function computeBadges(
       unlocked: !!profile.owned_cosmetics?.includes("pack1"), rarity: "epic" as const,
     },
     {
-      id: "kanjiduel_pro", icon: "✦", name: "KanjiDuel Pro", desc: "KanjiDuel Pro subscriber",
+      id: "KanjiDual_pro", icon: "✦", name: "KanjiDual Pro", desc: "KanjiDual Pro subscriber",
       unlocked: !!profile.is_pro, rarity: "legendary" as const,
     },
     // ── Win badges ────────────────────────────────────────────────────────────
@@ -624,7 +624,7 @@ export default function ProfilePage() {
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                 <span className="text-2xl">✦</span>
                 <p className="text-sm font-semibold text-white">Pro feature</p>
-                <p className="text-xs text-white/40 text-center">Unlock your ELO history chart with KanjiDuel Pro</p>
+                <p className="text-xs text-white/40 text-center">Unlock your ELO history chart with KanjiDual Pro</p>
                 <Link href="/shop" className="mt-1 text-xs font-semibold px-4 py-2 rounded-xl"
                   style={{ background: "linear-gradient(135deg, #534AB7, #7F77DD)", color: "#fff" }}>
                   Upgrade — €2.99/mo
