@@ -238,38 +238,21 @@ export default function Home() {
       {/* ─── DESKTOP LAYOUT (lg+) ──────────────────────────────────── */}
       <main className="hidden lg:block min-h-screen relative z-10 px-10 py-10">
         {/* Welcome header */}
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold text-white mb-1">
-              おかえり,{" "}
-              <span style={{ color: accentColor }}>{profile.username}</span>
-            </h1>
-            <p className="text-white/40 text-sm">
-              {tier.name} · {profile.elo} ELO · {wr}% WR
-              {profile.streak > 0 && ` · 🔥 ${profile.streak}d streak`}
-            </p>
-          </div>
-          {/* Avatar top-right */}
-          {(() => {
-            const borderCls = profile.owned_cosmetics?.includes("pack1") ? getBorderClass(profile.avatar_border_style) : "";
-            const src = resolveAvatar(profile.avatar_url, profile.avatar_static_url, profile.is_pro);
-            return (
-              <Link href="/profile" className="group">
-                <div className={borderCls || ""}>
-                  <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold transition-opacity group-hover:opacity-75"
-                    style={{ background: accentColor + "33", color: accentColor, border: borderCls ? "none" : `1.5px solid ${accentColor}44` }}>
-                    {src ? <img src={src} alt="avatar" className="w-full h-full object-cover" /> : profile.username.slice(0, 2).toUpperCase()}
-                  </div>
-                </div>
-              </Link>
-            );
-          })()}
+        <div className="mb-8">
+          <h1 className="text-3xl font-semibold text-white mb-1">
+            おかえり,{" "}
+            <span style={{ color: accentColor }}>{profile.username}</span>
+          </h1>
+          <p className="text-white/40 text-sm">
+            {tier.name} · {profile.elo} ELO · {wr}% WR
+            {profile.streak > 0 && ` · 🔥 ${profile.streak}d streak`}
+          </p>
         </div>
 
-        {/* Dashboard grid */}
-        <div className="grid grid-cols-3 gap-4 max-w-5xl">
+        {/* Dashboard grid — fills available width */}
+        <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr 340px" }}>
 
-          {/* ── Left 2/3: Actions ── */}
+          {/* ── Left: Actions ── */}
           <div className="col-span-2 flex flex-col gap-4">
 
             {/* Find a match — hero CTA */}

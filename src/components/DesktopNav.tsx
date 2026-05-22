@@ -8,14 +8,14 @@ import { resolveAvatar } from "@/lib/avatar";
 import { usePathname } from "next/navigation";
 
 const NAV = [
-  { href: "/matchmaking", label: "Find a match", icon: "⚡" },
-  { href: "/daily",       label: "Daily",         icon: "🗓" },
-  { href: "/practice",    label: "Practice",       icon: "📖" },
-  { href: "/friends",     label: "Friends",        icon: "👥" },
-  { href: "/leaderboard", label: "Leaderboard",    icon: "🏆" },
-  { href: "/dictionary",  label: "Dictionary",     icon: "📚" },
-  { href: "/shop",        label: "Shop",           icon: "✨" },
-  { href: "/settings",    label: "Settings",       icon: "⚙️" },
+  { href: "/matchmaking", label: "Find a match" },
+  { href: "/daily",       label: "Daily"         },
+  { href: "/practice",    label: "Practice"      },
+  { href: "/friends",     label: "Friends"       },
+  { href: "/leaderboard", label: "Leaderboard"   },
+  { href: "/dictionary",  label: "Dictionary"    },
+  { href: "/shop",        label: "Shop"          },
+  { href: "/settings",    label: "Settings"      },
 ];
 
 // Pages where the desktop nav must not appear
@@ -101,12 +101,12 @@ export default function DesktopNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
+              className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all
                 ${active
-                  ? "text-white"
-                  : "text-white/45 hover:text-white/80 hover:bg-white/[0.04]"
+                  ? "font-semibold text-white"
+                  : "font-medium text-white/40 hover:text-white/75 hover:bg-white/[0.04]"
                 }`}
-              style={active ? { background: "rgba(207,69,32,0.14)" } : {}}
+              style={active ? { background: "rgba(207,69,32,0.13)" } : {}}
             >
               {active && (
                 <div
@@ -114,7 +114,6 @@ export default function DesktopNav() {
                   style={{ background: "#CF4520" }}
                 />
               )}
-              <span className="w-5 text-center shrink-0">{item.icon}</span>
               <span className="flex-1 truncate">{item.label}</span>
               {item.href === "/friends" && pending > 0 && (
                 <span
