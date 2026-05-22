@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 import Link from "next/link";
@@ -94,13 +94,13 @@ export default function Dictionary() {
               className="px-3 py-2 rounded-lg text-xs font-medium transition-all"
               style={{
                 background: filter === l
-                  ? l === "all" ? "#534AB733" : JLPT_COLORS[l] + "33"
+                  ? l === "all" ? "#CF452033" : JLPT_COLORS[l] + "33"
                   : "rgba(255,255,255,0.05)",
                 border: filter === l
-                  ? `1px solid ${l === "all" ? "#534AB7" : JLPT_COLORS[l]}`
+                  ? `1px solid ${l === "all" ? "#CF4520" : JLPT_COLORS[l]}`
                   : "1px solid rgba(255,255,255,0.08)",
                 color: filter === l
-                  ? l === "all" ? "#7F77DD" : JLPT_COLORS[l]
+                  ? l === "all" ? "#E86440" : JLPT_COLORS[l]
                   : "rgba(255,255,255,0.4)",
               }}>
               {l === "all" ? "All" : l === "X" ? "No JLPT" : l}
@@ -210,8 +210,8 @@ export default function Dictionary() {
                 <button key={p} onClick={() => setPage(p)}
                   className="px-3 py-1.5 rounded-lg text-xs transition-all"
                   style={{
-                    background: page === p ? "#534AB7" : "rgba(255,255,255,0.05)",
-                    border: page === p ? "1px solid #534AB7" : "1px solid rgba(255,255,255,0.08)",
+                    background: page === p ? "#CF4520" : "rgba(255,255,255,0.05)",
+                    border: page === p ? "1px solid #CF4520" : "1px solid rgba(255,255,255,0.08)",
                     color: page === p ? "#fff" : "rgba(255,255,255,0.5)",
                     cursor: "pointer",
                   }}>

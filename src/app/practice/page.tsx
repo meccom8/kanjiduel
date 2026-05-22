@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { checkVocabAnswer, fetchRandomWords, type VocabWord } from "@/lib/vocab";
@@ -16,7 +16,7 @@ interface RoundStat {
 }
 
 const FILTER_OPTIONS = [
-  { value: "all" as Filter, label: "All levels", color: "#7F77DD" },
+  { value: "all" as Filter, label: "All levels", color: "#E86440" },
   { value: "N5" as Filter, label: "JLPT N5",    color: "#1D9E75" },
   { value: "N4" as Filter, label: "JLPT N4",    color: "#4DB6AC" },
   { value: "N3" as Filter, label: "JLPT N3",    color: "#B8860B" },
@@ -179,7 +179,7 @@ export default function Practice() {
 
   const score = stats.filter(s => s.correct).length;
   const timerPct = (timeLeft / ROUND_TIME) * 100;
-  const timerColor = timeLeft <= 4 ? "#E24B4A" : timeLeft <= 8 ? "#EF9F27" : "#534AB7";
+  const timerColor = timeLeft <= 4 ? "#E24B4A" : timeLeft <= 8 ? "#EF9F27" : "#CF4520";
   const filterInfo = FILTER_OPTIONS.find(f => f.value === filter)!;
 
   if (phase === "loading") return (
@@ -248,7 +248,7 @@ export default function Practice() {
             {[
               { label: "Correct", val: score, color: "#1D9E75" },
               { label: "Wrong", val: stats.length - score, color: "#E24B4A" },
-              { label: "Score", val: `${pct}%`, color: "#7F77DD" },
+              { label: "Score", val: `${pct}%`, color: "#E86440" },
             ].map(s => (
               <div key={s.label} className="bg-white/4 rounded-xl p-3">
                 <p className="font-mono text-xl font-bold" style={{ color: s.color }}>{s.val}</p>
@@ -298,7 +298,7 @@ export default function Practice() {
         <div className="flex gap-1 mb-4">
           {Array.from({ length: TOTAL_ROUNDS }).map((_, i) => (
             <div key={i} className="flex-1 h-1 rounded-full" style={{
-              background: i < stats.length ? stats[i].correct ? "#534AB7" : "#E24B4A"
+              background: i < stats.length ? stats[i].correct ? "#CF4520" : "#E24B4A"
                 : i === roundNum ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.06)"
             }} />
           ))}
@@ -312,7 +312,7 @@ export default function Practice() {
           <div className="card-solid p-8 text-center mb-4 transition-all" style={{
             border: phase === "feedback"
               ? isCorrect ? "1px solid #1D9E75" : "1px solid #E24B4A"
-              : "1px solid rgba(83,74,183,0.35)"
+              : "1px solid rgba(207,69,32,0.35)"
           }}>
             <span className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
               style={{ background: "#FAEEDA22", color: "#EF9F27" }}>Reading</span>

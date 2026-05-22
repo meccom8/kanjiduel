@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier } from "@/lib/elo";
@@ -246,7 +246,7 @@ export default function FriendsPage() {
               onClick={() => joinRoom(joinCode)}
               disabled={joinCode.length !== 6}
               className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
-              style={{ background: "#534AB7", color: "white", opacity: joinCode.length === 6 ? 1 : 0.4 }}>
+              style={{ background: "#CF4520", color: "white", opacity: joinCode.length === 6 ? 1 : 0.4 }}>
               Join
             </button>
             <button onClick={() => { setShowJoinInput(false); setJoinCode(""); }}
@@ -297,7 +297,7 @@ export default function FriendsPage() {
                   {status === "none" && (
                     <button onClick={() => sendRequest(p.id)}
                       className="text-xs px-3 py-1.5 rounded-lg transition-all"
-                      style={{ background: "#7F77DD22", color: "#7F77DD", border: "1px solid #7F77DD44" }}>
+                      style={{ background: "#E8644022", color: "#E86440", border: "1px solid #E8644044" }}>
                       Add
                     </button>
                   )}
@@ -420,7 +420,7 @@ export default function FriendsPage() {
                       onClick={() => openChallengeModal(f.other)}
                       disabled={!!challenging}
                       className="text-xs px-3 py-1.5 rounded-lg transition-all font-medium"
-                      style={{ background: "#534AB722", color: "#7F77DD", border: "1px solid #534AB744" }}>
+                      style={{ background: "#CF452022", color: "#E86440", border: "1px solid #CF452044" }}>
                       {challenging === f.other.id ? "…" : "⚡ Challenge"}
                     </button>
                   )}
@@ -441,7 +441,7 @@ export default function FriendsPage() {
           style={{background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)"}}
           onClick={()=>setShowChallengeModal(false)}>
           <div className="w-full max-w-sm rounded-2xl p-5 slide-up"
-            style={{background:"#0d0d1a",border:"1px solid rgba(127,119,221,0.3)"}}
+            style={{background:"#0e0c0b",border:"1px solid rgba(232,100,64,0.3)"}}
             onClick={e=>e.stopPropagation()}>
             <p className="font-semibold mb-1">Challenge {modalTarget.username}</p>
             <p className="text-xs text-white/40 mb-4">Pick a category and mode</p>
@@ -452,9 +452,9 @@ export default function FriendsPage() {
                 <button key={c} onClick={()=>setChallengeCategory(c)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: challengeCategory===c ? "rgba(127,119,221,0.3)" : "rgba(255,255,255,0.05)",
-                    border: challengeCategory===c ? "1px solid #7F77DD" : "1px solid rgba(255,255,255,0.08)",
-                    color: challengeCategory===c ? "#7F77DD" : "rgba(255,255,255,0.5)",
+                    background: challengeCategory===c ? "rgba(232,100,64,0.3)" : "rgba(255,255,255,0.05)",
+                    border: challengeCategory===c ? "1px solid #E86440" : "1px solid rgba(255,255,255,0.08)",
+                    color: challengeCategory===c ? "#E86440" : "rgba(255,255,255,0.5)",
                   }}>{c==="all"?"All levels":c==="X"?"No JLPT":c}</button>
               ))}
             </div>
@@ -465,15 +465,15 @@ export default function FriendsPage() {
                 <button key={String(m.id)} onClick={()=>setChallengeBlitz(m.id)}
                   className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(127,119,221,0.2)") : "rgba(255,255,255,0.05)",
-                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #7F77DD") : "1px solid rgba(255,255,255,0.08)",
-                    color: challengeBlitz===m.id ? (m.id?"#EF9F27":"#7F77DD") : "rgba(255,255,255,0.5)",
+                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(232,100,64,0.2)") : "rgba(255,255,255,0.05)",
+                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #E86440") : "1px solid rgba(255,255,255,0.08)",
+                    color: challengeBlitz===m.id ? (m.id?"#EF9F27":"#E86440") : "rgba(255,255,255,0.5)",
                   }}>{m.label}</button>
               ))}
             </div>
             <button onClick={challengeFriend}
               className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
-              style={{background:"linear-gradient(135deg,#534AB7,#7F77DD)",color:"#fff"}}>
+              style={{background:"linear-gradient(135deg,#CF4520,#E86440)",color:"#fff"}}>
               ⚡ Send challenge
             </button>
           </div>

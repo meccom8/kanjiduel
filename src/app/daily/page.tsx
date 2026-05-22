@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { checkVocabAnswer, getDailyWords, type VocabWord } from "@/lib/vocab";
@@ -172,7 +172,7 @@ export default function DailyChallenge() {
 
   const score = stats.filter(s => s.correct).length;
   const timerPct = (timeLeft / ROUND_TIME) * 100;
-  const timerColor = timeLeft <= 3 ? "#E24B4A" : timeLeft <= 6 ? "#EF9F27" : "#534AB7";
+  const timerColor = timeLeft <= 3 ? "#E24B4A" : timeLeft <= 6 ? "#EF9F27" : "#CF4520";
 
   if (phase === "loading") return (
     <div className="min-h-screen flex items-center justify-center">
@@ -253,14 +253,14 @@ export default function DailyChallenge() {
       <div className="w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm text-white/40">{roundNum + 1} / {queue.length}</span>
-          <span className="text-xs px-3 py-1 rounded-full font-medium" style={{ background: "#534AB722", color: "#7F77DD" }}>🗓 Daily Challenge</span>
+          <span className="text-xs px-3 py-1 rounded-full font-medium" style={{ background: "#CF452022", color: "#E86440" }}>🗓 Daily Challenge</span>
           <span className="font-mono text-sm font-bold" style={{ color: timerColor }}>{timeLeft}s</span>
         </div>
 
         <div className="flex gap-1 mb-4">
           {Array.from({ length: queue.length }).map((_, i) => (
             <div key={i} className="flex-1 h-1 rounded-full" style={{
-              background: i < stats.length ? stats[i].correct ? "#534AB7" : "#E24B4A"
+              background: i < stats.length ? stats[i].correct ? "#CF4520" : "#E24B4A"
                 : i === roundNum ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.06)"
             }} />
           ))}
@@ -274,13 +274,13 @@ export default function DailyChallenge() {
           <div className="card-solid p-8 text-center mb-4 transition-all" style={{
             border: phase === "feedback"
               ? isCorrect ? "1px solid #1D9E75" : "1px solid #E24B4A"
-              : "1px solid rgba(83,74,183,0.35)"
+              : "1px solid rgba(207,69,32,0.35)"
           }}>
             <span className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
               style={{ background: "#FAEEDA22", color: "#EF9F27" }}>Reading</span>
             <div className="font-jp text-6xl mb-3 text-white pop-in">{current.word}</div>
             <p className="text-white/35 text-sm italic mb-2">{current.meaning}</p>
-            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#7F77DD22", color: "#7F77DD" }}>{current.jlpt}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#E8644022", color: "#E86440" }}>{current.jlpt}</span>
             {phase === "feedback" && (
               <div className="mt-4 pop-in">
                 {isCorrect ? (
@@ -354,7 +354,7 @@ function LeaderboardPanel({ data, medals }: { data: { username: string; score: n
         <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
           <span className="text-sm w-6 text-center" style={{ color: i < 3 ? "#EF9F27" : "rgba(255,255,255,0.2)" }}>{medals[i] ?? i + 1}</span>
           <span className="flex-1 text-sm font-medium">{r.username}</span>
-          <span className="font-mono text-sm" style={{ color: "#7F77DD" }}>{r.score}/{r.total}</span>
+          <span className="font-mono text-sm" style={{ color: "#E86440" }}>{r.score}/{r.total}</span>
         </div>
       ))}
     </div>

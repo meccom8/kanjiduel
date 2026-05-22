@@ -1,16 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --ink: #1a1a2e;
-  --ink2: #4a4a6a;
-  --ink3: #9090a8;
-  --accent: #534AB7;
-  --accent2: #7F77DD;
-  --accent-soft: #EEEDFE;
+  --ink: #1a1510;
+  --ink2: #4a3a30;
+  --ink3: #9080a0;
+  --accent: #CF4520;
+  --accent2: #E86440;
+  --accent-soft: #FAEAE4;
   --jade: #1D9E75;
   --jade-soft: #E1F5EE;
   --coral: #D85A30;
@@ -21,23 +21,39 @@
 
 body {
   font-family: 'DM Sans', sans-serif;
-  background: #0d0d1a;
-  color: #f0f0f8;
+  background: #0e0c0b;
+  color: #f0ede8;
   min-height: 100vh;
 }
 
 .font-jp { font-family: 'Noto Sans JP', sans-serif; }
 .font-mono { font-family: 'Space Mono', monospace; }
 
-/* Animated background grid */
+/* 漢 watermark */
 body::before {
+  content: '漢';
+  position: fixed;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 70vw;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(207, 69, 32, 0.045);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+
+/* Film-grain texture */
+body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background-image:
-    linear-gradient(rgba(83, 74, 183, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(83, 74, 183, 0.06) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.035;
   pointer-events: none;
   z-index: 0;
 }
@@ -49,8 +65,8 @@ body::before {
 }
 
 .card-solid {
-  background: #13132a;
-  border: 1px solid rgba(83,74,183,0.2);
+  background: #16110e;
+  border: 1px solid rgba(207,69,32,0.18);
   border-radius: 16px;
 }
 
@@ -151,7 +167,7 @@ body::before {
   position: absolute;
   inset: 2px;
   border-radius: 9999px;
-  background: #0d0d1a;
+  background: #0e0c0b;
   z-index: -1;
 }
 .cb::before {
@@ -164,7 +180,7 @@ body::before {
 
 /* Rainbow */
 .cb-rainbow::before {
-  background: conic-gradient(#FF6B9D, #C44FDC, #7F77DD, #4DB6AC, #FFD700, #FF6B9D);
+  background: conic-gradient(#FF6B9D, #C44FDC, #7B5EA7, #4DB6AC, #FFD700, #FF6B9D);
   animation: cosmetic-spin 3s linear infinite;
 }
 /* Sakura */
@@ -200,7 +216,7 @@ body::before {
   position: absolute;
   inset: -3px;
   border-radius: 9999px;
-  background: conic-gradient(#FF6B9D, #C44FDC, #7F77DD, #4DB6AC, #FFD700, #FF6B9D);
+  background: conic-gradient(#FF6B9D, #C44FDC, #7B5EA7, #4DB6AC, #FFD700, #FF6B9D);
   animation: cosmetic-spin 3s linear infinite;
   z-index: -1;
 }
@@ -209,13 +225,13 @@ body::before {
   position: absolute;
   inset: 2px;
   border-radius: 9999px;
-  background: #0d0d1a;
+  background: #0e0c0b;
   z-index: -1;
 }
 
 @keyframes pulse-border {
-  0%, 100% { border-color: rgba(83,74,183,0.3); }
-  50% { border-color: rgba(83,74,183,0.8); }
+  0%, 100% { border-color: rgba(207,69,32,0.3); }
+  50% { border-color: rgba(207,69,32,0.8); }
 }
 .pulse-border { animation: pulse-border 1.5s ease-in-out infinite; }
 
@@ -226,23 +242,20 @@ body::before {
 /* Pure black */
 html.theme-black body { background: #000000; }
 html.theme-black .card-solid { background: #111111; }
-html.theme-black body::before { display: none; }
+html.theme-black body::before { color: rgba(207,69,32,0.03); }
+html.theme-black body::after { display: none; }
 
+/* Dark warm (default) */
+html.theme-navy body { background: #0e0c0b; }
 
-/* Dark navy (default) */
-html.theme-navy body { background: #0d0d1a; }
+/* Deep red */
+html.theme-purple body { background: #110a08; }
+html.theme-purple .card-solid { background: #1c1008; }
+html.theme-purple body::before { color: rgba(207,69,32,0.06); }
 
-/* Dark purple */
-html.theme-purple body { background: #100a20; }
-html.theme-purple .card-solid { background: #1a1030; }
-html.theme-purple body::before {
-  background-image:
-    linear-gradient(rgba(127,119,221,0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(127,119,221,0.08) 1px, transparent 1px);
-}
-
-/* ── Grid intensity ──────────────────────────────────────────────────────────── */
+/* ── Watermark intensity ────────────────────────────────────────────────────── */
 html.grid-none body::before { display: none !important; }
+html.grid-none body::after { display: none !important; }
 html.grid-subtle body::before { opacity: 0.4; }
 html.grid-normal body::before { opacity: 1; }
 

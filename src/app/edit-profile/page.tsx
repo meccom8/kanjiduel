@@ -12,7 +12,7 @@ import {
 } from "@/lib/cosmetics";
 
 const ACCENT_COLORS = [
-  { name: "Violet", value: "#534AB7" },
+  { name: "Violet", value: "#CF4520" },
   { name: "Teal",   value: "#1D9E75" },
   { name: "Gold",   value: "#B8860B" },
 ];
@@ -52,7 +52,7 @@ export default function EditProfile() {
   const [saveError, setSaveError] = useState(false);
   const [bio, setBio] = useState("");
   const [title, setTitle] = useState("");
-  const [accentColor, setAccentColor] = useState("#534AB7");
+  const [accentColor, setAccentColor] = useState("#CF4520");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarStaticUrl, setAvatarStaticUrl] = useState("");
   const [avatarCrop, setAvatarCrop] = useState<AvatarCrop>({ tx: 0, ty: 0, zoom: 1 });
@@ -83,7 +83,7 @@ export default function EditProfile() {
         setProfile(data);
         setBio(data.bio ?? "");
         setTitle(data.title ?? "");
-        setAccentColor(data.accent_color ?? "#534AB7");
+        setAccentColor(data.accent_color ?? "#CF4520");
         setAvatarUrl(data.avatar_url ?? "");
         setAvatarStaticUrl(data.avatar_static_url ?? "");
         setAvatarCrop(data.avatar_crop ?? { tx: 0, ty: 0, zoom: 1 });
@@ -342,7 +342,7 @@ export default function EditProfile() {
               style={{
                 background: avatarUrl ? "transparent" : color + "33",
                 border: borderClass ? "none" : `2px solid ${color}55`,
-                boxShadow: borderClass ? "none" : "0 0 0 3px #0d0d1a",
+                boxShadow: borderClass ? "none" : "0 0 0 3px #0e0c0b",
                 color,
               }}>
               {avatarUrl
@@ -416,7 +416,7 @@ export default function EditProfile() {
               <p className="text-xs" style={{ color: muted }}>Like Discord Nitro — exclusive to Pro</p>
             </div>
             <Link href="/shop" className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
-              style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
+              style={{ background: "linear-gradient(135deg,#CF4520,#E86440)", color: "#fff" }}>
               Upgrade
             </Link>
           </div>
@@ -462,7 +462,7 @@ export default function EditProfile() {
               GIF · Image
             </div>
             <Link href="/shop" className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg"
-              style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
+              style={{ background: "linear-gradient(135deg,#CF4520,#E86440)", color: "#fff" }}>
               Upgrade
             </Link>
           </div>
@@ -688,7 +688,7 @@ export default function EditProfile() {
 
       {!profile.is_pro && (
         <div className="card-solid p-5 mb-6 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-5" style={{ background: "linear-gradient(135deg,#EF9F27,#534AB7)" }} />
+          <div className="absolute inset-0 opacity-5" style={{ background: "linear-gradient(135deg,#EF9F27,#CF4520)" }} />
           <div className="relative">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-base font-bold" style={{ color: "#EF9F27" }}>✦</span>
@@ -699,12 +699,12 @@ export default function EditProfile() {
             <ul className="flex flex-col gap-1.5 mb-4">
               {["Animated GIF avatar","Profile banner (image or GIF)","ELO history chart","Unlimited match history","Pro badge on your profile"].map(f => (
                 <li key={f} className="flex items-center gap-2 text-xs" style={{ color: muted }}>
-                  <span style={{ color: "#7F77DD" }}>✓</span> {f}
+                  <span style={{ color: "#E86440" }}>✓</span> {f}
                 </li>
               ))}
             </ul>
             <Link href="/shop" className="block w-full py-2.5 rounded-xl text-sm font-semibold text-center"
-              style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
+              style={{ background: "linear-gradient(135deg,#CF4520,#E86440)", color: "#fff" }}>
               Upgrade to Pro
             </Link>
           </div>

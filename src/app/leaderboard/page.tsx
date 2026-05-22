@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier, winRate } from "@/lib/elo";
@@ -124,7 +124,7 @@ export default function Leaderboard() {
         {([["alltime","🏆 All time"],["monthly","📅 This month"]] as const).map(([key,label])=>(
           <button key={key} onClick={()=>setTab(key)}
             className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
-            style={{background:tab===key?"rgba(83,74,183,0.35)":"transparent",color:tab===key?"#7F77DD":"rgba(255,255,255,0.35)"}}>
+            style={{background:tab===key?"rgba(207,69,32,0.35)":"transparent",color:tab===key?"#E86440":"rgba(255,255,255,0.35)"}}>
             {label}
           </button>
         ))}

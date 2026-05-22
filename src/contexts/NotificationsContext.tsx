@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { resolveAvatar } from "@/lib/avatar";
@@ -167,7 +167,7 @@ function NotifCard({ notif, dismiss, supabase, userIdRef }: {
       className="pointer-events-auto rounded-2xl px-4 py-3 flex flex-col gap-2.5 slide-up"
       style={{
         background: "rgba(13,13,26,0.97)",
-        border: isFriend ? "1px solid rgba(127,119,221,0.4)" : "1px solid rgba(239,159,39,0.4)",
+        border: isFriend ? "1px solid rgba(232,100,64,0.4)" : "1px solid rgba(239,159,39,0.4)",
         boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
         backdropFilter: "blur(12px)",
       }}
@@ -175,7 +175,7 @@ function NotifCard({ notif, dismiss, supabase, userIdRef }: {
       <div className="flex items-center gap-3">
         {/* Avatar */}
         <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold"
-          style={{ background: isFriend ? "rgba(127,119,221,0.2)" : "rgba(239,159,39,0.15)", color: isFriend ? "#7F77DD" : "#EF9F27" }}>
+          style={{ background: isFriend ? "rgba(232,100,64,0.2)" : "rgba(239,159,39,0.15)", color: isFriend ? "#E86440" : "#EF9F27" }}>
           {notif.avatarSrc
             ? <img src={notif.avatarSrc} alt="" className="w-full h-full object-cover" />
             : notif.username.slice(0, 2).toUpperCase()}

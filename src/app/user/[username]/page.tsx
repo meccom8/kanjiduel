@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier, TIERS, winRate } from "@/lib/elo";
@@ -186,11 +186,11 @@ function EloChart({ matches, profileId, accentColor }: {
         {points.slice(0, -1).map((p, i) =>
           p.won !== null ? (
             <circle key={i} cx={toX(i)} cy={toY(p.elo)} r="2.5"
-              fill={p.won ? "#1D9E75" : "#E24B4A"} stroke="#0d0d1a" strokeWidth="1" />
+              fill={p.won ? "#1D9E75" : "#E24B4A"} stroke="#0e0c0b" strokeWidth="1" />
           ) : null
         )}
         <circle cx={toX(points.length - 1)} cy={toY(eloVals[eloVals.length - 1])} r="4"
-          fill={accentColor} stroke="#0d0d1a" strokeWidth="1.5" />
+          fill={accentColor} stroke="#0e0c0b" strokeWidth="1.5" />
         <text x="0" y={toY(maxElo - 10)} fill="rgba(255,255,255,0.25)" fontSize="8">{Math.round(maxElo - 20)}</text>
         <text x="0" y={toY(minElo + 10) - 4} fill="rgba(255,255,255,0.25)" fontSize="8">{Math.round(minElo + 20)}</text>
       </svg>
@@ -482,7 +482,7 @@ export default function UserProfile() {
               background: profile.avatar_url ? "transparent" : accentColor + "33",
               color: accentColor,
               border: borderClass ? "none" : `2px solid ${accentColor}55`,
-              boxShadow: (hasBanner && !borderClass) ? "0 0 0 4px #0d0d1a" : "none",
+              boxShadow: (hasBanner && !borderClass) ? "0 0 0 4px #0e0c0b" : "none",
             }}>
             {avatarSrc
               ? <img src={avatarSrc} alt="avatar" className="w-full h-full object-cover" style={avatarSrc === profile.avatar_url ? gifCropStyle(profile.avatar_crop, 64, 64) : undefined} />
@@ -718,7 +718,7 @@ export default function UserProfile() {
           style={{background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)"}}
           onClick={()=>setShowChallengeModal(false)}>
           <div className="w-full max-w-sm rounded-2xl p-5 slide-up"
-            style={{background:"#0d0d1a",border:"1px solid rgba(127,119,221,0.3)"}}
+            style={{background:"#0e0c0b",border:"1px solid rgba(232,100,64,0.3)"}}
             onClick={e=>e.stopPropagation()}>
             <p className="font-semibold mb-1">Challenge {profile.username}</p>
             <p className="text-xs text-white/40 mb-4">Pick a category and mode</p>
@@ -728,9 +728,9 @@ export default function UserProfile() {
                 <button key={c} onClick={()=>setChallengeCategory(c)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: challengeCategory===c ? "rgba(127,119,221,0.3)" : "rgba(255,255,255,0.05)",
-                    border: challengeCategory===c ? "1px solid #7F77DD" : "1px solid rgba(255,255,255,0.08)",
-                    color: challengeCategory===c ? "#7F77DD" : "rgba(255,255,255,0.5)",
+                    background: challengeCategory===c ? "rgba(232,100,64,0.3)" : "rgba(255,255,255,0.05)",
+                    border: challengeCategory===c ? "1px solid #E86440" : "1px solid rgba(255,255,255,0.08)",
+                    color: challengeCategory===c ? "#E86440" : "rgba(255,255,255,0.5)",
                   }}>{c==="all"?"All levels":c}</button>
               ))}
             </div>
@@ -740,15 +740,15 @@ export default function UserProfile() {
                 <button key={String(m.id)} onClick={()=>setChallengeBlitz(m.id)}
                   className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(127,119,221,0.2)") : "rgba(255,255,255,0.05)",
-                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #7F77DD") : "1px solid rgba(255,255,255,0.08)",
-                    color: challengeBlitz===m.id ? (m.id?"#EF9F27":"#7F77DD") : "rgba(255,255,255,0.5)",
+                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(232,100,64,0.2)") : "rgba(255,255,255,0.05)",
+                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #E86440") : "1px solid rgba(255,255,255,0.08)",
+                    color: challengeBlitz===m.id ? (m.id?"#EF9F27":"#E86440") : "rgba(255,255,255,0.5)",
                   }}>{m.label}</button>
               ))}
             </div>
             <button onClick={challengePlayer}
               className="w-full py-3 rounded-xl text-sm font-semibold"
-              style={{background:"linear-gradient(135deg,#534AB7,#7F77DD)",color:"#fff"}}>
+              style={{background:"linear-gradient(135deg,#CF4520,#E86440)",color:"#fff"}}>
               ⚡ Send challenge
             </button>
           </div>
@@ -761,7 +761,7 @@ export default function UserProfile() {
           style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
           onClick={() => setShowRanks(false)}>
           <div className="w-full max-w-sm rounded-2xl overflow-hidden"
-            style={{ background: "#0d0d1a", border: "1px solid rgba(127,119,221,0.3)" }}
+            style={{ background: "#0e0c0b", border: "1px solid rgba(232,100,64,0.3)" }}
             onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
               <p className="font-semibold text-white">Rank ladder</p>
@@ -804,8 +804,8 @@ export default function UserProfile() {
             <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
               className="flex-shrink-0 px-3 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap"
               style={{
-                background: tab === t.key ? "rgba(83,74,183,0.35)" : "transparent",
-                color: tab === t.key ? "#7F77DD" : "rgba(255,255,255,0.3)",
+                background: tab === t.key ? "rgba(207,69,32,0.35)" : "transparent",
+                color: tab === t.key ? "#E86440" : "rgba(255,255,255,0.3)",
               }}>
               {t.label}
             </button>
@@ -846,7 +846,7 @@ export default function UserProfile() {
                     </div>
                     <div className="text-right">
                       <p className="font-mono text-sm font-bold">
-                        <span style={{ color: "#7F77DD" }}>{myScore}</span>
+                        <span style={{ color: "#E86440" }}>{myScore}</span>
                         <span className="text-white/20 mx-1">-</span>
                         <span style={{ color: "#D85A30" }}>{oppScore}</span>
                       </p>
@@ -885,7 +885,7 @@ export default function UserProfile() {
                 <p className="text-sm font-semibold text-white">Pro feature</p>
                 <p className="text-xs text-white/40 text-center">Unlock ELO charts for all players with Pro</p>
                 <Link href="/shop" className="mt-1 text-xs font-semibold px-4 py-2 rounded-xl"
-                  style={{ background: "linear-gradient(135deg, #534AB7, #7F77DD)", color: "#fff" }}>
+                  style={{ background: "linear-gradient(135deg, #CF4520, #E86440)", color: "#fff" }}>
                   Upgrade — €2.99/mo
                 </Link>
               </div>

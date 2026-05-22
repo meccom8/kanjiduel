@@ -91,7 +91,7 @@ export default function Landing() {
             <button className="text-sm text-white/50 hover:text-white transition-colors px-4 py-2">Sign in</button>
           </Link>
           <Link href="/register">
-            <button className="text-sm font-medium px-4 py-2 rounded-lg" style={{ background: "#534AB7", color: "#fff" }}>
+            <button className="text-sm font-medium px-4 py-2 rounded-lg" style={{ background: "#CF4520", color: "#fff" }}>
               Play free
             </button>
           </Link>
@@ -101,7 +101,7 @@ export default function Landing() {
       {/* HERO */}
       <section className="min-h-screen flex flex-col items-center justify-center px-4 pt-20 pb-16 text-center relative z-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 text-xs font-medium"
-          style={{ background: "rgba(83,74,183,0.15)", border: "1px solid rgba(83,74,183,0.3)", color: "#7F77DD" }}>
+          style={{ background: "rgba(207,69,32,0.15)", border: "1px solid rgba(207,69,32,0.3)", color: "#E86440" }}>
           ⚔️ Real-time ranked vocabulary battles
         </div>
 
@@ -109,7 +109,7 @@ export default function Landing() {
           Beat your opponents.<br />
           <span style={{
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            backgroundImage: "linear-gradient(135deg, #534AB7, #7F77DD, #4DB6AC)",
+            backgroundImage: "linear-gradient(135deg, #CF4520, #E86440, #4DB6AC)",
             backgroundClip: "text"
           }}>
             Master Japanese.
@@ -124,7 +124,7 @@ export default function Landing() {
         <div className="flex flex-col sm:flex-row gap-3 mb-16">
           <Link href="/register">
             <button className="px-8 py-4 rounded-xl text-base font-semibold text-white"
-              style={{ background: "linear-gradient(135deg, #534AB7, #7F77DD)" }}>
+              style={{ background: "linear-gradient(135deg, #CF4520, #E86440)" }}>
               Start playing — it&apos;s free
             </button>
           </Link>
@@ -137,7 +137,7 @@ export default function Landing() {
         </div>
 
         {/* Demo card */}
-        <div className="w-full max-w-sm mx-auto card-solid p-6 text-center" style={{ border: "1px solid rgba(83,74,183,0.4)" }}>
+        <div className="w-full max-w-sm mx-auto card-solid p-6 text-center" style={{ border: "1px solid rgba(207,69,32,0.4)" }}>
           <div className="text-xs text-white/30 uppercase tracking-widest mb-4">Live demo</div>
           <span className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-4 uppercase tracking-widest"
             style={{ background: "#FAEEDA22", color: "#EF9F27" }}>Reading</span>
@@ -169,7 +169,7 @@ export default function Landing() {
             { step: "03", title: "First to 6 wins", desc: "11 rounds per match. Dominate 6 rounds to claim victory and gain ELO." },
           ].map(s => (
             <div key={s.step} className="card-solid p-6">
-              <div className="font-mono text-5xl font-bold mb-4" style={{ color: "rgba(83,74,183,0.25)" }}>{s.step}</div>
+              <div className="font-mono text-5xl font-bold mb-4" style={{ color: "rgba(207,69,32,0.25)" }}>{s.step}</div>
               <h3 className="text-lg font-semibold text-white mb-2">{s.title}</h3>
               <p className="text-white/40 text-sm leading-relaxed">{s.desc}</p>
             </div>
@@ -219,7 +219,7 @@ export default function Landing() {
 
       {/* JLPT */}
       <section className="px-4 py-24 relative z-10 max-w-4xl mx-auto">
-        <div className="card-solid p-8 text-center" style={{ border: "1px solid rgba(83,74,183,0.3)" }}>
+        <div className="card-solid p-8 text-center" style={{ border: "1px solid rgba(207,69,32,0.3)" }}>
           <h2 className="text-3xl font-bold text-white mb-3">{wordCount} words. N5 to No JLPT.</h2>
           <p className="text-white/40 mb-8 max-w-sm mx-auto">
             From total beginner to beyond N1. Your rank unlocks harder vocabulary as you improve.
@@ -256,7 +256,7 @@ export default function Landing() {
         </p>
         <Link href="/register">
           <button className="px-10 py-5 rounded-xl text-lg font-semibold text-white"
-            style={{ background: "linear-gradient(135deg, #534AB7, #7F77DD)" }}>
+            style={{ background: "linear-gradient(135deg, #CF4520, #E86440)" }}>
             Create your account
           </button>
         </Link>

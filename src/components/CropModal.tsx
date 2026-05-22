@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 export interface CropResult {
@@ -155,7 +155,7 @@ export default function CropModal({ file, shape, onConfirm, onCancel }: CropModa
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4"
       style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(10px)" }}>
       <div className="w-full max-w-sm rounded-2xl p-5 slide-up"
-        style={{ background: "#0d0d1a", border: "1px solid rgba(127,119,221,0.35)" }}>
+        style={{ background: "#0e0c0b", border: "1px solid rgba(232,100,64,0.35)" }}>
 
         <p className="font-semibold mb-0.5">
           Adjust your {shape === "circle" ? "photo" : "banner"}
@@ -171,7 +171,7 @@ export default function CropModal({ file, shape, onConfirm, onCancel }: CropModa
               overflow: "hidden",
               cursor: "grab",
               flexShrink: 0,
-              border: "2px solid rgba(127,119,221,0.4)",
+              border: "2px solid rgba(232,100,64,0.4)",
               userSelect: "none",
             }}
             onMouseDown={onMouseDown}
@@ -205,7 +205,7 @@ export default function CropModal({ file, shape, onConfirm, onCancel }: CropModa
           <span className="text-sm">🔍</span>
           <input type="range" min={100} max={300} value={Math.round(zoom * 100)}
             onChange={(e) => setZoom(parseInt(e.target.value) / 100)}
-            className="flex-1" style={{ accentColor: "#7F77DD" }} />
+            className="flex-1" style={{ accentColor: "#E86440" }} />
           <span className="text-sm">🔎</span>
         </div>
 
@@ -217,7 +217,7 @@ export default function CropModal({ file, shape, onConfirm, onCancel }: CropModa
           </button>
           <button onClick={handleConfirm}
             className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-            style={{ background: "linear-gradient(135deg,#534AB7,#7F77DD)", color: "#fff" }}>
+            style={{ background: "linear-gradient(135deg,#CF4520,#E86440)", color: "#fff" }}>
             Apply
           </button>
         </div>

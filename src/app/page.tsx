@@ -75,10 +75,10 @@ export default function Home() {
       {/* Logo */}
       <div className="text-center mb-10 slide-up">
         <div className="font-jp text-7xl mb-3" style={{
-          background: "linear-gradient(135deg, #7F77DD, #4DB6AC)",
+          background: "linear-gradient(135deg, #E86440, #4DB6AC)",
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           backgroundClip: "text",
-          filter: "drop-shadow(0 0 30px rgba(127,119,221,0.4))"
+          filter: "drop-shadow(0 0 30px rgba(232,100,64,0.4))"
         }}>漢</div>
         <h1 className="font-mono text-sm tracking-[0.3em] text-white/30 uppercase">KanjiDual</h1>
       </div>
@@ -86,10 +86,10 @@ export default function Home() {
       {/* Main card */}
       <div className="w-full max-w-sm slide-up" style={{
         background: "rgba(13,13,26,0.8)",
-        border: "1px solid rgba(127,119,221,0.2)",
+        border: "1px solid rgba(232,100,64,0.2)",
         borderRadius: "20px",
         backdropFilter: "blur(20px)",
-        boxShadow: "0 0 60px rgba(83,74,183,0.1), inset 0 1px 0 rgba(255,255,255,0.05)"
+        boxShadow: "0 0 60px rgba(207,69,32,0.1), inset 0 1px 0 rgba(255,255,255,0.05)"
       }}>
         {/* Player info */}
         <div className="p-5 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
@@ -151,7 +151,7 @@ export default function Home() {
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group"
                 style={{
                   background: item.primary
-                    ? "linear-gradient(135deg, #534AB7, #7F77DD)"
+                    ? "linear-gradient(135deg, #CF4520, #E86440)"
                     : "rgba(255,255,255,0.03)",
                   border: item.primary
                     ? "none"
@@ -161,7 +161,7 @@ export default function Home() {
                 onMouseEnter={e => {
                   if (!item.primary) {
                     (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(83,74,183,0.3)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(207,69,32,0.3)";
                   }
                 }}
                 onMouseLeave={e => {
@@ -210,7 +210,7 @@ export default function Home() {
           style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
           onClick={() => setShowRanks(false)}>
           <div className="w-full max-w-sm rounded-2xl overflow-hidden slide-up"
-            style={{ background: "#0d0d1a", border: "1px solid rgba(127,119,221,0.3)" }}
+            style={{ background: "#0e0c0b", border: "1px solid rgba(232,100,64,0.3)" }}
             onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
               <div className="flex items-center justify-between">
@@ -260,7 +260,7 @@ export default function Home() {
           { label: "JLPT levels", val: "5+1" },
         ].map(s => (
           <div key={s.label}>
-            <p className="font-mono text-lg font-bold" style={{ color: "#7F77DD" }}>{s.val}</p>
+            <p className="font-mono text-lg font-bold" style={{ color: "#E86440" }}>{s.val}</p>
             <p className="text-white/25 text-xs uppercase tracking-widest mt-0.5">{s.label}</p>
           </div>
         ))}
@@ -273,7 +273,7 @@ function LoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="font-jp text-4xl animate-pulse" style={{
-        background: "linear-gradient(135deg, #7F77DD, #4DB6AC)",
+        background: "linear-gradient(135deg, #E86440, #4DB6AC)",
         WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
       }}>漢</div>
     </div>

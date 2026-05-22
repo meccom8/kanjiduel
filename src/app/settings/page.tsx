@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 const THEMES = [
-  { id:"navy",   label:"Dark Navy",   preview:"#0d0d1a" },
+  { id:"navy",   label:"Dark Navy",   preview:"#0e0c0b" },
   { id:"black",  label:"Pure Black",  preview:"#000000" },
   { id:"purple", label:"Dark Purple", preview:"#100a20" },
 ];
@@ -57,7 +57,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
-  const [accentColor, setAccentColor] = useState("#534AB7");
+  const [accentColor, setAccentColor] = useState("#CF4520");
 
   // Gameplay
   const [hiraganaMode, setHiraganaMode] = useState(false);
@@ -113,7 +113,7 @@ export default function Settings() {
         .eq("id", user.id).single();
       if (data) {
         setProfile(data);
-        setAccentColor(data.accent_color ?? "#534AB7");
+        setAccentColor(data.accent_color ?? "#CF4520");
       }
       setLoading(false);
     })();

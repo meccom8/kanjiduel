@@ -9,7 +9,7 @@ export interface BorderStyle {
 }
 
 export const BORDER_STYLES: BorderStyle[] = [
-  { id: "rainbow", label: "Rainbow", gradient: "conic-gradient(#FF6B9D, #C44FDC, #7F77DD, #4DB6AC, #FFD700, #FF6B9D)" },
+  { id: "rainbow", label: "Rainbow", gradient: "conic-gradient(#FF6B9D, #C44FDC, #7B5EA7, #4DB6AC, #FFD700, #FF6B9D)" },
   { id: "sakura",  label: "Sakura",  gradient: "linear-gradient(135deg, #FF6B9D, #C44FDC, #FF85A2)" },
   { id: "gold",    label: "Gold",    gradient: "linear-gradient(135deg, #FFD700, #EF9F27, #B8860B)" },
   { id: "ice",     label: "Ice",     gradient: "linear-gradient(135deg, #00BCD4, #B2EBF2, #4DB6AC)" },
@@ -103,6 +103,6 @@ export function getBadgeIcon(id: string): string {
 export const RARITY_COLORS: Record<Rarity, string> = {
   common:    "rgba(255,255,255,0.15)",
   rare:      "#4DB6AC",
-  epic:      "#7F77DD",
+  epic:      "#E86440",
   legendary: "#EF9F27",
 };

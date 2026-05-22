@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { checkVocabAnswer, fetchRandomWords, type VocabWord } from "@/lib/vocab";
@@ -581,7 +581,7 @@ export default function DuelPage() {
             <>
               <p className="text-lg font-medium mb-1">Waiting for opponent…</p>
               <p className="text-white/40 text-sm mb-5">Share this code</p>
-              <div className="bg-white/4 rounded-2xl p-4 mb-4" style={{border:"1px solid rgba(127,119,221,0.2)"}}>
+              <div className="bg-white/4 rounded-2xl p-4 mb-4" style={{border:"1px solid rgba(232,100,64,0.2)"}}>
                 <p className="font-mono text-3xl font-bold tracking-widest mb-3 text-accent2">{room?.invite_code}</p>
                 <CopyBtn text={`${typeof window!=="undefined"?window.location.origin:""}/play/${room?.invite_code}`} label="Copy invite link"/>
               </div>
@@ -605,13 +605,13 @@ export default function DuelPage() {
   const opScore = room?(isP1.current?room.p2_score:room.p1_score):0;
   const pct = (timeLeft/roundTimeR.current)*100;
   const isBlitzMode = (room?.category??'').startsWith('blitz:');
-  const myC = me?.accent_color??"#534AB7";
+  const myC = me?.accent_color??"#CF4520";
   const opC = opp?.accent_color??"#D85A30";
   const border = phase==="result"
     ? result?.who==="me"?"1px solid #1D9E75"
     : result?.who==="opp"?"1px solid #E24B4A"
     : "1px solid rgba(255,255,255,0.1)"
-    : "1px solid rgba(83,74,183,0.35)";
+    : "1px solid rgba(207,69,32,0.35)";
 
   return(
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative z-10">
@@ -653,7 +653,7 @@ export default function DuelPage() {
             <p className="text-xs text-white/40 font-mono">round {(room?.current_round??0)+1}</p>
             <p className="text-white/20 text-xs">first to {WIN}</p>
             {cd!==null&&cd>0&&<p className="font-mono font-bold text-3xl mt-1" style={{color:"#EF9F27",textShadow:"0 0 20px #EF9F2799"}}>{cd}</p>}
-            <p className="text-xs mt-1" style={{color:room?.is_private?"rgba(255,255,255,0.18)":"rgba(127,119,221,0.7)"}}>
+            <p className="text-xs mt-1" style={{color:room?.is_private?"rgba(255,255,255,0.18)":"rgba(232,100,64,0.7)"}}>
               {room?.is_private?"🎮 Fun":"⚔️ Ranked"}
             </p>
           </div>
@@ -703,7 +703,7 @@ export default function DuelPage() {
         <div className="h-0.5 bg-white/8 rounded-full mb-5 overflow-hidden">
           <div className="h-full rounded-full transition-all duration-200" style={{
             width:`${phase==="result"?0:pct}%`,
-            background:timeLeft<=3?"#E24B4A":timeLeft<=6?"#EF9F27":"#534AB7",
+            background:timeLeft<=3?"#E24B4A":timeLeft<=6?"#EF9F27":"#1D9E75",
           }}/>
         </div>
 
@@ -775,8 +775,8 @@ export default function DuelPage() {
             <button key={e} onClick={()=>sendReaction(e)}
               className="relative text-lg w-11 h-11 rounded-xl transition-all hover:scale-110 active:scale-95"
               style={{
-                background: myReactionSent===e ? "rgba(127,119,221,0.25)" : "rgba(255,255,255,0.05)",
-                border: myReactionSent===e ? "1px solid rgba(127,119,221,0.4)" : "1px solid rgba(255,255,255,0.08)",
+                background: myReactionSent===e ? "rgba(232,100,64,0.25)" : "rgba(255,255,255,0.05)",
+                border: myReactionSent===e ? "1px solid rgba(232,100,64,0.4)" : "1px solid rgba(255,255,255,0.08)",
                 opacity: reactCooldownR.current&&myReactionSent!==e ? 0.4 : 1,
               }}>
               {e}
@@ -820,7 +820,7 @@ function CopyBtn({text,label}:{text:string;label:string}){
       try{await navigator.clipboard.writeText(text);}catch{}
       setCopied(true);setTimeout(()=>setCopied(false),2000);
     }} className="w-full text-sm py-2 rounded-xl transition-all"
-      style={{background:"rgba(127,119,221,0.2)",color:"#7F77DD",border:"1px solid rgba(127,119,221,0.3)"}}>
+      style={{background:"rgba(232,100,64,0.2)",color:"#E86440",border:"1px solid rgba(232,100,64,0.3)"}}>
       {copied?"✓ Copied!":label}
     </button>
   );
@@ -966,7 +966,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
         <div className="flex items-center justify-center gap-4 my-4">
           <div className="flex flex-col items-center gap-1">
             <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold"
-              style={{background:(me?.accent_color??"#534AB7")+"33",color:me?.accent_color??"#7F77DD",border:`2px solid ${me?.accent_color??"#534AB7"}44`}}>
+              style={{background:(me?.accent_color??"#CF4520")+"33",color:me?.accent_color??"#E86440",border:`2px solid ${me?.accent_color??"#CF4520"}44`}}>
               {resolveAvatar(me?.avatar_url,me?.avatar_static_url,me?.is_pro)?<img src={resolveAvatar(me?.avatar_url,me?.avatar_static_url,me?.is_pro)!} alt="" className="w-full h-full object-cover"/>:(me?.username??"?").slice(0,2).toUpperCase()}
             </div>
             <p className="text-xs text-white/50">{me?.username??"You"}</p>
@@ -982,7 +982,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
         </div>
         <div className="grid grid-cols-2 gap-3 mb-4">
           {[
-            {label:me?.username??"You",score:myS,color:me?.accent_color??"#534AB7",eloStart:myEloStart,eloChange:myEloChange},
+            {label:me?.username??"You",score:myS,color:me?.accent_color??"#CF4520",eloStart:myEloStart,eloChange:myEloChange},
             {label:opp?.username??"Opp",score:opS,color:opp?.accent_color??"#D85A30",eloStart:oppEloStart,eloChange:oppEloChange},
           ].map(s=>(
             <div key={s.label} className="bg-white/4 rounded-xl p-3">
@@ -1004,7 +1004,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
         ):(
           <div className="flex flex-col items-center gap-2 mb-4">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
-              style={{background:"rgba(83,74,183,0.15)",border:"1px solid rgba(127,119,221,0.25)",color:"#7F77DD"}}>
+              style={{background:"rgba(207,69,32,0.15)",border:"1px solid rgba(232,100,64,0.25)",color:"#E86440"}}>
               ⚔️ Ranked · ELO at stake
             </span>
             {myEloChange!==null&&(
@@ -1048,7 +1048,7 @@ function ResultScreen({room,me,opp,isP1,router,log,myEloChange,oppEloChange,myEl
           {log.map((r,i)=>(
             <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
               <span className="font-mono text-xs text-white/20 w-5 flex-shrink-0">{i+1}</span>
-              <div className="w-1.5 h-8 rounded-full flex-shrink-0" style={{background:r.winner==="me"?(me?.accent_color??"#534AB7"):r.winner==="opp"?"#E24B4A":"rgba(255,255,255,0.15)"}}/>
+              <div className="w-1.5 h-8 rounded-full flex-shrink-0" style={{background:r.winner==="me"?(me?.accent_color??"#CF4520"):r.winner==="opp"?"#E24B4A":"rgba(255,255,255,0.15)"}}/>
               <div className="font-jp text-xl w-12 text-center flex-shrink-0">{r.word.word}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white/30 truncate">{r.word.meaning}</p>

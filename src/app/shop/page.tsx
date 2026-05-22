@@ -112,8 +112,8 @@ function ShopInner() {
 
           {/* Pro Card */}
           <div className="rounded-2xl overflow-hidden"
-            style={{ background: "linear-gradient(135deg, rgba(83,74,183,0.25), rgba(127,119,221,0.1))", border: "1px solid rgba(127,119,221,0.4)" }}>
-            <div className="p-5 border-b" style={{ borderColor: "rgba(127,119,221,0.2)" }}>
+            style={{ background: "linear-gradient(135deg, rgba(207,69,32,0.25), rgba(232,100,64,0.1))", border: "1px solid rgba(232,100,64,0.4)" }}>
+            <div className="p-5 border-b" style={{ borderColor: "rgba(232,100,64,0.2)" }}>
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -123,7 +123,7 @@ function ShopInner() {
                   <p className="text-white/40 text-sm">Monthly subscription</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-2xl font-bold" style={{ color: "#7F77DD" }}>€2.99</p>
+                  <p className="font-mono text-2xl font-bold" style={{ color: "#E86440" }}>€2.99</p>
                   <p className="text-white/30 text-xs">/month</p>
                 </div>
               </div>
@@ -132,7 +132,7 @@ function ShopInner() {
               <ul className="flex flex-col gap-2 mb-5">
                 {PRO_FEATURES.map(f => (
                   <li key={f} className="flex items-center gap-2 text-sm text-white/70">
-                    <span style={{ color: "#7F77DD" }}>✓</span> {f}
+                    <span style={{ color: "#E86440" }}>✓</span> {f}
                   </li>
                 ))}
               </ul>
@@ -146,7 +146,7 @@ function ShopInner() {
                   onClick={() => buy(PRO_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID!, "subscription")}
                   disabled={buying === "subscription"}
                   className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-60"
-                  style={{ background: "linear-gradient(135deg, #534AB7, #7F77DD)", color: "#fff" }}>
+                  style={{ background: "linear-gradient(135deg, #CF4520, #E86440)", color: "#fff" }}>
                   {buying === "subscription" ? "Redirecting…" : "Subscribe — €2.99/month"}
                 </button>
               )}

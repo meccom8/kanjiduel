@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { getTier } from "@/lib/elo";
@@ -90,7 +90,7 @@ export default function SpectatePage() {
     </div>
   );
 
-  const c1 = p1?.accent_color ?? "#534AB7";
+  const c1 = p1?.accent_color ?? "#CF4520";
   const c2 = p2?.accent_color ?? "#D85A30";
   const pct = (timeLeft / roundTime) * 100;
   const category = room.category.replace(/^blitz:/, "") || "all";
@@ -146,12 +146,12 @@ export default function SpectatePage() {
         <div className="h-0.5 bg-white/8 rounded-full mb-5 overflow-hidden">
           <div className="h-full rounded-full transition-all duration-300" style={{
             width: room.status === "active" && room.current_kanji ? `${pct}%` : "0%",
-            background: timeLeft <= 2 ? "#E24B4A" : timeLeft <= 4 ? "#EF9F27" : "#534AB7",
+            background: timeLeft <= 2 ? "#E24B4A" : timeLeft <= 4 ? "#EF9F27" : "#1D9E75",
           }} />
         </div>
 
         {/* Word card — blurred for suspense */}
-        <div className="card-solid p-7 text-center mb-4" style={{ border: "1px solid rgba(83,74,183,0.3)" }}>
+        <div className="card-solid p-7 text-center mb-4" style={{ border: "1px solid rgba(207,69,32,0.3)" }}>
           {room.status === "waiting" ? (
             <div className="text-white/30 text-sm py-4">Waiting for players…</div>
           ) : room.status === "finished" ? (
