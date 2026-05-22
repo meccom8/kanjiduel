@@ -1,6 +1,7 @@
 ﻿import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ServiceWorker from "@/components/ServiceWorker";
+import ClientLayout from "@/components/ClientLayout";
 import { PresenceProvider } from "@/contexts/PresenceContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 
@@ -48,7 +49,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body style={{ position: "relative", zIndex: 1 }}>
         <PresenceProvider>
           <NotificationsProvider>
-            {children}
+            <ClientLayout>
+              {children}
+            </ClientLayout>
           </NotificationsProvider>
         </PresenceProvider>
         <ServiceWorker />
