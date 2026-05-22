@@ -775,8 +775,8 @@ export default function DuelPage() {
             <button key={e} onClick={()=>sendReaction(e)}
               className="relative text-lg w-11 h-11 rounded-xl transition-all hover:scale-110 active:scale-95"
               style={{
-                background: myReactionSent===e ? "rgba(232,100,64,0.25)" : "rgba(255,255,255,0.05)",
-                border: myReactionSent===e ? "1px solid rgba(232,100,64,0.4)" : "1px solid rgba(255,255,255,0.08)",
+                background: myReactionSent===e ? "rgba(232,100,64,0.25)" : "#1a1410",
+                border: myReactionSent===e ? "1px solid rgba(232,100,64,0.4)" : "1px solid rgba(255,255,255,0.1)",
                 opacity: reactCooldownR.current&&myReactionSent!==e ? 0.4 : 1,
               }}>
               {e}

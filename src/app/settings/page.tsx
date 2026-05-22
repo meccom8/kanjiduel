@@ -153,8 +153,8 @@ export default function Settings() {
   const muted = "rgba(255,255,255,0.3)";
 
   const optBtn = (active: boolean) => ({
-    background: active ? color + "22" : "rgba(255,255,255,0.04)",
-    border: active ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.08)",
+    background: active ? color + "22" : "#161210",
+    border: active ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.1)",
     color: active ? color : muted,
   });
 
@@ -273,7 +273,7 @@ export default function Settings() {
           <p className="text-xs mb-4" style={{ color: muted }}>Manage your subscription, update payment, or cancel</p>
           <button onClick={openPortal} disabled={portalLoading}
             className="w-full py-2.5 rounded-xl text-sm font-medium transition-all"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: portalLoading ? muted : "white", opacity: portalLoading ? 0.6 : 1 }}>
+            style={{ background: "#1a1410", border: "1px solid rgba(255,255,255,0.1)", color: portalLoading ? muted : "white", opacity: portalLoading ? 0.6 : 1 }}>
             {portalLoading ? "Opening portal…" : "Manage subscription →"}
           </button>
         </div>

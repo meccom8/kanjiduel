@@ -212,7 +212,7 @@ export default function CropModal({ file, shape, onConfirm, onCancel }: CropModa
         <div className="flex gap-3">
           <button onClick={onCancel}
             className="flex-1 py-2.5 rounded-xl text-sm transition-colors"
-            style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            style={{ background: "#161210", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}>
             Cancel
           </button>
           <button onClick={handleConfirm}

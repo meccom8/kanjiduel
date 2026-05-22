@@ -92,7 +92,7 @@ export default function Home() {
         boxShadow: "0 0 60px rgba(207,69,32,0.1), inset 0 1px 0 rgba(255,255,255,0.05)"
       }}>
         {/* Player info */}
-        <div className="p-5 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+        <div className="p-5 border-b" style={{ borderColor: "#1a1410" }}>
           <div className="flex items-center gap-3">
             {/* Avatar — click to go to profile */}
             {(() => {
@@ -152,21 +152,21 @@ export default function Home() {
                 style={{
                   background: item.primary
                     ? "linear-gradient(135deg, #CF4520, #E86440)"
-                    : "rgba(255,255,255,0.03)",
+                    : "#121008",
                   border: item.primary
                     ? "none"
-                    : "1px solid rgba(255,255,255,0.06)",
+                    : "1px solid rgba(255,255,255,0.09)",
                   animationDelay: `${i * 0.05}s`,
                 }}
                 onMouseEnter={e => {
                   if (!item.primary) {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+                    (e.currentTarget as HTMLElement).style.background = "#1e1812";
                     (e.currentTarget as HTMLElement).style.borderColor = "rgba(207,69,32,0.3)";
                   }
                 }}
                 onMouseLeave={e => {
                   if (!item.primary) {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
+                    (e.currentTarget as HTMLElement).style.background = "#121008";
                     (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)";
                   }
                 }}
@@ -212,7 +212,7 @@ export default function Home() {
           <div className="w-full max-w-sm rounded-2xl overflow-hidden slide-up"
             style={{ background: "#0e0c0b", border: "1px solid rgba(232,100,64,0.3)" }}
             onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+            <div className="px-5 py-4 border-b" style={{ borderColor: "#1a1410" }}>
               <div className="flex items-center justify-between">
                 <p className="font-semibold text-white">Rank ladder</p>
                 <button onClick={() => setShowRanks(false)} className="text-white/30 hover:text-white/60 transition-colors text-lg">✕</button>
@@ -235,7 +235,7 @@ export default function Home() {
               ].map(r => (
                 <div key={r.name} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
                   style={{
-                    background: profile.elo >= r.min && profile.elo < (r.min + 200) ? r.bg + "15" : "rgba(255,255,255,0.02)",
+                    background: profile.elo >= r.min && profile.elo < (r.min + 200) ? r.bg + "15" : "#100e08",
                     border: profile.elo >= r.min && profile.elo < (r.min + 200) ? `1px solid ${r.color}44` : "1px solid transparent",
                   }}>
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"

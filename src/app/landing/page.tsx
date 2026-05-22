@@ -81,7 +81,7 @@ export default function Landing() {
 
       {/* NAV */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
-        style={{ background: "rgba(10,10,20,0.85)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        style={{ background: "#0e0c0bee", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center gap-2">
           <span className="font-jp text-xl text-accent2">漢</span>
           <span className="font-mono text-sm text-white font-bold tracking-widest">KanjiDual</span>
@@ -130,7 +130,7 @@ export default function Landing() {
           </Link>
           <Link href="/leaderboard">
             <button className="px-8 py-4 rounded-xl text-base font-medium text-white/60 hover:text-white transition-colors"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+              style={{ background: "#1a1410", border: "1px solid rgba(255,255,255,0.1)" }}>
               View leaderboard
             </button>
           </Link>
@@ -145,7 +145,7 @@ export default function Landing() {
           <p className="text-white/35 text-sm italic mb-4">{current.meaning}</p>
           <div className="w-full px-4 py-3 rounded-xl text-center font-mono text-lg transition-all duration-300"
             style={{
-              background: revealed ? "rgba(29,158,117,0.15)" : "rgba(255,255,255,0.05)",
+              background: revealed ? "rgba(29,158,117,0.15)" : "#1a1410",
               border: revealed ? "1.5px solid #1D9E75" : "1.5px solid rgba(255,255,255,0.1)",
               color: revealed ? "#5DCAA5" : "#fff",
             }}>
@@ -267,7 +267,7 @@ export default function Landing() {
       </section>
 
       {/* FOOTER */}
-      <footer className="px-4 py-8 text-center relative z-10" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+      <footer className="px-4 py-8 text-center relative z-10" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center justify-center gap-2 mb-2">
           <span className="font-jp text-lg text-accent2">漢</span>
           <span className="font-mono text-sm text-white/30 tracking-widest">KanjiDual</span>

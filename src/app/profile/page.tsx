@@ -206,7 +206,7 @@ function BadgeCard({ badge }: { badge: Badge }) {
   return (
     <div className="rounded-xl p-3 text-center transition-all"
       style={{
-        background: badge.unlocked ? `${rarityColor}18` : "rgba(255,255,255,0.03)",
+        background: badge.unlocked ? `${rarityColor}18` : "#121008",
         border: `1px solid ${badge.unlocked ? rarityColor + "55" : "rgba(255,255,255,0.06)"}`,
         opacity: badge.unlocked ? 1 : 0.45,
       }}>
@@ -548,7 +548,7 @@ export default function ProfilePage() {
                 return (
                   <div key={r.name} className="flex items-center gap-3 px-3 py-2 rounded-xl"
                     style={{
-                      background: isMe ? r.color + "15" : "rgba(255,255,255,0.02)",
+                      background: isMe ? r.color + "15" : "#100e08",
                       border: isMe ? `1px solid ${r.color}44` : "1px solid transparent",
                     }}>
                     <span style={{ color: r.color }}>⬡</span>

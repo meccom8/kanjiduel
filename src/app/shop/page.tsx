@@ -100,7 +100,7 @@ function ShopInner() {
       )}
       {cancelled && (
         <div className="mb-6 px-4 py-3 rounded-xl text-sm"
-          style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          style={{ background: "#161210", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}>
           Payment cancelled.
         </div>
       )}

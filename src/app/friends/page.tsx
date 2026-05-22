@@ -228,7 +228,7 @@ export default function FriendsPage() {
           <button
             onClick={() => setShowJoinInput(true)}
             className="w-full py-2.5 rounded-xl text-sm font-medium transition-all"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}>
+            style={{ background: "#161210", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
             🔑 Join a private duel with a code
           </button>
         ) : (
@@ -452,8 +452,8 @@ export default function FriendsPage() {
                 <button key={c} onClick={()=>setChallengeCategory(c)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: challengeCategory===c ? "rgba(232,100,64,0.3)" : "rgba(255,255,255,0.05)",
-                    border: challengeCategory===c ? "1px solid #E86440" : "1px solid rgba(255,255,255,0.08)",
+                    background: challengeCategory===c ? "rgba(232,100,64,0.3)" : "#1a1410",
+                    border: challengeCategory===c ? "1px solid #E86440" : "1px solid rgba(255,255,255,0.1)",
                     color: challengeCategory===c ? "#E86440" : "rgba(255,255,255,0.5)",
                   }}>{c==="all"?"All levels":c==="X"?"No JLPT":c}</button>
               ))}
@@ -465,8 +465,8 @@ export default function FriendsPage() {
                 <button key={String(m.id)} onClick={()=>setChallengeBlitz(m.id)}
                   className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(232,100,64,0.2)") : "rgba(255,255,255,0.05)",
-                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #E86440") : "1px solid rgba(255,255,255,0.08)",
+                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(232,100,64,0.2)") : "#1a1410",
+                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #E86440") : "1px solid rgba(255,255,255,0.1)",
                     color: challengeBlitz===m.id ? (m.id?"#EF9F27":"#E86440") : "rgba(255,255,255,0.5)",
                   }}>{m.label}</button>
               ))}

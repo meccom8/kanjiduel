@@ -203,8 +203,8 @@ export default function Practice() {
               <button key={opt.value} onClick={() => setFilter(opt.value)}
                 className="py-3 px-4 rounded-xl text-sm font-medium transition-all text-left"
                 style={{
-                  background: filter === opt.value ? opt.color + "22" : "rgba(255,255,255,0.04)",
-                  border: filter === opt.value ? `1.5px solid ${opt.color}` : "1px solid rgba(255,255,255,0.08)",
+                  background: filter === opt.value ? opt.color + "22" : "#161210",
+                  border: filter === opt.value ? `1.5px solid ${opt.color}` : "1px solid rgba(255,255,255,0.1)",
                   color: filter === opt.value ? opt.color : "rgba(255,255,255,0.5)",
                 }}>
                 {opt.label}

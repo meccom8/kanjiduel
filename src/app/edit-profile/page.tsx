@@ -252,8 +252,8 @@ export default function EditProfile() {
   const muted = "rgba(255,255,255,0.3)";
   const hasPack = profile.owned_cosmetics?.includes("pack1");
   const optBtn = (active: boolean) => ({
-    background: active ? color + "22" : "rgba(255,255,255,0.04)",
-    border: active ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.08)",
+    background: active ? color + "22" : "#161210",
+    border: active ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.1)",
     color: active ? color : muted,
   });
 
@@ -331,7 +331,7 @@ export default function EditProfile() {
           </div>
         ) : (
           <div className="w-full flex items-center justify-center text-white/10 text-xs"
-            style={{ height: 105, background: "rgba(255,255,255,0.02)" }}>
+            style={{ height: 105, background: "#100e08" }}>
             No banner
           </div>
         )}
@@ -458,7 +458,7 @@ export default function EditProfile() {
         ) : (
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 rounded-xl overflow-hidden flex items-center justify-center text-white/15 text-xs"
-              style={{ height: 56, background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.08)" }}>
+              style={{ height: 56, background: "#121008", border: "1px dashed rgba(255,255,255,0.08)" }}>
               GIF · Image
             </div>
             <Link href="/shop" className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg"
@@ -492,8 +492,8 @@ export default function EditProfile() {
                 onClick={() => setAvatarBorderStyle(null)}
                 className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all"
                 style={{
-                  background: !avatarBorderStyle ? color + "22" : "rgba(255,255,255,0.04)",
-                  border: !avatarBorderStyle ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.08)",
+                  background: !avatarBorderStyle ? color + "22" : "#161210",
+                  border: !avatarBorderStyle ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.1)",
                 }}>
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white/20"
                   style={{ border: "2px dashed rgba(255,255,255,0.15)" }}>
@@ -506,8 +506,8 @@ export default function EditProfile() {
                   onClick={() => setAvatarBorderStyle(s.id)}
                   className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all"
                   style={{
-                    background: avatarBorderStyle === s.id ? color + "22" : "rgba(255,255,255,0.04)",
-                    border: avatarBorderStyle === s.id ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.08)",
+                    background: avatarBorderStyle === s.id ? color + "22" : "#161210",
+                    border: avatarBorderStyle === s.id ? `1px solid ${color}` : "1px solid rgba(255,255,255,0.1)",
                   }}>
                   <div className="w-8 h-8 rounded-full" style={{ background: s.gradient }} />
                   <span className="text-xs" style={{ color: avatarBorderStyle === s.id ? color : muted }}>{s.label}</span>
@@ -602,8 +602,8 @@ export default function EditProfile() {
                     onClick={() => canSelect && toggleFeaturedBadge(b.id)}
                     className="rounded-xl p-2.5 text-center transition-all"
                     style={{
-                      background: isSelected ? rc + "22" : "rgba(255,255,255,0.04)",
-                      border: isSelected ? `2px solid ${rc}` : "1px solid rgba(255,255,255,0.08)",
+                      background: isSelected ? rc + "22" : "#161210",
+                      border: isSelected ? `2px solid ${rc}` : "1px solid rgba(255,255,255,0.1)",
                       opacity: !canSelect ? 0.4 : 1,
                       cursor: canSelect ? "pointer" : "not-allowed",
                     }}
@@ -623,7 +623,7 @@ export default function EditProfile() {
             <div className="grid grid-cols-4 gap-2">
               {availableBadges.filter(b => !b.unlocked).map(b => (
                 <div key={b.id} className="rounded-xl p-2.5 text-center opacity-25"
-                  style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+                  style={{ background: "#100e08", border: "1px solid rgba(255,255,255,0.08)" }}
                   title={b.desc}>
                   <div className="text-xl mb-0.5" style={{ filter: "grayscale(1)" }}>{b.icon}</div>
                   <p className="text-xs text-white/20 leading-tight truncate" style={{ fontSize: 9 }}>{b.name}</p>

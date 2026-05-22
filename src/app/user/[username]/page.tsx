@@ -106,7 +106,7 @@ function BadgeCard({ badge }: { badge: Badge }) {
   return (
     <div className="rounded-xl p-3 text-center transition-all"
       style={{
-        background: badge.unlocked ? `${rarityColor}18` : "rgba(255,255,255,0.03)",
+        background: badge.unlocked ? `${rarityColor}18` : "#121008",
         border: `1px solid ${badge.unlocked ? rarityColor + "55" : "rgba(255,255,255,0.06)"}`,
         opacity: badge.unlocked ? 1 : 0.4,
       }}>
@@ -728,8 +728,8 @@ export default function UserProfile() {
                 <button key={c} onClick={()=>setChallengeCategory(c)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: challengeCategory===c ? "rgba(232,100,64,0.3)" : "rgba(255,255,255,0.05)",
-                    border: challengeCategory===c ? "1px solid #E86440" : "1px solid rgba(255,255,255,0.08)",
+                    background: challengeCategory===c ? "rgba(232,100,64,0.3)" : "#1a1410",
+                    border: challengeCategory===c ? "1px solid #E86440" : "1px solid rgba(255,255,255,0.1)",
                     color: challengeCategory===c ? "#E86440" : "rgba(255,255,255,0.5)",
                   }}>{c==="all"?"All levels":c}</button>
               ))}
@@ -740,8 +740,8 @@ export default function UserProfile() {
                 <button key={String(m.id)} onClick={()=>setChallengeBlitz(m.id)}
                   className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(232,100,64,0.2)") : "rgba(255,255,255,0.05)",
-                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #E86440") : "1px solid rgba(255,255,255,0.08)",
+                    background: challengeBlitz===m.id ? (m.id?"rgba(239,159,39,0.2)":"rgba(232,100,64,0.2)") : "#1a1410",
+                    border: challengeBlitz===m.id ? (m.id?"1px solid #EF9F27":"1px solid #E86440") : "1px solid rgba(255,255,255,0.1)",
                     color: challengeBlitz===m.id ? (m.id?"#EF9F27":"#E86440") : "rgba(255,255,255,0.5)",
                   }}>{m.label}</button>
               ))}
@@ -784,7 +784,7 @@ export default function UserProfile() {
                 const isMe = profile.elo >= r.min && profile.elo < r.max;
                 return (
                   <div key={r.name} className="flex items-center gap-3 px-3 py-2 rounded-xl"
-                    style={{ background: isMe ? r.color + "15" : "rgba(255,255,255,0.02)", border: isMe ? `1px solid ${r.color}44` : "1px solid transparent" }}>
+                    style={{ background: isMe ? r.color + "15" : "#100e08", border: isMe ? `1px solid ${r.color}44` : "1px solid transparent" }}>
                     <span style={{ color: r.color }}>⬡</span>
                     <span className="text-sm font-medium flex-1" style={{ color: r.color }}>{r.name}</span>
                     <span className="font-mono text-xs text-white/30">{r.min}+</span>

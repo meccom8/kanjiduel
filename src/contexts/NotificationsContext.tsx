@@ -207,7 +207,7 @@ function NotifCard({ notif, dismiss, supabase, userIdRef }: {
             </button>
             <button onClick={decline} disabled={acting}
               className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-              style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              style={{ background: "#1a1410", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}>
               Decline
             </button>
           </>

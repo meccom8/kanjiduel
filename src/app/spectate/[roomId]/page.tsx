@@ -105,7 +105,7 @@ export default function SpectatePage() {
           <div className="flex items-center gap-2">
             <span className="text-xs text-white/30 uppercase tracking-widest">👁 Spectating</span>
             {isBlitz && <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#EF9F2722", color: "#EF9F27", border: "1px solid #EF9F2744" }}>⚡ BLITZ</span>}
-            {category !== "all" && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)" }}>{category}</span>}
+            {category !== "all" && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#1a1410", color: "rgba(255,255,255,0.4)" }}>{category}</span>}
           </div>
         </div>
 

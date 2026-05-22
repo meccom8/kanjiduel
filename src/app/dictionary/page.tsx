@@ -95,10 +95,10 @@ export default function Dictionary() {
               style={{
                 background: filter === l
                   ? l === "all" ? "#CF452033" : JLPT_COLORS[l] + "33"
-                  : "rgba(255,255,255,0.05)",
+                  : "#1a1410",
                 border: filter === l
                   ? `1px solid ${l === "all" ? "#CF4520" : JLPT_COLORS[l]}`
-                  : "1px solid rgba(255,255,255,0.08)",
+                  : "1px solid rgba(255,255,255,0.1)",
                 color: filter === l
                   ? l === "all" ? "#E86440" : JLPT_COLORS[l]
                   : "rgba(255,255,255,0.4)",
@@ -192,8 +192,8 @@ export default function Dictionary() {
               disabled={page === 1}
               className="px-3 py-1.5 rounded-lg text-xs transition-all"
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                background: "#1a1410",
+                border: "1px solid rgba(255,255,255,0.1)",
                 color: page === 1 ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.6)",
                 cursor: page === 1 ? "not-allowed" : "pointer",
               }}>
@@ -210,8 +210,8 @@ export default function Dictionary() {
                 <button key={p} onClick={() => setPage(p)}
                   className="px-3 py-1.5 rounded-lg text-xs transition-all"
                   style={{
-                    background: page === p ? "#CF4520" : "rgba(255,255,255,0.05)",
-                    border: page === p ? "1px solid #CF4520" : "1px solid rgba(255,255,255,0.08)",
+                    background: page === p ? "#CF4520" : "#1a1410",
+                    border: page === p ? "1px solid #CF4520" : "1px solid rgba(255,255,255,0.1)",
                     color: page === p ? "#fff" : "rgba(255,255,255,0.5)",
                     cursor: "pointer",
                   }}>
@@ -224,8 +224,8 @@ export default function Dictionary() {
               disabled={page === totalPages}
               className="px-3 py-1.5 rounded-lg text-xs transition-all"
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                background: "#1a1410",
+                border: "1px solid rgba(255,255,255,0.1)",
                 color: page === totalPages ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.6)",
                 cursor: page === totalPages ? "not-allowed" : "pointer",
               }}>
