@@ -236,7 +236,7 @@ export default function Home() {
       </main>
 
       {/* ─── DESKTOP LAYOUT (lg+) ──────────────────────────────────── */}
-      <main className="hidden lg:flex flex-col relative z-10 px-10 pt-10 pb-6" style={{ minHeight: "100vh" }}>
+      <main className="hidden lg:flex flex-col relative z-10 px-10 pt-10 pb-8 h-screen overflow-hidden">
         {/* Welcome header */}
         <div className="mb-6 shrink-0">
           <h1 className="text-3xl font-semibold text-white mb-1">
@@ -277,28 +277,28 @@ export default function Home() {
 
             {/* Daily + Practice — flex-1 so they fill remaining space */}
             <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
-              <Link href="/daily" className="group h-full">
-                <div className="rounded-2xl p-7 h-full flex flex-col justify-between cursor-pointer transition-all group-hover:border-white/20"
-                  style={{ background: "#161210", border: "1px solid rgba(255,255,255,0.1)" }}>
-                  <div>
-                    <p className="font-jp text-3xl font-bold mb-4" style={{ color: "rgba(207,69,32,0.4)" }}>日課</p>
-                    <p className="font-semibold text-white text-lg mb-1">Daily Challenge</p>
-                    <p className="text-white/40 text-sm">10 new words every day</p>
+              {[
+                { href: "/daily",    kanji: "日課", title: "Daily Challenge", desc: "10 new words every day",    cta: "Start today" },
+                { href: "/practice", kanji: "練習", title: "Practice Solo",   desc: "All JLPT levels, no pressure", cta: "Start session" },
+              ].map(card => (
+                <Link key={card.href} href={card.href} className="group h-full">
+                  <div className="rounded-2xl h-full relative overflow-hidden cursor-pointer transition-all group-hover:border-white/20"
+                    style={{ background: "#161210", border: "1px solid rgba(255,255,255,0.1)" }}>
+                    {/* Decorative kanji — absolute bottom-right */}
+                    <span className="absolute bottom-4 right-5 font-jp font-bold pointer-events-none select-none"
+                      style={{ fontSize: "7rem", lineHeight: 1, color: "rgba(207,69,32,0.08)" }}>
+                      {card.kanji}
+                    </span>
+                    {/* Content — top-left */}
+                    <div className="p-7 flex flex-col h-full">
+                      <p className="font-jp text-2xl font-bold mb-5" style={{ color: "rgba(207,69,32,0.5)" }}>{card.kanji}</p>
+                      <p className="font-semibold text-white text-xl mb-2">{card.title}</p>
+                      <p className="text-white/40 text-sm">{card.desc}</p>
+                      <span className="mt-auto pt-6 text-white/20 group-hover:text-white/55 transition-colors text-sm">{card.cta} →</span>
+                    </div>
                   </div>
-                  <span className="text-white/20 group-hover:text-white/50 transition-colors text-sm mt-4">Start today →</span>
-                </div>
-              </Link>
-              <Link href="/practice" className="group h-full">
-                <div className="rounded-2xl p-7 h-full flex flex-col justify-between cursor-pointer transition-all group-hover:border-white/20"
-                  style={{ background: "#161210", border: "1px solid rgba(255,255,255,0.1)" }}>
-                  <div>
-                    <p className="font-jp text-3xl font-bold mb-4" style={{ color: "rgba(207,69,32,0.4)" }}>練習</p>
-                    <p className="font-semibold text-white text-lg mb-1">Practice Solo</p>
-                    <p className="text-white/40 text-sm">All JLPT levels, no pressure</p>
-                  </div>
-                  <span className="text-white/20 group-hover:text-white/50 transition-colors text-sm mt-4">Start session →</span>
-                </div>
-              </Link>
+                </Link>
+              ))}
             </div>
 
             {/* Secondary actions row */}
