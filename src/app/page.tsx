@@ -236,9 +236,9 @@ export default function Home() {
       </main>
 
       {/* ─── DESKTOP LAYOUT (lg+) ──────────────────────────────────── */}
-      <main className="hidden lg:block min-h-screen relative z-10 px-10 py-10">
+      <main className="hidden lg:flex flex-col relative z-10 px-10 pt-10 pb-6" style={{ minHeight: "100vh" }}>
         {/* Welcome header */}
-        <div className="mb-8">
+        <div className="mb-6 shrink-0">
           <h1 className="text-3xl font-semibold text-white mb-1">
             おかえり,{" "}
             <span style={{ color: accentColor }}>{profile.username}</span>
@@ -249,142 +249,146 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Dashboard grid — fills available width */}
-        <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr 340px" }}>
+        {/* Dashboard grid — fills remaining height */}
+        <div className="flex-1 grid gap-4" style={{ gridTemplateColumns: "1fr 1fr 320px", minHeight: 0 }}>
 
-          {/* ── Left: Actions ── */}
-          <div className="col-span-2 flex flex-col gap-4">
+          {/* ── Left 2 cols: Actions ── */}
+          <div className="col-span-2 flex flex-col gap-4 min-h-0">
 
             {/* Find a match — hero CTA */}
-            <Link href="/matchmaking">
+            <Link href="/matchmaking" className="shrink-0">
               <div
-                className="rounded-2xl p-6 flex items-center gap-5 group cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
+                className="rounded-2xl px-8 py-7 flex items-center justify-between group cursor-pointer transition-all hover:brightness-110 active:scale-[0.99] relative overflow-hidden"
                 style={{
-                  background: "linear-gradient(135deg, rgba(207,69,32,0.22), rgba(232,100,64,0.08))",
-                  border: "1px solid rgba(207,69,32,0.4)",
+                  background: "linear-gradient(135deg, rgba(207,69,32,0.28), rgba(232,100,64,0.1))",
+                  border: "1px solid rgba(207,69,32,0.45)",
                 }}
               >
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0"
-                  style={{ background: "rgba(207,69,32,0.18)", border: "1px solid rgba(207,69,32,0.3)" }}
-                >⚡</div>
-                <div className="flex-1">
-                  <p className="text-lg font-bold text-white">Find a match</p>
-                  <p className="text-white/50 text-sm mt-0.5">Ranked play against real opponents</p>
+                {/* Decorative 漢 */}
+                <span className="absolute right-8 top-1/2 -translate-y-1/2 font-jp font-bold pointer-events-none select-none"
+                  style={{ fontSize: "6rem", lineHeight: 1, color: "rgba(207,69,32,0.12)" }}>漢</span>
+                <div>
+                  <p className="text-2xl font-bold text-white tracking-tight">Find a match</p>
+                  <p className="text-white/50 text-sm mt-1">Ranked play against real opponents</p>
                 </div>
-                <span className="text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all text-lg">→</span>
+                <span className="text-white/30 group-hover:text-white/70 group-hover:translate-x-1 transition-all text-xl mr-16">→</span>
               </div>
             </Link>
 
-            {/* Daily + Practice */}
-            <div className="grid grid-cols-2 gap-4">
-              <Link href="/daily" className="group">
-                <div className="rounded-2xl p-5 h-full cursor-pointer transition-all group-hover:border-white/20"
+            {/* Daily + Practice — flex-1 so they fill remaining space */}
+            <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+              <Link href="/daily" className="group h-full">
+                <div className="rounded-2xl p-7 h-full flex flex-col justify-between cursor-pointer transition-all group-hover:border-white/20"
                   style={{ background: "#161210", border: "1px solid rgba(255,255,255,0.1)" }}>
-                  <div className="text-2xl mb-3">🗓</div>
-                  <p className="font-semibold text-white mb-1">Daily Challenge</p>
-                  <p className="text-white/40 text-xs">10 new words every day</p>
+                  <div>
+                    <p className="font-jp text-3xl font-bold mb-4" style={{ color: "rgba(207,69,32,0.4)" }}>日課</p>
+                    <p className="font-semibold text-white text-lg mb-1">Daily Challenge</p>
+                    <p className="text-white/40 text-sm">10 new words every day</p>
+                  </div>
+                  <span className="text-white/20 group-hover:text-white/50 transition-colors text-sm mt-4">Start today →</span>
                 </div>
               </Link>
-              <Link href="/practice" className="group">
-                <div className="rounded-2xl p-5 h-full cursor-pointer transition-all group-hover:border-white/20"
+              <Link href="/practice" className="group h-full">
+                <div className="rounded-2xl p-7 h-full flex flex-col justify-between cursor-pointer transition-all group-hover:border-white/20"
                   style={{ background: "#161210", border: "1px solid rgba(255,255,255,0.1)" }}>
-                  <div className="text-2xl mb-3">📖</div>
-                  <p className="font-semibold text-white mb-1">Practice Solo</p>
-                  <p className="text-white/40 text-xs">All JLPT levels, no pressure</p>
+                  <div>
+                    <p className="font-jp text-3xl font-bold mb-4" style={{ color: "rgba(207,69,32,0.4)" }}>練習</p>
+                    <p className="font-semibold text-white text-lg mb-1">Practice Solo</p>
+                    <p className="text-white/40 text-sm">All JLPT levels, no pressure</p>
+                  </div>
+                  <span className="text-white/20 group-hover:text-white/50 transition-colors text-sm mt-4">Start session →</span>
                 </div>
               </Link>
             </div>
 
             {/* Secondary actions row */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="shrink-0 grid grid-cols-3 gap-3">
               {[
-                { href: "/friends",     icon: "👥", label: "Friends",     badge: pendingFriends },
-                { href: "/leaderboard", icon: "🏆", label: "Leaderboard", badge: 0 },
-                { href: "/dictionary",  icon: "📚", label: "Dictionary",  badge: 0 },
+                { href: "/friends",     label: "Friends",     badge: pendingFriends },
+                { href: "/leaderboard", label: "Leaderboard", badge: 0 },
+                { href: "/dictionary",  label: "Dictionary",  badge: 0 },
               ].map(item => (
                 <Link key={item.href} href={item.href} className="group">
-                  <div className="rounded-xl px-4 py-3 flex items-center gap-2.5 cursor-pointer transition-all group-hover:border-white/20"
+                  <div className="rounded-xl px-4 py-3 flex items-center gap-2 cursor-pointer transition-all group-hover:border-white/20"
                     style={{ background: "#161210", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <span className="text-base">{item.icon}</span>
-                    <span className="text-sm font-medium text-white/60 group-hover:text-white/90 transition-colors flex-1">{item.label}</span>
+                    <span className="text-sm font-medium text-white/55 group-hover:text-white/90 transition-colors flex-1">{item.label}</span>
                     {item.badge > 0 && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
                         style={{ background: "#EF9F27", color: "#000" }}>{item.badge}</span>
                     )}
+                    <span className="text-white/20 group-hover:text-white/50 transition-colors text-xs">→</span>
                   </div>
                 </Link>
               ))}
             </div>
           </div>
 
-          {/* ── Right 1/3: Stats ── */}
-          <div className="flex flex-col gap-4">
+          {/* ── Right col: Stats ── */}
+          <div className="flex flex-col gap-3 min-h-0">
 
-            {/* Player stats card */}
-            <div className="rounded-2xl overflow-hidden"
+            {/* Player stats — flex-1 to fill */}
+            <div className="flex-1 rounded-2xl overflow-hidden flex flex-col"
               style={{ background: "#161210", border: "1px solid rgba(207,69,32,0.2)" }}>
-              <div className="px-5 py-4 border-b" style={{ borderColor: "rgba(207,69,32,0.1)" }}>
+              <div className="px-5 py-4 border-b shrink-0" style={{ borderColor: "rgba(207,69,32,0.1)" }}>
                 <p className="text-xs font-semibold uppercase tracking-widest text-white/40">Your stats</p>
               </div>
-              <div className="px-5 py-4 flex flex-col gap-3.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-white/50">ELO</span>
-                  <span className="font-mono font-bold text-xl" style={{ color: tier.color }}>{profile.elo}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-white/50">Rank</span>
-                  <button onClick={() => setShowRanks(true)}
-                    className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-opacity hover:opacity-70"
-                    style={{ background: tier.bg + "22", color: tier.color, border: `1px solid ${tier.color}33` }}>
-                    ⬡ {tier.name}
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-white/50">Win rate</span>
-                  <span className="text-sm font-semibold text-white">{wr}%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-white/50">W / L / D</span>
-                  <span className="text-xs font-mono text-white/60">
-                    {profile.wins} / {profile.losses} / {profile.draws}
-                  </span>
-                </div>
-                {profile.streak > 0 && (
+              <div className="flex-1 px-5 py-4 flex flex-col justify-between">
+                <div className="flex flex-col gap-3.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-white/50">Streak</span>
-                    <span className="text-sm text-orange-400">🔥 {profile.streak} days</span>
+                    <span className="text-sm text-white/50">ELO</span>
+                    <span className="font-mono font-bold text-xl" style={{ color: tier.color }}>{profile.elo}</span>
                   </div>
-                )}
-                {profile.best_streak > 0 && (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-white/50">Best streak</span>
-                    <span className="text-xs text-white/50">{profile.best_streak} days</span>
+                    <span className="text-sm text-white/50">Rank</span>
+                    <button onClick={() => setShowRanks(true)}
+                      className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-opacity hover:opacity-70"
+                      style={{ background: tier.bg + "22", color: tier.color, border: `1px solid ${tier.color}33` }}>
+                      ⬡ {tier.name}
+                    </button>
                   </div>
-                )}
-              </div>
-            </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white/50">Win rate</span>
+                    <span className="text-sm font-semibold text-white">{wr}%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white/50">W / L / D</span>
+                    <span className="text-xs font-mono text-white/60">{profile.wins} / {profile.losses} / {profile.draws}</span>
+                  </div>
+                  {profile.streak > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/50">Streak</span>
+                      <span className="text-sm text-orange-400">🔥 {profile.streak} days</span>
+                    </div>
+                  )}
+                  {profile.best_streak > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/50">Best streak</span>
+                      <span className="text-xs text-white/50">{profile.best_streak} days</span>
+                    </div>
+                  )}
+                </div>
 
-            {/* Vocabulary count */}
-            <div className="rounded-2xl p-5"
-              style={{ background: "#161210", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <p className="font-mono text-3xl font-bold" style={{ color: "#E86440" }}>{wordCount}</p>
-              <p className="text-xs text-white/35 mt-1.5 uppercase tracking-widest">vocabulary words</p>
-              <div className="mt-3 flex gap-3 text-center">
-                {[["11", "Ranks"], ["5+1", "JLPT"]].map(([v, l]) => (
-                  <div key={l} className="flex-1 rounded-xl py-2"
-                    style={{ background: "rgba(207,69,32,0.08)", border: "1px solid rgba(207,69,32,0.12)" }}>
-                    <p className="font-mono text-sm font-bold" style={{ color: "#E86440" }}>{v}</p>
-                    <p className="text-[10px] text-white/30 mt-0.5 uppercase tracking-wider">{l}</p>
+                {/* Divider + vocab count inside stats card */}
+                <div className="pt-4 mt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <p className="font-mono text-2xl font-bold" style={{ color: "#E86440" }}>{wordCount}</p>
+                  <p className="text-[10px] text-white/30 mt-1 uppercase tracking-widest">vocabulary words</p>
+                  <div className="mt-3 flex gap-2">
+                    {[["11", "Ranks"], ["5+1", "JLPT"]].map(([v, l]) => (
+                      <div key={l} className="flex-1 rounded-lg py-2 text-center"
+                        style={{ background: "rgba(207,69,32,0.08)", border: "1px solid rgba(207,69,32,0.12)" }}>
+                        <p className="font-mono text-xs font-bold" style={{ color: "#E86440" }}>{v}</p>
+                        <p className="text-[9px] text-white/30 mt-0.5 uppercase tracking-wider">{l}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
 
             {/* Pro CTA */}
             {!profile.is_pro && (
-              <Link href="/shop">
-                <div className="rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.01]"
+              <Link href="/shop" className="shrink-0">
+                <div className="rounded-2xl p-4 cursor-pointer transition-all hover:brightness-110"
                   style={{ background: "rgba(239,159,39,0.07)", border: "1px solid rgba(239,159,39,0.22)" }}>
                   <p className="text-sm font-semibold" style={{ color: "#EF9F27" }}>✦ Upgrade to Pro</p>
                   <p className="text-xs text-white/40 mt-0.5">ELO history, 50 match history & more</p>
@@ -393,16 +397,16 @@ export default function Home() {
             )}
 
             {/* Shop / Settings */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="shrink-0 grid grid-cols-2 gap-2">
               {[
-                { href: "/shop",     icon: "✨", label: "Shop"     },
-                { href: "/settings", icon: "⚙️", label: "Settings" },
+                { href: "/shop",     label: "Shop"     },
+                { href: "/settings", label: "Settings" },
               ].map(item => (
                 <Link key={item.href} href={item.href} className="group">
-                  <div className="rounded-xl px-3 py-2.5 flex items-center gap-2 cursor-pointer transition-all group-hover:border-white/18"
+                  <div className="rounded-xl px-3 py-2.5 flex items-center justify-between cursor-pointer transition-all group-hover:border-white/18"
                     style={{ background: "#161210", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <span className="text-sm">{item.icon}</span>
                     <span className="text-xs font-medium text-white/50 group-hover:text-white/80 transition-colors">{item.label}</span>
+                    <span className="text-white/20 group-hover:text-white/50 transition-colors text-xs">→</span>
                   </div>
                 </Link>
               ))}
